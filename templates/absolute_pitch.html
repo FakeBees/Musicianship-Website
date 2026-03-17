@@ -1,0 +1,440 @@
+{% extends 'base.html' %}
+{% block title %}Absolute Pitch Training — Musicianship Trainer{% endblock %}
+
+{% block head %}
+<style>
+  .pitch-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  .pitch-heading {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    color: #111;
+  }
+
+  .pitch-sub {
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 2rem;
+  }
+
+  /* ── Play Note button ── */
+  #play-btn {
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.65rem 2.2rem;
+    border: none;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: #f0ece4;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  #play-btn:hover  { background: #333; }
+  #play-btn:active { transform: translateY(1px); }
+  #play-btn.next   { background: #2d6a2d; }
+  #play-btn.next:hover { background: #3a8a3a; }
+  #play-btn:disabled { opacity: 0.55; cursor: default; }
+
+  /* ── Status line ── */
+  #status-display {
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    color: #888;
+    margin-bottom: 1.4rem;
+    height: 1.2rem;
+    text-align: center;
+  }
+  #status-display.correct  { color: #2d6a2d; font-weight: 600; }
+  #status-display.listening { color: #555; }
+  #status-display.freeplay  { color: #888; font-style: italic; }
+
+  /* ── Piano shell ── */
+  .piano-shell {
+    background: linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%);
+    border-radius: 12px;
+    padding: 28px 28px 36px;
+    box-shadow:
+      0 20px 60px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  #keyboard {
+    position: relative;
+    display: flex;
+    user-select: none;
+  }
+
+  /* ── White keys ── */
+  .wk {
+    width: 52px;
+    height: 210px;
+    background: linear-gradient(180deg, #f8f8f0 0%, #ffffff 60%);
+    border: 1px solid #aaa;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 10px;
+    box-shadow: 1px 4px 8px rgba(0,0,0,0.25), inset 0 -1px 0 #ddd;
+    transition: background 0.06s, box-shadow 0.06s;
+    flex-shrink: 0;
+  }
+  .wk:hover { background: linear-gradient(180deg, #eef0f8 0%, #e8eaf8 100%); }
+  .wk.pressed {
+    background: linear-gradient(180deg, #d8daf0 0%, #c8cce8 100%);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.2), inset 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(1px);
+  }
+  .wk.correct {
+    background: linear-gradient(180deg, #a8e6a8 0%, #6fcf6f 100%) !important;
+    box-shadow: 0 0 12px rgba(80,200,80,0.5), inset 0 -1px 0 #4a9a4a;
+  }
+  .wk.wrong {
+    background: linear-gradient(180deg, #f5a8a8 0%, #e06060 100%) !important;
+    box-shadow: 0 0 10px rgba(220,80,80,0.4), inset 0 -1px 0 #a03030;
+  }
+  .wk-label {
+    font-size: 10px;
+    color: #bbb;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+  }
+  .wk.correct .wk-label,
+  .wk.wrong   .wk-label { color: rgba(255,255,255,0.8); }
+
+  /* ── Black keys ── */
+  .bk {
+    position: absolute;
+    width: 34px;
+    height: 135px;
+    background: linear-gradient(180deg, #333 0%, #111 70%);
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 2px 6px 12px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(255,255,255,0.05);
+    transition: background 0.06s, box-shadow 0.06s;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8px;
+  }
+  .bk:hover { background: linear-gradient(180deg, #555 0%, #2a2a2a 70%); }
+  .bk.pressed {
+    background: linear-gradient(180deg, #4a4aaa 0%, #2a2a88 70%);
+    box-shadow: 1px 3px 6px rgba(0,0,0,0.5), inset 0 2px 4px rgba(0,0,0,0.2);
+    transform: translateY(1px);
+  }
+  .bk.correct {
+    background: linear-gradient(180deg, #2d7a2d 0%, #1a4d1a 70%) !important;
+    box-shadow: 0 0 12px rgba(60,180,60,0.55), inset 0 -1px 0 rgba(255,255,255,0.1);
+  }
+  .bk.wrong {
+    background: linear-gradient(180deg, #8b2020 0%, #5a1010 70%) !important;
+    box-shadow: 0 0 10px rgba(200,50,50,0.5), inset 0 -1px 0 rgba(255,255,255,0.05);
+  }
+  .bk-label {
+    font-size: 9px;
+    color: #666;
+    pointer-events: none;
+  }
+  .bk.correct .bk-label,
+  .bk.wrong   .bk-label { color: rgba(255,255,255,0.5); }
+
+  /* ── Piano area + side button ── */
+  .piano-area {
+    position: relative;
+    display: inline-block;
+  }
+
+  #freeplay-btn {
+    position: absolute;
+    right: -148px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 130px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.7rem 0.9rem;
+    border: 2px solid #bbb;
+    border-radius: 8px;
+    background: transparent;
+    color: #777;
+    cursor: pointer;
+    line-height: 1.4;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  #freeplay-btn:hover { border-color: #555; color: #333; background: rgba(0,0,0,0.04); }
+  #freeplay-btn.active {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+    color: #f0ece4;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+
+  /* ── Stats panel ── */
+  .stats-panel {
+    margin-top: 1.8rem;
+    text-align: center;
+  }
+  .stats-fraction {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #222;
+    letter-spacing: 0.05em;
+  }
+  .stats-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-top: 0.1rem;
+  }
+  .stats-pct {
+    font-size: 1rem;
+    color: #555;
+    margin-top: 0.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pitch-page">
+
+  <div class="mb-3">
+    <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-house me-1"></i>Home
+    </a>
+  </div>
+
+  <h1 class="pitch-heading">Absolute Pitch Training</h1>
+  <p class="pitch-sub">2 Octaves &mdash; C4 to B5 &mdash; Identify the note by ear</p>
+
+  <button id="play-btn" disabled>Loading samples…</button>
+
+  <div id="status-display" style="color:#bbb;letter-spacing:0.15em;">Loading Salamander Grand Piano…</div>
+
+  <div class="piano-area">
+    <div class="piano-shell">
+      <div id="keyboard"></div>
+    </div>
+    <button id="freeplay-btn">Free Play</button>
+  </div>
+
+  <div class="stats-panel">
+    <div class="stats-fraction" id="stats-fraction">—</div>
+    <div class="stats-label">Correct on first try</div>
+    <div class="stats-pct" id="stats-pct"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+<script>
+  const WHITE_KEYS = [
+    {note:'C4',  label:'C4'}, {note:'D4',  label:'D4'}, {note:'E4',  label:'E4'},
+    {note:'F4',  label:'F4'}, {note:'G4',  label:'G4'}, {note:'A4',  label:'A4'},
+    {note:'B4',  label:'B4'}, {note:'C5',  label:'C5'}, {note:'D5',  label:'D5'},
+    {note:'E5',  label:'E5'}, {note:'F5',  label:'F5'}, {note:'G5',  label:'G5'},
+    {note:'A5',  label:'A5'}, {note:'B5',  label:'B5'},
+  ];
+
+  const BLACK_KEYS = [
+    {note:'Cs4', label:'C#', whiteIndex: 0}, {note:'Ds4', label:'D#', whiteIndex: 1},
+    {note:'Fs4', label:'F#', whiteIndex: 3}, {note:'Gs4', label:'G#', whiteIndex: 4},
+    {note:'As4', label:'A#', whiteIndex: 5}, {note:'Cs5', label:'C#', whiteIndex: 7},
+    {note:'Ds5', label:'D#', whiteIndex: 8}, {note:'Fs5', label:'F#', whiteIndex:10},
+    {note:'Gs5', label:'G#', whiteIndex:11}, {note:'As5', label:'A#', whiteIndex:12},
+  ];
+
+  const ALL_NOTES = [
+    ...WHITE_KEYS.map(k => k.note),
+    ...BLACK_KEYS.map(k => k.note),
+  ];
+
+  const WHITE_W = 52;
+
+  function toTone(note) { return note.replace('s', '#'); }
+
+  const playBtn       = document.getElementById('play-btn');
+  const freeplayBtn   = document.getElementById('freeplay-btn');
+  const statusDisplay = document.getElementById('status-display');
+  const statsFraction = document.getElementById('stats-fraction');
+  const statsPct      = document.getElementById('stats-pct');
+
+  let samplesLoaded = false;
+
+  const sampler = new Tone.Sampler({
+    urls: {
+      A0:'A0.mp3',  C1:'C1.mp3',  'F#1':'Fs1.mp3', A1:'A1.mp3',
+      C2:'C2.mp3',  'F#2':'Fs2.mp3', A2:'A2.mp3',  C3:'C3.mp3',
+      'F#3':'Fs3.mp3', A3:'A3.mp3', C4:'C4.mp3',  'F#4':'Fs4.mp3',
+      A4:'A4.mp3',  C5:'C5.mp3',  'F#5':'Fs5.mp3', A5:'A5.mp3',
+      C6:'C6.mp3',  'F#6':'Fs6.mp3', A6:'A6.mp3',  C7:'C7.mp3',
+      'F#7':'Fs7.mp3', A7:'A7.mp3', C8:'C8.mp3',
+    },
+    release: 2,
+    baseUrl: 'https://tonejs.github.io/audio/salamander/',
+    onload: () => {
+      samplesLoaded           = true;
+      playBtn.disabled        = false;
+      playBtn.textContent     = 'Play Note';
+      statusDisplay.style     = '';
+      statusDisplay.textContent = 'Press "Play Note" to begin';
+    },
+  }).toDestination();
+
+  let audioUnlocked = false;
+  async function unlockAudio() {
+    if (!audioUnlocked) { await Tone.start(); audioUnlocked = true; }
+  }
+
+  async function playNote(note) {
+    await unlockAudio();
+    sampler.triggerAttackRelease(toTone(note), 2);
+  }
+
+  // ── Free-play mode ───────────────────────────────────────────────────────────
+  let freePlayMode = false;
+
+  freeplayBtn.addEventListener('click', () => {
+    freePlayMode = !freePlayMode;
+    if (freePlayMode) {
+      freeplayBtn.classList.add('active');
+      freeplayBtn.textContent = '✕ Exit Free Play';
+      playBtn.disabled = true;
+      clearColors();
+      statusDisplay.className   = 'freeplay';
+      statusDisplay.textContent = 'Free play — click any key';
+    } else {
+      freeplayBtn.classList.remove('active');
+      freeplayBtn.textContent = 'Free play';
+      if (samplesLoaded) playBtn.disabled = false;
+      refreshUI();
+    }
+  });
+
+  // ── Game state ───────────────────────────────────────────────────────────────
+  let gameState    = 'IDLE';
+  let targetNote   = null;
+  let isFirstTry   = true;
+  let totalRounds  = 0;
+  let firstTryWins = 0;
+
+  function clearColors() {
+    document.querySelectorAll('.wk, .bk').forEach(el =>
+      el.classList.remove('correct', 'wrong', 'pressed')
+    );
+  }
+
+  function refreshUI() {
+    statusDisplay.className = '';
+    if (gameState === 'IDLE') {
+      playBtn.textContent = 'Play Note';
+      playBtn.classList.remove('next');
+      statusDisplay.textContent = 'Press "Play Note" to begin';
+    } else if (gameState === 'LISTENING') {
+      playBtn.textContent = '↺  Replay Note';
+      playBtn.classList.remove('next');
+      statusDisplay.classList.add('listening');
+      statusDisplay.textContent = 'Which note was that?';
+    } else if (gameState === 'SOLVED') {
+      playBtn.textContent = 'Next Note →';
+      playBtn.classList.add('next');
+      statusDisplay.classList.add('correct');
+      statusDisplay.textContent = '✓ Correct!';
+    }
+  }
+
+  function refreshStats() {
+    if (totalRounds === 0) { statsFraction.textContent = '—'; statsPct.textContent = ''; return; }
+    const pct = (firstTryWins / totalRounds * 100).toFixed(1);
+    statsFraction.textContent = `${firstTryWins} / ${totalRounds}`;
+    statsPct.textContent      = `${pct}%`;
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (gameState === 'IDLE' || gameState === 'SOLVED') {
+      clearColors();
+      targetNote = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];
+      isFirstTry = true;
+      playNote(targetNote);
+      gameState = 'LISTENING';
+      refreshUI();
+    } else if (gameState === 'LISTENING') {
+      playNote(targetNote);
+    }
+  });
+
+  function onKeyClick(note, el) {
+    if (freePlayMode || gameState === 'IDLE') {
+      playNote(note);
+      el.classList.add('pressed');
+      setTimeout(() => el.classList.remove('pressed'), 400);
+      return;
+    }
+    if (gameState === 'SOLVED') {
+      playNote(note);
+      if (note !== targetNote) {
+        el.classList.add('pressed');
+        setTimeout(() => el.classList.remove('pressed'), 400);
+      }
+      return;
+    }
+    playNote(note);
+    if (note === targetNote) {
+      totalRounds++;
+      if (isFirstTry) firstTryWins++;
+      el.classList.add('correct');
+      gameState = 'SOLVED';
+      refreshUI();
+      refreshStats();
+    } else {
+      isFirstTry = false;
+      el.classList.add('wrong');
+    }
+  }
+
+  function buildKeyboard() {
+    const kb = document.getElementById('keyboard');
+    WHITE_KEYS.forEach(k => {
+      const el = document.createElement('div');
+      el.className    = 'wk';
+      el.dataset.note = k.note;
+      el.innerHTML    = `<span class="wk-label">${k.label}</span>`;
+      el.addEventListener('mousedown', () => onKeyClick(k.note, el));
+      kb.appendChild(el);
+    });
+    BLACK_KEYS.forEach(k => {
+      const el = document.createElement('div');
+      el.className    = 'bk';
+      el.dataset.note = k.note;
+      el.style.left   = `${(k.whiteIndex + 0.7) * WHITE_W}px`;
+      el.innerHTML    = `<span class="bk-label">${k.label}</span>`;
+      el.addEventListener('mousedown', e => { e.stopPropagation(); onKeyClick(k.note, el); });
+      kb.appendChild(el);
+    });
+  }
+
+  buildKeyboard();
+</script>
+{% endblock %}

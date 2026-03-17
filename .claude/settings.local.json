@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 generate_midi.py)",
+      "Bash(python3 -c \"from app import app; from models import db, Melody, Tag;:*)",
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:localhost)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:app.unpkg.com)",
+      "Bash(python generate_midi.py)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 generate_rhythms.py)",
+      "Bash(find /Users/jareddamron/PycharmProjects/ClaudeLearning -type f \\\\\\(-name *.html -o -name *.js -o -name *.py \\\\\\) ! -path */.venv/* ! -path */__pycache__/*)"
+    ]
+  }
+}

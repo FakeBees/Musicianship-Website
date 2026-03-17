@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Results – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('melodic_index') }}">Melodic Dictation</a></li>
+        <li class="breadcrumb-item active">Results</li>
+      </ol>
+    </nav>
+    <h1 class="h3 fw-bold">Results</h1>
+    {% if melody.description %}
+      <p class="text-muted">{{ melody.description }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Correct answer staff -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-music-note-list me-1"></i>
+    <span class="fw-semibold">Correct Answer</span>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <button id="btn-play" class="btn btn-sm btn-outline-light" title="Play correct melody">
+        <i class="bi bi-play-fill me-1"></i>Play Original
+      </button>
+      <button id="btn-stop" class="btn btn-sm btn-outline-danger" title="Stop" disabled>
+        <i class="bi bi-stop-fill"></i>
+      </button>
+      <!-- play-count required by player.js but not shown on results page -->
+      <span id="play-count" style="display:none"></span>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="correct-staff"></div>
+  </div>
+</div>
+
+<!-- User answer staff -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+    <i class="bi bi-pencil me-1"></i>
+    <span class="fw-semibold">Your Answer</span>
+    <div class="ms-auto d-flex gap-2">
+      <button id="btn-play-user" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-play-fill me-1"></i>Play My Answer
+      </button>
+      <button id="btn-stop-user" class="btn btn-sm btn-outline-danger" disabled>
+        <i class="bi bi-stop-fill"></i>
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="user-staff"></div>
+  </div>
+</div>
+
+<!-- Score summary -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body d-flex gap-4 flex-wrap">
+    <div class="text-center px-3">
+      <div class="fs-4 fw-bold text-primary">{{ attempt.overall_score }}%</div>
+      <div class="text-muted small">Overall</div>
+    </div>
+    <div class="text-center px-3">
+      <div class="fs-4 fw-bold">{{ attempt.pitch_accuracy }}%</div>
+      <div class="text-muted small">Pitch</div>
+    </div>
+    <div class="text-center px-3">
+      <div class="fs-4 fw-bold">{{ attempt.duration_accuracy }}%</div>
+      <div class="text-muted small">Rhythm</div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex gap-2">
+  <a href="{{ next_url }}" class="btn btn-primary btn-lg">
+    <i class="bi bi-skip-forward-fill me-1"></i>Next Melody
+  </a>
+  <a href="{{ url_for('melodic_index') }}" class="btn btn-outline-secondary btn-lg">
+    <i class="bi bi-arrow-left me-1"></i>Back to Melodies
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CORRECT_NOTES   = {{ melody.notes | tojson }};
+  const USER_NOTES      = {{ attempt.user_notes | tojson }};
+  const MELODY_TEMPO    = {{ melody.tempo }};
+  const KEY_SIGNATURE   = "{{ melody.key_signature }}";
+  const MIDI_URL        = "{{ url_for('static', filename='midi/' + melody.midi_filename) }}";
+  const TIME_SIG_TOP    = {{ melody.time_signature.split('/')[0] }};
+  const TIME_SIG_BOTTOM = {{ melody.time_signature.split('/')[1] }};
+  const CLEF            = "{{ melody.clef }}";
+</script>
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script src="{{ url_for('static', filename='js/notation.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnPlayUser = document.getElementById('btn-play-user');
+    const btnStopUser = document.getElementById('btn-stop-user');
+
+    function resetUserBtn() {
+      if (btnPlayUser) {
+        btnPlayUser.disabled = false;
+        btnPlayUser.innerHTML = '<i class="bi bi-play-fill me-1"></i>Play My Answer';
+      }
+      if (btnStopUser) btnStopUser.disabled = true;
+    }
+
+    if (btnPlayUser && typeof playNoteArray === 'function') {
+      btnPlayUser.addEventListener('click', () => {
+        btnPlayUser.disabled = true;
+        btnPlayUser.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
+        if (btnStopUser) btnStopUser.disabled = false;
+        playNoteArray(USER_NOTES, MELODY_TEMPO, resetUserBtn);
+      });
+    }
+
+    if (btnStopUser) {
+      btnStopUser.addEventListener('click', () => {
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+        resetUserBtn();
+      });
+    }
+  });
+</script>
+{% endblock %}

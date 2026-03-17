@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Rhythm Results – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('rhythm_index') }}">Rhythmic Dictation</a></li>
+        <li class="breadcrumb-item active">Results</li>
+      </ol>
+    </nav>
+    <h1 class="h3 fw-bold">Results</h1>
+    {% if rhythm.description %}
+      <p class="text-muted">{{ rhythm.description }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Correct answer staff -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-music-note-list me-1"></i>
+    <span class="fw-semibold">Correct Answer</span>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <button id="btn-play-correct" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-play-fill me-1"></i>Play Original
+      </button>
+      <button id="btn-stop-correct" class="btn btn-sm btn-outline-danger" disabled>
+        <i class="bi bi-stop-fill"></i>
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="correct-staff"></div>
+  </div>
+</div>
+
+<!-- User answer staff -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-secondary text-white d-flex align-items-center gap-2">
+    <i class="bi bi-pencil me-1"></i>
+    <span class="fw-semibold">Your Answer</span>
+    <div class="ms-auto d-flex gap-2">
+      <button id="btn-play-user" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-play-fill me-1"></i>Play My Answer
+      </button>
+      <button id="btn-stop-user" class="btn btn-sm btn-outline-danger" disabled>
+        <i class="bi bi-stop-fill"></i>
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="user-staff"></div>
+  </div>
+</div>
+
+<!-- Score summary -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body d-flex gap-4 flex-wrap">
+    <div class="text-center px-3">
+      <div class="fs-4 fw-bold text-primary">{{ attempt.duration_accuracy }}%</div>
+      <div class="text-muted small">Rhythm Accuracy</div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex gap-2">
+  <a href="{{ next_url }}" class="btn btn-success btn-lg">
+    <i class="bi bi-skip-forward-fill me-1"></i>Next Rhythm
+  </a>
+  <a href="{{ url_for('rhythm_index') }}" class="btn btn-outline-secondary btn-lg">
+    <i class="bi bi-arrow-left me-1"></i>Back to Rhythms
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CORRECT_NOTES   = {{ rhythm.notes | tojson }};
+  const USER_NOTES      = {{ attempt.user_notes | tojson }};
+  const RHYTHM_TEMPO    = {{ rhythm.tempo }};
+  const TIME_SIG_TOP    = {{ rhythm.time_signature.split('/')[0] }};
+  const TIME_SIG_BOTTOM = {{ rhythm.time_signature.split('/')[1] }};
+</script>
+<script src="{{ url_for('static', filename='js/rhythm_notation.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    function makePlayStop(playId, stopId, notes) {
+      const btnPlay = document.getElementById(playId);
+      const btnStop = document.getElementById(stopId);
+      if (!btnPlay) return;
+
+      const origLabel = btnPlay.innerHTML;
+
+      function reset() {
+        btnPlay.disabled = false;
+        btnPlay.innerHTML = origLabel;
+        if (btnStop) btnStop.disabled = true;
+      }
+
+      btnPlay.addEventListener('click', async () => {
+        btnPlay.disabled = true;
+        btnPlay.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
+        if (btnStop) btnStop.disabled = false;
+        await window.playRhythmArray(notes, RHYTHM_TEMPO, reset);
+      });
+
+      if (btnStop) {
+        btnStop.addEventListener('click', () => {
+          Tone.Transport.stop();
+          Tone.Transport.cancel();
+          reset();
+        });
+      }
+    }
+
+    makePlayStop('btn-play-correct', 'btn-stop-correct', CORRECT_NOTES);
+    makePlayStop('btn-play-user',    'btn-stop-user',    USER_NOTES);
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+/* ===========================
+   Global
+   =========================== */
+body {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+/* ===========================
+   Home page mode cards
+   =========================== */
+.home-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: inherit;
+}
+.home-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* ===========================
+   Melody cards
+   =========================== */
+.melody-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.melody-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ===========================
+   Notation editor
+   =========================== */
+.notation-area {
+  background: #ffffff;
+  cursor: crosshair;
+  overflow-x: auto;
+  min-height: 160px;
+  padding: 8px;
+  position: relative;
+  user-select: none;
+}
+
+/* Highlight the SVG stave area on hover */
+.notation-area svg {
+  display: block;
+}
+
+/* Duration / accidental palette buttons */
+.duration-btn,
+.acc-btn {
+  min-width: 80px;
+}
+.duration-btn.active {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+.acc-btn.active {
+  background-color: #6c757d;
+  color: #fff;
+  border-color: #6c757d;
+}
+
+/* ===========================
+   Ghost note preview
+   =========================== */
+.ghost-note {
+  pointer-events: none;
+  transition: cy 0.05s ease;
+}
+
+/* ===========================
+   Drag mode
+   =========================== */
+.notation-area.dragging {
+  cursor: grabbing;
+}
+.notation-area .vf-stavenote {
+  cursor: grab;
+}
+
+/* ===========================
+   Difficulty star buttons (home page)
+   =========================== */
+.btn-check:checked + .btn-outline-warning {
+  color: #fff;
+}
+
+/* ===========================
+   Dot toggle button
+   =========================== */
+#btn-dot.active {
+  background-color: #6f42c1;
+  color: #fff;
+  border-color: #6f42c1;
+}
+
+/* ===========================
+   Results page
+   =========================== */
+#correct-staff,
+#user-staff {
+  overflow-x: auto;
+  min-height: 120px;
+}

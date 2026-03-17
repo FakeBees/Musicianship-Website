@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block title %}Musicianship Trainer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-md-9">
+
+    <div class="mb-3">
+      <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-house me-1"></i>Home
+      </a>
+    </div>
+
+    <div class="text-center mb-4 mt-2">
+      <h1 class="fw-bold">Melodic Dictation</h1>
+      <p class="text-muted mb-0">Select your practice settings, then begin. A random melody will be chosen from the matching pool.</p>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-sliders me-2"></i>Practice Settings
+      </div>
+      <div class="card-body p-4">
+        <form method="get" action="{{ url_for('random_melody') }}" id="filter-form">
+
+          <!-- Time Signature -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Time Signature
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-time-sig">
+              {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
+                <input type="checkbox" class="btn-check filter-check" name="time_sig"
+                       id="ts-{{ sig | replace('/', '-') }}" value="{{ sig }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal"
+                       for="ts-{{ sig | replace('/', '-') }}">{{ sig }}</label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Min Note Duration -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Shortest Note Value
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-min-dur">
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-h" value="h" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-h">
+                &#119134; Half
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-q" value="q" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-q">
+                &#119135; Quarter
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-8" value="8" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-8">
+                &#119136; Eighth
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-16" value="16" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-16">
+                &#119137; Sixteenth
+              </label>
+            </div>
+          </div>
+
+          <!-- Clef -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Clef
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-clef">
+              <input type="checkbox" class="btn-check filter-check" name="clef"
+                     id="clef-treble" value="treble" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="clef-treble">
+                𝄞 Treble
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="clef"
+                     id="clef-bass" value="bass" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="clef-bass">
+                𝄢 Bass
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="clef"
+                     id="clef-tenor" value="tenor" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="clef-tenor">
+                𝄡 Tenor
+              </label>
+            </div>
+          </div>
+
+          <!-- Topics / Tags -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Topics
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-tags">
+              {% for tag in all_tags %}
+                <input type="checkbox" class="btn-check filter-check" name="tag"
+                       id="tag-{{ tag.name }}" value="{{ tag.name }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal"
+                       for="tag-{{ tag.name }}" title="{{ tag.description }}">
+                  {{ tag.name }}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Match count -->
+          <div class="mb-3 text-muted small" id="match-count"></div>
+
+          <div class="d-grid mt-3">
+            <button type="submit" class="btn btn-primary btn-lg" id="btn-begin">
+              <i class="bi bi-play-fill me-2"></i>Begin Exercise
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---------------------------------------------------------------------------
+// All melody metadata — used for client-side mutual exclusion
+// ---------------------------------------------------------------------------
+const MELODY_DATA = {{ melodies_data | tojson }};
+
+// ---------------------------------------------------------------------------
+// Mutual exclusion: after every checkbox change, disable options that would
+// yield 0 matching melodies if added to the current selection.
+// ---------------------------------------------------------------------------
+
+function getSelected(name) {
+  return [...document.querySelectorAll(`input[name="${name}"]:checked`)]
+    .map(el => el.value);
+}
+
+function countMatching(timeSigs, minDurs, clefs, tags) {
+  return MELODY_DATA.filter(m => {
+    if (timeSigs.length && !timeSigs.includes(m.time_signature)) return false;
+    if (minDurs.length  && !minDurs.includes(m.min_duration))    return false;
+    if (clefs.length    && !clefs.includes(m.clef))              return false;
+    // Tags use OR logic: melody must match at least one selected tag
+    if (tags.length && !tags.some(t => m.tags.includes(t)))      return false;
+    return true;
+  }).length;
+}
+
+function updateMutualExclusion() {
+  const selTimeSigs = getSelected('time_sig');
+  const selMinDurs  = getSelected('min_dur');
+  const selClefs    = getSelected('clef');
+  const selTags     = getSelected('tag');
+
+  const total = countMatching(selTimeSigs, selMinDurs, selClefs, selTags);
+
+  // Update match count label
+  const label = document.getElementById('match-count');
+  if (selTimeSigs.length || selMinDurs.length || selClefs.length || selTags.length) {
+    label.textContent = `${total} matching ${total === 1 ? 'melody' : 'melodies'}`;
+    label.className   = total > 0
+      ? 'mb-3 small text-success'
+      : 'mb-3 small text-danger fw-semibold';
+  } else {
+    label.textContent = `${MELODY_DATA.length} melodies available`;
+    label.className   = 'mb-3 small text-muted';
+  }
+
+  // Disable/enable time_sig options
+  document.querySelectorAll('input[name="time_sig"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching([...selTimeSigs, cb.value], selMinDurs, selClefs, selTags);
+    cb.disabled = test === 0;
+    const lbl = document.querySelector(`label[for="${cb.id}"]`);
+    if (lbl) lbl.classList.toggle('opacity-50', test === 0);
+  });
+
+  // Disable/enable min_dur options
+  document.querySelectorAll('input[name="min_dur"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selTimeSigs, [...selMinDurs, cb.value], selClefs, selTags);
+    cb.disabled = test === 0;
+    const lbl = document.querySelector(`label[for="${cb.id}"]`);
+    if (lbl) lbl.classList.toggle('opacity-50', test === 0);
+  });
+
+  // Disable/enable clef options
+  document.querySelectorAll('input[name="clef"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selTimeSigs, selMinDurs, [...selClefs, cb.value], selTags);
+    cb.disabled = test === 0;
+    const lbl = document.querySelector(`label[for="${cb.id}"]`);
+    if (lbl) lbl.classList.toggle('opacity-50', test === 0);
+  });
+
+  // Tags use OR logic — only disable if no melodies have this tag under current filters
+  document.querySelectorAll('input[name="tag"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selTimeSigs, selMinDurs, selClefs, [cb.value]);
+    cb.disabled = test === 0;
+    const lbl = document.querySelector(`label[for="${cb.id}"]`);
+    if (lbl) lbl.classList.toggle('opacity-50', test === 0);
+  });
+}
+
+document.querySelectorAll('.filter-check').forEach(cb => {
+  cb.addEventListener('change', updateMutualExclusion);
+});
+
+// Run once on load to show initial count
+updateMutualExclusion();
+</script>
+{% endblock %}

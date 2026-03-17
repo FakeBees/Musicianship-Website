@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Rhythm Exercise – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('rhythm_index') }}">Rhythmic Dictation</a></li>
+        <li class="breadcrumb-item active">Exercise</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<!-- Player card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-headphones"></i>
+    <span class="fw-semibold">Listen</span>
+    <span class="ms-auto badge bg-secondary" id="play-count">Plays: 0</span>
+  </div>
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <button id="btn-play" class="btn btn-success btn-lg px-4" title="Play rhythm">
+      <i class="bi bi-play-fill"></i> Play
+    </button>
+    <button id="btn-stop" class="btn btn-outline-danger btn-lg px-3" title="Stop" disabled>
+      <i class="bi bi-stop-fill"></i> Stop
+    </button>
+    <div class="ms-1 text-muted small">
+      Listen as many times as you need before submitting.
+    </div>
+  </div>
+</div>
+
+<!-- Notation editor card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-pencil"></i>
+    <span class="fw-semibold">Write what you heard</span>
+  </div>
+  <div class="card-body">
+
+    <!-- Duration + dot + rest row -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+      <span class="fw-semibold me-1">Duration:</span>
+      <button class="btn btn-outline-primary duration-btn" data-dur="16" title="16th note (key: 3)">&#119137; 16th</button>
+      <button class="btn btn-outline-primary duration-btn" data-dur="8"  title="Eighth note (key: 4)">&#119136; 8th</button>
+      <button class="btn btn-outline-primary duration-btn active" data-dur="q"  title="Quarter note (key: 5)">&#119135; Qtr</button>
+      <button class="btn btn-outline-primary duration-btn" data-dur="h"  title="Half note (key: 6)">&#119134; Half</button>
+      <button class="btn btn-outline-primary duration-btn" data-dur="w"  title="Whole note (key: 7)">&#119133; Whole</button>
+
+      <button id="btn-dot" class="btn btn-outline-secondary ms-2" title="Toggle dotted (key: .)">
+        &#x2022; Dot
+      </button>
+
+      <button id="btn-place-rest" class="btn btn-outline-secondary ms-2" title="Place rest with current duration (key: ,)">
+        <i class="bi bi-dash-lg me-1"></i>Place Rest
+      </button>
+
+      <button id="btn-undo"  class="btn btn-outline-warning ms-3" title="Remove last note">
+        <i class="bi bi-backspace"></i> Undo
+      </button>
+      <button id="btn-clear" class="btn btn-outline-danger"        title="Clear all notes">
+        <i class="bi bi-trash"></i> Clear
+      </button>
+    </div>
+
+    <!-- Staff container -->
+    <div id="notation-container" class="notation-area border rounded"></div>
+
+    <div class="mt-2 text-muted small">
+      <strong>Click</strong> anywhere on the staff to place a note.
+      &nbsp;|&nbsp; <strong>Keys:</strong>
+      <kbd>3</kbd>&nbsp;16th &nbsp;<kbd>4</kbd>&nbsp;8th &nbsp;<kbd>5</kbd>&nbsp;Qtr
+      &nbsp;<kbd>6</kbd>&nbsp;Half &nbsp;<kbd>7</kbd>&nbsp;Whole
+      &nbsp;<kbd>.</kbd>&nbsp;Dot &nbsp;<kbd>,</kbd>&nbsp;Rest
+    </div>
+  </div>
+</div>
+
+<!-- Submit -->
+<div class="d-flex justify-content-between align-items-center">
+  <a href="{{ url_for('rhythm_index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Rhythms
+  </a>
+  <button id="btn-submit" class="btn btn-primary btn-lg px-5">
+    <i class="bi bi-check2-circle me-1"></i>Submit
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const RHYTHM_ID       = {{ rhythm.id }};
+  const RHYTHM_NOTES    = {{ rhythm.notes | tojson }};
+  const RHYTHM_TEMPO    = {{ rhythm.tempo }};
+  const NUM_MEASURES    = {{ rhythm.num_measures }};
+  const TIME_SIG_TOP    = {{ rhythm.time_signature.split('/')[0] }};
+  const TIME_SIG_BOTTOM = {{ rhythm.time_signature.split('/')[1] }};
+  const BEATS_TOTAL     = NUM_MEASURES * TIME_SIG_TOP * (4 / TIME_SIG_BOTTOM);
+</script>
+<script src="{{ url_for('static', filename='js/rhythm_notation.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnPlay  = document.getElementById('btn-play');
+    const btnStop  = document.getElementById('btn-stop');
+    const counter  = document.getElementById('play-count');
+    let playCount  = 0;
+    let isPlaying  = false;
+
+    function resetUI() {
+      isPlaying = false;
+      if (btnPlay) { btnPlay.disabled = false; btnPlay.innerHTML = '<i class="bi bi-play-fill"></i> Play'; }
+      if (btnStop) btnStop.disabled = true;
+    }
+
+    if (btnPlay) {
+      btnPlay.addEventListener('click', async () => {
+        if (isPlaying) return;
+        isPlaying = true;
+        playCount++;
+        if (counter) counter.textContent = `Plays: ${playCount}`;
+        btnPlay.disabled = true;
+        btnPlay.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
+        if (btnStop) btnStop.disabled = false;
+        await window.playRhythmArray(RHYTHM_NOTES, RHYTHM_TEMPO, resetUI);
+      });
+    }
+
+    if (btnStop) {
+      btnStop.addEventListener('click', () => {
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+        resetUI();
+      });
+    }
+  });
+</script>
+{% endblock %}

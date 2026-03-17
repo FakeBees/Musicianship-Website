@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Rhythmic Dictation – Musicianship Trainer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-md-9">
+
+    <div class="mb-3">
+      <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-house me-1"></i>Home
+      </a>
+    </div>
+
+    <div class="text-center mb-4 mt-2">
+      <h1 class="fw-bold">Rhythmic Dictation</h1>
+      <p class="text-muted mb-0">Select your practice settings, then begin. A random rhythm will be chosen from the matching pool.</p>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-sliders me-2"></i>Practice Settings
+      </div>
+      <div class="card-body p-4">
+        <form method="get" action="{{ url_for('random_rhythm') }}" id="filter-form">
+
+          <!-- Time Signature -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Time Signature
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-time-sig">
+              {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
+                <input type="checkbox" class="btn-check filter-check" name="time_sig"
+                       id="ts-{{ sig | replace('/', '-') }}" value="{{ sig }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal"
+                       for="ts-{{ sig | replace('/', '-') }}">{{ sig }}</label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Min Note Duration -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Shortest Note Value
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-min-dur">
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-h" value="h" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-h">
+                &#119134; Half
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-q" value="q" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-q">
+                &#119135; Quarter
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-8" value="8" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-8">
+                &#119136; Eighth
+              </label>
+
+              <input type="checkbox" class="btn-check filter-check" name="min_dur"
+                     id="md-16" value="16" autocomplete="off">
+              <label class="btn btn-outline-secondary btn-sm fw-normal" for="md-16">
+                &#119137; Sixteenth
+              </label>
+            </div>
+          </div>
+
+          <!-- Topics / Tags -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Topics
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-tags">
+              {% for tag in all_tags %}
+                <input type="checkbox" class="btn-check filter-check" name="tag"
+                       id="tag-{{ tag.name }}" value="{{ tag.name }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal"
+                       for="tag-{{ tag.name }}" title="{{ tag.description }}">
+                  {{ tag.name }}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Match count -->
+          <div class="mb-3 text-muted small" id="match-count"></div>
+
+          <div class="d-grid mt-3">
+            <button type="submit" class="btn btn-success btn-lg" id="btn-begin">
+              <i class="bi bi-play-fill me-2"></i>Begin Exercise
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const RHYTHM_DATA = {{ rhythms_data | tojson }};
+
+function getSelected(name) {
+  return [...document.querySelectorAll(`input[name="${name}"]:checked`)]
+    .map(el => el.value);
+}
+
+function countMatching(timeSigs, minDurs, tags) {
+  return RHYTHM_DATA.filter(r => {
+    if (timeSigs.length && !timeSigs.includes(r.time_signature)) return false;
+    if (minDurs.length  && !minDurs.includes(r.min_duration))    return false;
+    if (tags.length && !tags.some(t => r.tags.includes(t)))      return false;
+    return true;
+  }).length;
+}
+
+function updateMutualExclusion() {
+  const selTimeSigs = getSelected('time_sig');
+  const selMinDurs  = getSelected('min_dur');
+  const selTags     = getSelected('tag');
+
+  const total = countMatching(selTimeSigs, selMinDurs, selTags);
+
+  const label = document.getElementById('match-count');
+  if (selTimeSigs.length || selMinDurs.length || selTags.length) {
+    label.textContent = `${total} matching ${total === 1 ? 'rhythm' : 'rhythms'}`;
+    label.className   = total > 0
+      ? 'mb-3 small text-success'
+      : 'mb-3 small text-danger fw-semibold';
+  } else {
+    label.textContent = `${RHYTHM_DATA.length} rhythms available`;
+    label.className   = 'mb-3 small text-muted';
+  }
+
+  document.querySelectorAll('input[name="time_sig"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching([...selTimeSigs, cb.value], selMinDurs, selTags);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+
+  document.querySelectorAll('input[name="min_dur"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selTimeSigs, [...selMinDurs, cb.value], selTags);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+
+  document.querySelectorAll('input[name="tag"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selTimeSigs, selMinDurs, [cb.value]);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+}
+
+document.querySelectorAll('.filter-check').forEach(cb => {
+  cb.addEventListener('change', updateMutualExclusion);
+});
+
+updateMutualExclusion();
+</script>
+{% endblock %}
