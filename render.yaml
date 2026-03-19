@@ -10,7 +10,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python generate_midi.py && python generate_rhythms.py && gunicorn app:app
+    startCommand: python migrate.py && python generate_midi.py && python generate_rhythms.py && gunicorn app:app
     envVars:
       - key: SECRET_KEY
         generateValue: true       # Render generates a cryptographically random value automatically
