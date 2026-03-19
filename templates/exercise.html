@@ -117,7 +117,7 @@
   // Data from Flask template
   // -------------------------------------------------------------------------
   const MELODY_ID       = {{ melody.id }};
-  const MIDI_URL        = "{{ url_for('static', filename='midi/' + melody.midi_filename) }}";
+  const MIDI_URL        = "{{ url_for('static', filename=melody.midi_filename) }}";
   const NUM_MEASURES    = {{ melody.num_measures }};
   const TIME_SIG_TOP    = {{ melody.time_signature.split('/')[0] }};
   const TIME_SIG_BOTTOM = {{ melody.time_signature.split('/')[1] }};

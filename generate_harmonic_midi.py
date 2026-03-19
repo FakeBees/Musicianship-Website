@@ -11,7 +11,7 @@ from app import app
 from models import db, Tag, ChordProgression
 from chord_utils import infer_chords_from_midi
 
-MIDI_DIR = os.path.join(os.path.dirname(__file__), 'static', 'midi')
+STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,10 @@ def write_harmonic_midi(filename, note_groups, tempo=72, beats_per_chord=2):
         for pitch in notes:
             midi.addNote(track, channel, pitch, time, duration, volume)
 
-    path = os.path.join(MIDI_DIR, filename)
+    stem = os.path.splitext(filename)[0]
+    dest_dir = os.path.join(STATIC_DIR, 'harmonic', stem)
+    os.makedirs(dest_dir, exist_ok=True)
+    path = os.path.join(dest_dir, filename)
     with open(path, 'wb') as f:
         midi.writeFile(f)
     print(f"  Wrote {path}")
@@ -102,7 +105,8 @@ def seed_progression(name, description, filename, key_signature, tempo,
         db.session.delete(existing)
         db.session.commit()
 
-    midi_path = os.path.join(MIDI_DIR, filename)
+    stem = os.path.splitext(filename)[0]
+    midi_path = os.path.join(STATIC_DIR, 'harmonic', stem, filename)
     chords = infer_chords_from_midi(midi_path, key_signature)
     if not chords:
         raise ValueError(f"No chords inferred from {filename}. "
@@ -111,7 +115,7 @@ def seed_progression(name, description, filename, key_signature, tempo,
     prog = ChordProgression(
         name=name,
         description=description,
-        midi_filename=filename,
+        midi_filename='harmonic/{}/{}'.format(stem, filename),
         key_signature=key_signature,
         tempo=tempo,
         difficulty=difficulty,
@@ -135,8 +139,6 @@ def seed_progression(name, description, filename, key_signature, tempo,
 def main():
     with app.app_context():
         db.create_all()
-
-        os.makedirs(MIDI_DIR, exist_ok=True)
 
         print("\n--- Progression 1: C major I–IV–V–I ---")
         # I:  bass=C3(48), upper=E4(64), G4(67), C5(72)

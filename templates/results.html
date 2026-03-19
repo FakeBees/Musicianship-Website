@@ -99,7 +99,7 @@
   const USER_NOTES      = {{ attempt.user_notes | tojson }};
   const MELODY_TEMPO    = {{ melody.tempo }};
   const KEY_SIGNATURE   = "{{ melody.key_signature }}";
-  const MIDI_URL        = "{{ url_for('static', filename='midi/' + melody.midi_filename) }}";
+  const MIDI_URL        = "{{ url_for('static', filename=melody.midi_filename) }}";
   const TIME_SIG_TOP    = {{ melody.time_signature.split('/')[0] }};
   const TIME_SIG_BOTTOM = {{ melody.time_signature.split('/')[1] }};
   const CLEF            = "{{ melody.clef }}";

@@ -25,3 +25,24 @@ instance/
 
 # Logs
 *.log
+
+# ── Exercise staging area (personal content) ──────────────────
+new_exercises/
+
+# ── Developer / seeding / helper scripts ──────────────────────
+generate_midi.py
+generate_rhythms.py
+generate_harmonic_midi.py
+generate_holistic_exercises.py
+migrate_structure.py
+find_exercises.py
+midi_to_notes.py
+
+# ── Plan and documentation files ──────────────────────────────
+HARMONIC_DICTATION_PLAN.md
+HOLISTIC_DICTATION_PLAN.md
+DATABASE_STREAMLINING_PLAN.md
+BUGS.md
+
+# ── Local SQLite database ─────────────────────────────────────
+*.db

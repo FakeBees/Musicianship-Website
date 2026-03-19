@@ -15,8 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from midiutil import MIDIFile
 
-MIDI_DIR = os.path.join(os.path.dirname(__file__), 'static', 'midi')
-os.makedirs(MIDI_DIR, exist_ok=True)
+STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
 
 # ---------------------------------------------------------------------------
 # Duration helpers
@@ -117,7 +116,10 @@ def write_midi(filename, notes, tempo=100):
         time += beats
         i += 1
 
-    path = os.path.join(MIDI_DIR, filename)
+    stem = os.path.splitext(filename)[0]
+    dest_dir = os.path.join(STATIC_DIR, 'melodic', stem)
+    os.makedirs(dest_dir, exist_ok=True)
+    path = os.path.join(dest_dir, filename)
     with open(path, 'wb') as f:
         midi.writeFile(f)
     print(f'  Written: {path}')
@@ -838,7 +840,8 @@ def seed():
                 existing.difficulty      = difficulty
                 existing.tempo           = tempo
                 existing.description     = m['description']
-                existing.midi_filename   = m['filename']
+                existing.midi_filename   = 'melodic/{}/{}'.format(
+                    os.path.splitext(m['filename'])[0], m['filename'])
                 existing.tags            = [tag_objects[t] for t in m['tags']]
                 if not skip_midi:
                     write_midi(m['filename'], m['notes'], tempo=tempo)
@@ -849,7 +852,8 @@ def seed():
                 if not skip_midi:
                     write_midi(m['filename'], m['notes'], tempo=tempo)
                 else:
-                    midi_path = os.path.join(MIDI_DIR, m['filename'])
+                    midi_path = os.path.join(STATIC_DIR, 'melodic',
+                        os.path.splitext(m['filename'])[0], m['filename'])
                     if not os.path.exists(midi_path):
                         print(f'    WARNING: skip_midi=True but {midi_path} not found!')
                     else:
@@ -857,7 +861,8 @@ def seed():
                 melody = Melody(
                     name            = m['name'],
                     description     = m['description'],
-                    midi_filename   = m['filename'],
+                    midi_filename   = 'melodic/{}/{}'.format(
+                        os.path.splitext(m['filename'])[0], m['filename']),
                     notes_json      = notes_json,
                     time_signature  = time_sig,
                     key_signature   = key_sig,

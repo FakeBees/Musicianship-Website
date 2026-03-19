@@ -5,3 +5,4 @@ mido
 gunicorn
 psycopg2-binary
 python-dotenv
+tomli; python_version < "3.11"
