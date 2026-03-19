@@ -115,7 +115,7 @@
 {% block scripts %}
 <script>
   const PROGRESSION_ID    = {{ progression.id }};
-  const MIDI_URL          = "{{ url_for('static', filename='midi/' + progression.midi_filename) }}";
+  const MIDI_URL          = "{{ url_for('static', filename=progression.midi_filename) }}";
   const KEY_SIGNATURE     = "{{ progression.key_signature }}";
   const PROGRESSION_TEMPO = {{ progression.tempo }};
   const UNLOCK_SEVENTH    = {{ unlock_seventh | tojson }};

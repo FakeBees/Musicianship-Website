@@ -6,8 +6,8 @@ A running list of known bugs and issues to fix. Add new entries at the bottom of
 
 ## Harmonic Dictation
 
-**BUG-001 — Dissonant/messy final chord on results page playback**
-The last chord in a progression (observed on I–IV–V–I) sounds dissonant or garbled during playback on the results page, but plays correctly during the exercise. Only occurs post-grading. Likely a Tone.js scheduling or Transport state issue — a previous playback session may not be fully cleaned up before the results page initiates playback, causing notes from a prior play to bleed into or clash with the new playback. Investigate whether `Tone.Transport.cancel()` and synth `releaseAll()` are called before starting results-page playback.
+**BUG-001 — Dissonant/messy chord during results page playback** *(confirmed still present)*
+Chords sound dissonant or garbled during playback on the results page, but play correctly during the exercise. Most commonly observed on the I chord when it follows a V chord (e.g., the resolution in I–IV–V–I). Only occurs post-grading. Likely a Tone.js scheduling or Transport state issue — a previous playback session may not be fully cleaned up before the results page initiates playback, causing notes from a prior play to bleed into or clash with the new playback. Investigate whether `Tone.Transport.cancel()` and synth `releaseAll()` are called before starting results-page playback. The V→I resolution is a likely trigger because V chords hold sustained notes (leading tone, dominant) that may not be released before the I chord attacks.
 
 **BUG-002 — Roman numeral inversion notation uses slash chords instead of figured bass**
 Inversions in Roman numeral mode are displayed as `I/E` or `I/G` instead of the correct `I6` (first inversion, third in bass) and `I64` (second inversion, fifth in bass). Inversion notation differs by mode:
@@ -43,7 +43,7 @@ Fix only the Roman numeral branch in `format_chord_name` in `chord_utils.py` and
 
 ---
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-19*
 
 ---
 

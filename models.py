@@ -31,7 +31,8 @@ class Melody(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(300))
-    midi_filename = db.Column(db.String(100), nullable=False)
+    midi_filename = db.Column(db.String(200), nullable=False)
+    source_key = db.Column(db.String(100), nullable=True)
     # JSON array of {key, duration[, dotted]} objects using VexFlow notation
     notes_json = db.Column(db.Text, nullable=False)
     time_signature = db.Column(db.String(10), default='4/4')
@@ -91,10 +92,12 @@ class Rhythm(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(300))
+    source_key = db.Column(db.String(100), nullable=True)
     # JSON array of {duration[, dotted]} objects — no pitch
     notes_json = db.Column(db.Text, nullable=False)
     time_signature = db.Column(db.String(10), default='4/4')
     min_duration = db.Column(db.String(5), default='q')
+    difficulty = db.Column(db.Integer, default=1)  # 1–5
     tempo = db.Column(db.Integer, default=100)
     tags = db.relationship('Tag', secondary=rhythm_tags, backref='rhythms', lazy='subquery')
 
@@ -150,7 +153,8 @@ class ChordProgression(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     name          = db.Column(db.String(100), nullable=False)
     description   = db.Column(db.String(300))
-    midi_filename = db.Column(db.String(100), nullable=False)
+    midi_filename = db.Column(db.String(200), nullable=False)
+    source_key    = db.Column(db.String(100), nullable=True)
     key_signature = db.Column(db.String(10), default='C')
     tempo         = db.Column(db.Integer, default=80)
     difficulty    = db.Column(db.Integer, default=1)
@@ -186,6 +190,7 @@ class HolisticExercise(db.Model):
 
     # WAV filename within the folder, e.g. "audio.wav"
     wav_filename   = db.Column(db.String(100), nullable=False, default='audio.wav')
+    source_key     = db.Column(db.String(100), nullable=True)
 
     key_signature  = db.Column(db.String(10),  default='C')
     time_signature = db.Column(db.String(10),  default='4/4')
