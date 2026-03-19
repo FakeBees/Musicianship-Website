@@ -37,6 +37,8 @@ generate_holistic_exercises.py
 migrate_structure.py
 find_exercises.py
 midi_to_notes.py
+delete_exercise.py
+push_to_postgres.py
 
 # ── Plan and documentation files ──────────────────────────────
 HARMONIC_DICTATION_PLAN.md
