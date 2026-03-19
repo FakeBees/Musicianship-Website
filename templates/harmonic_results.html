@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block title %}Harmonic Results – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('harmonic_index') }}">Harmonic Dictation</a></li>
+        <li class="breadcrumb-item active">Results</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<!-- Notation toggle -->
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+  <span class="fw-semibold me-1">Notation:</span>
+  <button class="btn btn-outline-secondary btn-sm results-notation-btn active" data-mode="roman">Roman</button>
+  <button class="btn btn-outline-secondary btn-sm results-notation-btn" data-mode="nashville">Nashville</button>
+  <button class="btn btn-outline-secondary btn-sm results-notation-btn" data-mode="lead">Lead Sheet</button>
+</div>
+
+<!-- Correct Answer card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-success text-white d-flex align-items-center gap-2">
+    <i class="bi bi-check-circle me-1"></i>
+    <span class="fw-semibold">Correct Answer</span>
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-light btn-sm px-3" id="btn-play-correct">
+        <i class="bi bi-play-fill"></i> Play
+      </button>
+      <button class="btn btn-outline-light btn-sm px-2" id="btn-stop-correct" disabled>
+        <i class="bi bi-stop-fill"></i> Stop
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2" id="correct-chords">
+      {% for fmt in correct_formatted %}
+        <div class="chord-block"
+             data-roman="{{ fmt.roman }}"
+             data-nashville="{{ fmt.nashville }}"
+             data-lead="{{ fmt.lead }}">
+          {{ fmt.roman }}
+        </div>
+      {% endfor %}
+      {% if not correct_formatted %}
+        <span class="text-muted small">No chords in this progression.</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Your Answer card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-pencil me-1"></i>
+    <span class="fw-semibold">Your Answer</span>
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-light btn-sm px-3" id="btn-play-user">
+        <i class="bi bi-play-fill"></i> Play
+      </button>
+      <button class="btn btn-outline-light btn-sm px-2" id="btn-stop-user" disabled>
+        <i class="bi bi-stop-fill"></i> Stop
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2" id="user-chords">
+      {% for item in comparison %}
+        {% if item.user %}
+          {% set fmt = user_formatted[loop.index0] %}
+          {% if item.correct %}
+            {% if item.letter_match and item.quality_match %}
+              {% set block_class = 'chord-block correct' %}
+            {% elif item.letter_match %}
+              {% set block_class = 'chord-block partial' %}
+            {% else %}
+              {% set block_class = 'chord-block wrong' %}
+            {% endif %}
+          {% else %}
+            {% set block_class = 'chord-block extra' %}
+          {% endif %}
+          <div class="{{ block_class }}"
+               data-roman="{{ fmt.roman }}"
+               data-nashville="{{ fmt.nashville }}"
+               data-lead="{{ fmt.lead }}"
+               title="{% if item.correct %}Correct: {{ correct_formatted[loop.index0].roman }}{% else %}Extra chord{% endif %}">
+            {{ fmt.roman }}
+          </div>
+        {% else %}
+          {# Missing chord — show grey placeholder #}
+          <div class="chord-placeholder" title="Missing chord">—</div>
+        {% endif %}
+      {% endfor %}
+      {% if not comparison %}
+        <span class="text-muted small">No chords submitted.</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Score summary card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white fw-semibold">
+    <i class="bi bi-bar-chart me-2"></i>Score
+  </div>
+  <div class="card-body">
+    <div class="row text-center g-3">
+      <div class="col-4">
+        <div class="fs-2 fw-bold text-primary">{{ attempt.overall_score | int }}%</div>
+        <div class="text-muted small">Overall</div>
+      </div>
+      <div class="col-4">
+        <div class="fs-2 fw-bold text-success">{{ attempt.chord_letter_accuracy | int }}%</div>
+        <div class="text-muted small">Chord Letter</div>
+      </div>
+      <div class="col-4">
+        <div class="fs-2 fw-bold text-warning">{{ attempt.chord_quality_accuracy | int }}%</div>
+        <div class="text-muted small">Chord Quality</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <a href="{{ url_for('harmonic_index') }}" class="btn btn-outline-secondary btn-lg px-4">
+    <i class="bi bi-arrow-left me-1"></i>Back to Harmonic Dictation
+  </a>
+  <a href="{{ next_url }}" class="btn btn-orange btn-lg px-4">
+    Next Progression <i class="bi bi-arrow-right ms-1"></i>
+  </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script>
+  // Chord data injected from Flask
+  const CORRECT_CHORDS = {{ correct_chords_json | safe }};
+  const USER_CHORDS    = {{ user_chords_json    | safe }};
+  const PROGRESSION_BPM = {{ progression.tempo }};
+
+  // ---------------------------------------------------------------------------
+  // Parsimonious voicing
+  // ---------------------------------------------------------------------------
+
+  const MIDI_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  function midiToToneName(midi) {
+    const oct = Math.floor(midi / 12) - 1;
+    return MIDI_NAMES[midi % 12] + oct;
+  }
+
+  function nearestMidiForPc(targetMidi, pc) {
+    const base = pc + 12 * Math.round((targetMidi - pc) / 12);
+    const cands = [base - 12, base, base + 12];
+    return cands.reduce((b, c) => Math.abs(c - targetMidi) < Math.abs(b - targetMidi) ? c : b);
+  }
+
+  function getChordTonePcs(chord) {
+    const pc = chord.root_pc;
+    let tones;
+    if (chord.sus === 'sus2')      tones = [0, 2, 7].map(i => (pc + i) % 12);
+    else if (chord.sus === 'sus4') tones = [0, 5, 7].map(i => (pc + i) % 12);
+    else {
+      const Q = { major:[0,4,7], minor:[0,3,7], diminished:[0,3,6], augmented:[0,4,8] };
+      tones = (Q[chord.quality] || [0,4,7]).map(i => (pc + i) % 12);
+    }
+    if (chord.seventh === 'major7')      tones.push((pc + 11) % 12);
+    else if (chord.seventh === 'minor7') tones.push((pc + 10) % 12);
+    else if (chord.seventh === 'diminished7') tones.push((pc + 9) % 12);
+    return tones;
+  }
+
+  function voiceProgression(chords) {
+    if (!chords || !chords.length) return [];
+    const result = [];
+
+    function voiceFirst(chord) {
+      const tones = getChordTonePcs(chord);
+      // Bass in octave 3 (48-59)
+      let bass = 48 + chord.bass_pc;
+      while (bass % 12 !== chord.bass_pc) bass++;
+      // Three upper voices around octave 4 (60-72)
+      const upper = [0, 1, 2].map(v => {
+        let midi = tones[v % tones.length] + 60;
+        while (midi < 60) midi += 12;
+        while (midi > 72) midi -= 12;
+        return midi;
+      });
+      upper.sort((a, b) => a - b);
+      return [bass, ...upper];
+    }
+
+    const first = voiceFirst(chords[0]);
+    result.push(first.map(midiToToneName));
+    let prev = first;
+
+    for (let i = 1; i < chords.length; i++) {
+      const chord = chords[i];
+      const tones = getChordTonePcs(chord);
+      const bass = Math.max(36, Math.min(59, nearestMidiForPc(prev[0], chord.bass_pc)));
+      const upper = prev.slice(1).map(prevMidi => {
+        let best = null, bestDist = Infinity;
+        tones.forEach(pc => {
+          const cand = nearestMidiForPc(prevMidi, pc);
+          const d = Math.abs(cand - prevMidi);
+          if (d < bestDist) { bestDist = d; best = cand; }
+        });
+        return Math.max(52, Math.min(84, best));
+      });
+      const voicing = [bass, ...upper];
+      result.push(voicing.map(midiToToneName));
+      prev = voicing;
+    }
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-card play state
+  // ---------------------------------------------------------------------------
+
+  function makeCardPlayer(chords, btnPlay, btnStop) {
+    let playing = false;
+    if (!chords || !chords.length) {
+      btnPlay.disabled = true;
+      return;
+    }
+    const voiced = voiceProgression(chords);
+
+    btnPlay.addEventListener('click', async () => {
+      if (playing) return;
+      playing = true;
+      btnPlay.disabled = true;
+      btnStop.disabled = false;
+      // Stop any other active Transport events first
+      window.stopAllNotes();
+      await window.playChordArray(voiced, PROGRESSION_BPM, () => {
+        playing = false;
+        btnPlay.disabled = false;
+        btnStop.disabled = true;
+      });
+    });
+
+    btnStop.addEventListener('click', () => {
+      window.stopAllNotes();
+      playing = false;
+      btnPlay.disabled = false;
+      btnStop.disabled = true;
+    });
+  }
+
+  makeCardPlayer(
+    CORRECT_CHORDS,
+    document.getElementById('btn-play-correct'),
+    document.getElementById('btn-stop-correct')
+  );
+  makeCardPlayer(
+    USER_CHORDS,
+    document.getElementById('btn-play-user'),
+    document.getElementById('btn-stop-user')
+  );
+
+  // ---------------------------------------------------------------------------
+  // Notation toggle
+  // ---------------------------------------------------------------------------
+  document.querySelectorAll('.results-notation-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      document.querySelectorAll('.results-notation-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+      });
+      document.querySelectorAll('#correct-chords .chord-block, #user-chords .chord-block').forEach(el => {
+        el.textContent = el.dataset[mode] || el.dataset.roman || '?';
+      });
+    });
+  });
+</script>
+{% endblock %}

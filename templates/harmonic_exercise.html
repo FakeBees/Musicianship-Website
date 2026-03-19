@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Harmonic Exercise – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{% if progression.key_signature.endswith('m') %}
+  {% set key_display = progression.key_signature[:-1] | replace('b','♭') + ' minor' %}
+{% else %}
+  {% set key_display = progression.key_signature | replace('b','♭') + ' major' %}
+{% endif %}
+
+<!-- Breadcrumb -->
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('harmonic_index') }}">Harmonic Dictation</a></li>
+        <li class="breadcrumb-item active">Exercise</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<!-- Listen card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-headphones"></i>
+    <span class="fw-semibold">Listen</span>
+    <span class="ms-2 badge bg-info text-dark">Key: {{ key_display }}</span>
+    <span class="ms-auto badge bg-secondary" id="play-count">Plays: 0</span>
+  </div>
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <button id="btn-play" class="btn btn-success btn-lg px-4">
+      <i class="bi bi-play-fill"></i> Play
+    </button>
+    <button id="btn-stop" class="btn btn-outline-danger btn-lg px-3" disabled>
+      <i class="bi bi-stop-fill"></i> Stop
+    </button>
+    <button id="btn-key-ref" class="btn btn-outline-info btn-lg px-3"
+            title="Play I–IV–V–I cadence in this key">
+      <i class="bi bi-music-note-list me-1"></i>Key Reference
+    </button>
+    <div class="ms-1 text-muted small">Listen as many times as you need.</div>
+  </div>
+</div>
+
+<!-- Build Your Answer card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+    <i class="bi bi-pencil"></i>
+    <span class="fw-semibold">Build Your Answer</span>
+  </div>
+  <div class="card-body">
+
+    <!-- Notation mode toggle -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+      <span class="fw-semibold me-1">Notation:</span>
+      <button class="btn btn-outline-secondary btn-sm notation-toggle-btn active" data-mode="roman">Roman</button>
+      <button class="btn btn-outline-secondary btn-sm notation-toggle-btn" data-mode="nashville">Nashville</button>
+      <button class="btn btn-outline-secondary btn-sm notation-toggle-btn" data-mode="lead">Lead Sheet</button>
+    </div>
+
+    <!-- Diatonic palette -->
+    <div class="mb-3">
+      <span class="fw-semibold d-block mb-2 small text-muted">Diatonic Chords — click to add:</span>
+      <div id="diatonic-palette" class="d-flex flex-wrap gap-2"></div>
+    </div>
+
+    <hr class="my-3">
+
+    <!-- Modifier panel (populated by harmonic.js) -->
+    <div id="modifier-panel">
+      <p class="text-muted small mb-0">Select a chord block below to modify it.</p>
+    </div>
+
+    <hr class="my-3">
+
+    <!-- Building area -->
+    <div class="mb-2">
+      <span class="fw-semibold d-block mb-2 small text-muted">Your Answer:</span>
+      <div id="chord-building-area"></div>
+    </div>
+
+    <!-- Undo / Clear -->
+    <div class="d-flex gap-2 mt-3">
+      <button id="btn-undo" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-backspace me-1"></i>Undo Last
+      </button>
+      <button id="btn-clear" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-trash me-1"></i>Clear All
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Submit / Back -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <a href="{{ url_for('harmonic_index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  <button id="btn-submit" class="btn btn-orange btn-lg px-5">
+    <i class="bi bi-check2-circle me-1"></i>Submit
+  </button>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const PROGRESSION_ID    = {{ progression.id }};
+  const MIDI_URL          = "{{ url_for('static', filename='midi/' + progression.midi_filename) }}";
+  const KEY_SIGNATURE     = "{{ progression.key_signature }}";
+  const PROGRESSION_TEMPO = {{ progression.tempo }};
+  const UNLOCK_SEVENTH    = {{ unlock_seventh | tojson }};
+  const UNLOCK_EXTENSIONS = {{ unlock_extensions | tojson }};
+  const UNLOCK_SUS        = {{ unlock_sus | tojson }};
+  const SHOW_CHORD_COUNT  = {{ show_chord_count | tojson }};
+  const NUM_CHORDS        = {{ num_chords }};
+</script>
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chord_block_utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/harmonic.js') }}"></script>
+{% endblock %}

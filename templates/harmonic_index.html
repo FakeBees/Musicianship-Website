@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% block title %}Harmonic Dictation – Musicianship Trainer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7 col-md-9">
+
+    <div class="mb-3">
+      <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-house me-1"></i>Home
+      </a>
+    </div>
+
+    <div class="text-center mb-4 mt-2">
+      <h1 class="fw-bold">Harmonic Dictation</h1>
+      <p class="text-muted mb-0">Select your practice settings, then begin. A random progression will be chosen from the matching pool.</p>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-sliders me-2"></i>Practice Settings
+      </div>
+      <div class="card-body p-4">
+        <form method="get" action="{{ url_for('random_harmonic') }}" id="filter-form">
+
+          <!-- Category -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Category
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-category">
+              {% for cat in categories %}
+                <input type="checkbox" class="btn-check filter-check" name="category"
+                       id="cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal"
+                       for="cat-{{ cat }}">
+                  {% if cat == 'diatonic' %}Diatonic
+                  {% elif cat == 'chromatic' %}Chromatic
+                  {% elif cat == 'mode_mixture' %}Mode Mixture
+                  {% elif cat == 'modal' %}Modal
+                  {% else %}{{ cat }}{% endif %}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">
+              Difficulty
+              <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2" id="group-difficulty">
+              {% for d in [1,2,3,4,5] %}
+                <input type="checkbox" class="btn-check filter-check" name="difficulty"
+                       id="diff-{{ d }}" value="{{ d }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal" for="diff-{{ d }}">
+                  {{ '★' * d }}{{ '☆' * (5 - d) }}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Tags -->
+          {% if contains_tags or other_tags %}
+          <div class="mb-4">
+
+            {% if contains_tags %}
+            <div class="mb-3">
+              <label class="fw-semibold d-block mb-2">
+                Contains Chord
+                <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+              </label>
+              <div class="d-flex flex-wrap gap-2" id="group-contains-tags">
+                {% for tag in contains_tags %}
+                  <input type="checkbox" class="btn-check filter-check" name="tag"
+                         id="tag-{{ tag.name | replace(':','_') }}" value="{{ tag.name }}" autocomplete="off">
+                  <label class="btn btn-outline-secondary btn-sm fw-normal"
+                         for="tag-{{ tag.name | replace(':','_') }}" title="{{ tag.description or '' }}">
+                    {{ tag.name[9:] }}
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            {% if other_tags %}
+            <div>
+              <label class="fw-semibold d-block mb-2">
+                Other Tags
+                <span class="text-muted fw-normal small ms-1">(leave all unchecked to include any)</span>
+              </label>
+              <div class="d-flex flex-wrap gap-2" id="group-other-tags">
+                {% for tag in other_tags %}
+                  <input type="checkbox" class="btn-check filter-check" name="tag"
+                         id="tag-{{ tag.name | replace(':','_') }}" value="{{ tag.name }}" autocomplete="off">
+                  <label class="btn btn-outline-secondary btn-sm fw-normal"
+                         for="tag-{{ tag.name | replace(':','_') }}" title="{{ tag.description or '' }}">
+                    {{ tag.name }}
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Show chord count -->
+          <div class="mb-4">
+            <label class="fw-semibold d-block mb-2">Options</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="show_chord_count"
+                     id="show-chord-count" value="1">
+              <label class="form-check-label" for="show-chord-count">
+                Show chord count hint
+                <span class="text-muted small">— pre-fills the building area with the exact number of empty slots</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Match count -->
+          <div class="mb-3 text-muted small" id="match-count"></div>
+
+          <div class="d-grid mt-3">
+            <button type="submit" class="btn btn-orange btn-lg" id="btn-begin">
+              <i class="bi bi-play-fill me-2"></i>Begin Exercise
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROGRESSIONS_DATA = {{ progressions_data | tojson }};
+
+function getSelected(name) {
+  return [...document.querySelectorAll(`input[name="${name}"]:checked`)]
+    .map(el => el.value);
+}
+
+function countMatching(cats, diffs, tags) {
+  return PROGRESSIONS_DATA.filter(p => {
+    if (cats.length  && !cats.includes(p.category))                 return false;
+    if (diffs.length && !diffs.includes(String(p.difficulty)))      return false;
+    if (tags.length  && !tags.some(t => p.tags.includes(t)))        return false;
+    return true;
+  }).length;
+}
+
+function updateFilters() {
+  const selCats  = getSelected('category');
+  const selDiffs = getSelected('difficulty');
+  const selTags  = getSelected('tag');
+
+  const total = countMatching(selCats, selDiffs, selTags);
+  const label = document.getElementById('match-count');
+  if (selCats.length || selDiffs.length || selTags.length) {
+    label.textContent = `${total} matching ${total === 1 ? 'progression' : 'progressions'}`;
+    label.className   = total > 0 ? 'mb-3 small text-success' : 'mb-3 small text-danger fw-semibold';
+  } else {
+    label.textContent = `${PROGRESSIONS_DATA.length} progressions available`;
+    label.className   = 'mb-3 small text-muted';
+  }
+
+  document.querySelectorAll('input[name="category"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching([...selCats, cb.value], selDiffs, selTags);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+  document.querySelectorAll('input[name="difficulty"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selCats, [...selDiffs, cb.value], selTags);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+  document.querySelectorAll('input[name="tag"]').forEach(cb => {
+    if (cb.checked) return;
+    const test = countMatching(selCats, selDiffs, [...selTags, cb.value]);
+    cb.disabled = test === 0;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', test === 0);
+  });
+}
+
+document.querySelectorAll('.filter-check').forEach(cb => {
+  cb.addEventListener('change', updateFilters);
+});
+updateFilters();
+</script>
+{% endblock %}
