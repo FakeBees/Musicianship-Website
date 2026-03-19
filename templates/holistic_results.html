@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+
+{% block title %}Holistic Results – Musicianship Trainer{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{% if exercise.key_signature.endswith('m') %}
+  {% set key_display = exercise.key_signature[:-1] | replace('b','♭') + ' minor' %}
+{% else %}
+  {% set key_display = exercise.key_signature | replace('b','♭') + ' major' %}
+{% endif %}
+
+<!-- Breadcrumb -->
+<div class="row mb-3">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('holistic_index') }}">Holistic Dictation</a></li>
+        <li class="breadcrumb-item active">Results — {{ exercise.name }}</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<!-- Score summary card -->
+{% set scores = attempt.scores %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white fw-semibold">
+    <i class="bi bi-bar-chart me-2"></i>Score Summary
+  </div>
+  <div class="card-body">
+    <div class="row text-center g-3 mb-3">
+      <div class="col-12">
+        <div class="fs-1 fw-bold" style="color:#0dcaf0;">{{ attempt.overall_score | int }}%</div>
+        <div class="text-muted small">Overall</div>
+      </div>
+    </div>
+    <div class="row text-center g-3">
+      <div class="col-6 col-md-3">
+        <div class="fs-4 fw-bold text-primary">{{ scores.get('melody_pitch', 0) | int }}%</div>
+        <div class="text-muted small">Melody Pitch</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="fs-4 fw-bold text-info">{{ scores.get('melody_duration', 0) | int }}%</div>
+        <div class="text-muted small">Melody Rhythm</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="fs-4 fw-bold text-success">{{ scores.get('harmony_letter', 0) | int }}%</div>
+        <div class="text-muted small">Harmony Letter</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="fs-4 fw-bold text-warning">{{ scores.get('harmony_quality', 0) | int }}%</div>
+        <div class="text-muted small">Harmony Quality</div>
+      </div>
+    </div>
+
+    <!-- Extra line scores -->
+    {% for line in exercise.extra_lines %}
+      {% set lkey = line.file.replace('.mid','') %}
+      <div class="row text-center g-3 mt-1">
+        {% if line.type == 'melody' %}
+          <div class="col-6">
+            <div class="fs-5 fw-bold text-primary">{{ scores.get(lkey + '_pitch', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.label }} Pitch</div>
+          </div>
+          <div class="col-6">
+            <div class="fs-5 fw-bold text-info">{{ scores.get(lkey + '_duration', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.label }} Rhythm</div>
+          </div>
+        {% elif line.type == 'rhythm' %}
+          <div class="col-12">
+            <div class="fs-5 fw-bold text-warning">{{ scores.get(lkey + '_duration', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.label }} Rhythm</div>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Playback card -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white fw-semibold">
+    <i class="bi bi-headphones me-2"></i>Playback
+  </div>
+  <div class="card-body">
+    <!-- Original Recording -->
+    <div class="mb-3">
+      <strong class="d-block mb-1">Original Recording</strong>
+      <audio controls src="{{ url_for('static', filename=exercise.wav_url_path) }}"
+             class="w-100" style="max-width:500px;"></audio>
+    </div>
+
+    <!-- MIDI Playback Buttons -->
+    <div class="d-flex flex-wrap gap-2">
+      <button id="btn-play-correct-midi" class="btn btn-success btn-sm px-3">
+        <i class="bi bi-play-fill"></i> Correct Answer (MIDI)
+      </button>
+      <button id="btn-play-user-midi" class="btn btn-outline-primary btn-sm px-3">
+        <i class="bi bi-play-fill"></i> My Answer (MIDI)
+      </button>
+      <button id="btn-stop-midi" class="btn btn-outline-danger btn-sm px-3" disabled>
+        <i class="bi bi-stop-fill"></i> Stop
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Correct Answer staves -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-success text-white fw-semibold">
+    <i class="bi bi-check-circle me-2"></i>Correct Answer
+  </div>
+  <div class="card-body">
+    <p class="small text-muted mb-2">Melody</p>
+    <div id="correct-melody-staff" class="notation-area border rounded mb-3"
+         style="min-height:120px;"></div>
+
+    {% for line in exercise.extra_lines %}
+      {% set lkey = line.file.replace('.mid','') %}
+      <p class="small text-muted mb-2">{{ line.label }}</p>
+      <div id="correct-{{ lkey }}-staff" class="notation-area border rounded mb-3"
+           style="min-height:120px;"></div>
+    {% endfor %}
+
+    <p class="small text-muted mb-2">Harmony</p>
+    <div id="correct-harmony-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-1"
+         style="min-height:64px;"></div>
+  </div>
+</div>
+
+<!-- Your Answer staves -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-dark text-white fw-semibold">
+    <i class="bi bi-pencil me-2"></i>Your Answer
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-2 small text-muted">
+      <span class="badge text-bg-success">Correct</span>
+      <span class="badge bg-warning text-dark">Wrong Duration</span>
+      <span class="badge bg-danger text-white">Wrong Pitch or Both Wrong</span>
+    </div>
+    <p class="small text-muted mb-2">Melody</p>
+    <div id="user-melody-staff" class="notation-area border rounded mb-3"
+         style="min-height:120px;"></div>
+
+    {% for line in exercise.extra_lines %}
+      {% set lkey = line.file.replace('.mid','') %}
+      <p class="small text-muted mb-2">{{ line.label }}</p>
+      <div id="user-{{ lkey }}-staff" class="notation-area border rounded mb-3"
+           style="min-height:120px;"></div>
+    {% endfor %}
+
+    <p class="small text-muted mb-2">Harmony</p>
+    <div id="user-harmony-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-1"
+         style="min-height:64px;"></div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <a href="{{ url_for('holistic_index') }}" class="btn btn-outline-secondary btn-lg px-4">
+    <i class="bi bi-arrow-left me-1"></i>Try Another
+  </a>
+  <a href="{{ url_for('holistic_exercise', exercise_id=exercise.id) }}"
+     class="btn btn-lg px-4" style="background:#0dcaf0; color:#000; border-color:#0dcaf0;">
+    Retry This Exercise <i class="bi bi-arrow-clockwise ms-1"></i>
+  </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chord_block_utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/notation.js') }}"></script>
+<script>
+// ── Data from Flask ────────────────────────────────────────────────────────
+const KEY_SIGNATURE   = "{{ exercise.key_signature }}";
+const TIME_SIG_TOP    = {{ exercise.time_signature.split('/')[0] }};
+const TIME_SIG_BOTTOM = {{ exercise.time_signature.split('/')[1] }};
+const CLEF            = "{{ exercise.melody_clef }}";
+
+const CORRECT_MELODY  = {{ exercise.melody_notes_json | safe }};
+const CORRECT_HARMONY = {{ exercise.harmony_chords_json | safe }};
+const CORRECT_EXTRA   = {{ exercise.extra_lines_json | safe }};  // [{type,file,label,clef,notes}]
+
+const USER_DATA   = {{ attempt.user_data_json | safe }};    // {melody:[...], harmony:[...], ...}
+const SCORES      = {{ attempt.scores_json | safe }};
+
+const EXERCISE_BPM = {{ exercise.tempo }};
+
+// ── Chord block rendering helpers ─────────────────────────────────────────
+const { formatChordName, computeChordTones } = window.ChordBlockUtils;
+const NOTATION_MODE = 'roman';
+
+function renderChordBlockList(containerId, chords, compareChords) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!chords || chords.length === 0) {
+    container.innerHTML = '<span class="text-muted small">No chords.</span>';
+    return;
+  }
+
+  chords.forEach((chord, i) => {
+    const el = document.createElement('div');
+    el.className = 'chord-block';
+
+    if (compareChords) {
+      // Colour-code: compare against correct
+      const correct = compareChords[i];
+      if (correct) {
+        const letterOk  = correct.root_pc === chord.root_pc;
+        const qualOk    = correct.quality === chord.quality
+                       && correct.sus     === chord.sus
+                       && correct.seventh === chord.seventh
+                       && JSON.stringify(correct.extensions||[].sort()) ===
+                          JSON.stringify((chord.extensions||[]).sort());
+        if (letterOk && qualOk) el.classList.add('correct');
+        else if (letterOk)      el.classList.add('partial');
+        else                    el.classList.add('wrong');
+      } else {
+        el.classList.add('extra');
+      }
+    }
+
+    el.textContent = formatChordName(chord, NOTATION_MODE, KEY_SIGNATURE);
+    container.appendChild(el);
+  });
+}
+
+// ── VexFlow stave helpers ─────────────────────────────────────────────────
+const _PC = {
+  c:0,'c#':1,db:1,d:2,'d#':3,eb:3,e:4,
+  f:5,'f#':6,gb:6,g:7,'g#':8,ab:8,
+  a:9,'a#':10,bb:10,b:11,
+};
+
+function keyToMidi(key) {
+  const slash = key.indexOf('/');
+  if (slash < 0) return null;
+  const la  = key.slice(0, slash).trim().toLowerCase();
+  const oct = parseInt(key.slice(slash + 1), 10);
+  const pc  = _PC[la];
+  return (pc != null && !isNaN(oct)) ? (oct + 1) * 12 + pc : null;
+}
+
+function pitchesMatch(k1, k2) {
+  if (k1.toLowerCase() === k2.toLowerCase()) return true;
+  const m1 = keyToMidi(k1), m2 = keyToMidi(k2);
+  return m1 !== null && m2 !== null && m1 === m2;
+}
+
+function buildStyleMap(correctNotes, userNotes) {
+  return userNotes.map((un, i) => {
+    if (i >= correctNotes.length) return { fillStyle:'red', strokeStyle:'red' };
+    const cn      = correctNotes[i];
+    const pitchOk = pitchesMatch(un.key, cn.key);
+    const durOk   = un.duration === cn.duration;
+    if (pitchOk && durOk) return null;
+    if (!pitchOk && !durOk) return { fillStyle:'red',    strokeStyle:'red'    };
+    if (!durOk)             return { fillStyle:'#ffc107', strokeStyle:'#ffc107' };
+    return { fillStyle:'#fd7e14', strokeStyle:'#fd7e14' };
+  });
+}
+
+// ── MIDI playback ─────────────────────────────────────────────────────────
+
+const MIDI_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+function midiToToneName(midi) {
+  const oct = Math.floor(midi / 12) - 1;
+  return MIDI_NAMES[midi % 12] + oct;
+}
+
+function nearestMidiForPc(targetMidi, pc) {
+  const base = pc + 12 * Math.round((targetMidi - pc) / 12);
+  const cands = [base - 12, base, base + 12];
+  return cands.reduce((b, c) => Math.abs(c - targetMidi) < Math.abs(b - targetMidi) ? c : b);
+}
+
+function getChordVoicing(chords) {
+  if (!chords || !chords.length) return [];
+  const result = [];
+  function Q(chord) {
+    const pc = chord.root_pc;
+    const qt = { major:[0,4,7], minor:[0,3,7], diminished:[0,3,6], augmented:[0,4,8] };
+    let tones = (qt[chord.quality] || [0,4,7]).map(i => (pc + i) % 12);
+    if (chord.seventh === 'major7')      tones.push((pc+11)%12);
+    if (chord.seventh === 'minor7')      tones.push((pc+10)%12);
+    if (chord.seventh === 'diminished7') tones.push((pc+ 9)%12);
+    return tones;
+  }
+  function first(chord) {
+    const tones = Q(chord);
+    let bass = 48 + chord.bass_pc;
+    while (bass % 12 !== chord.bass_pc) bass++;
+    const upper = [0,1,2].map(v => {
+      let m = tones[v % tones.length] + 60;
+      while (m < 60) m += 12;
+      while (m > 72) m -= 12;
+      return m;
+    }).sort((a,b) => a-b);
+    return [bass, ...upper];
+  }
+  const f = first(chords[0]);
+  result.push(f.map(midiToToneName));
+  let prev = f;
+  for (let i = 1; i < chords.length; i++) {
+    const chord = chords[i];
+    const tones = Q(chord);
+    const bass = Math.max(36, Math.min(59, nearestMidiForPc(prev[0], chord.bass_pc)));
+    const upper = prev.slice(1).map(prevMidi => {
+      let best = null, bd = Infinity;
+      tones.forEach(pc => {
+        const c = nearestMidiForPc(prevMidi, pc);
+        const d = Math.abs(c - prevMidi);
+        if (d < bd) { bd = d; best = c; }
+      });
+      return Math.max(52, Math.min(84, best));
+    });
+    const voicing = [bass, ...upper];
+    result.push(voicing.map(midiToToneName));
+    prev = voicing;
+  }
+  return result;
+}
+
+async function playMidiAnswer(melodyNotes, harmonyChords) {
+  if (typeof Tone === 'undefined') return;
+  await Tone.start();
+  Tone.Transport.cancel();
+  // Play melody then chord together isn't trivial — play melody, then harmony sequentially
+  const voiced = getChordVoicing(harmonyChords);
+  if (melodyNotes && melodyNotes.length) {
+    await window.playNoteArray(melodyNotes, EXERCISE_BPM, null);
+  }
+  if (voiced && voiced.length) {
+    await window.playChordArray(voiced, EXERCISE_BPM, null);
+  }
+}
+
+// ── DOMContentLoaded ──────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Render correct answer staves
+  if (typeof window.renderReadOnlyStave === 'function') {
+    window.renderReadOnlyStave('correct-melody-staff', CORRECT_MELODY);
+
+    CORRECT_EXTRA.forEach(line => {
+      const lkey = line.file.replace('.mid', '');
+      const cid  = 'correct-' + lkey + '-staff';
+      if (document.getElementById(cid)) {
+        window.renderReadOnlyStave(cid, line.notes || []);
+      }
+    });
+  }
+
+  // Render correct harmony blocks
+  renderChordBlockList('correct-harmony-blocks', CORRECT_HARMONY, null);
+
+  // Render user answer staves with colour coding
+  const userMelody = USER_DATA['melody'] || [];
+  if (typeof window.renderStyledStave === 'function') {
+    const styleMap = buildStyleMap(CORRECT_MELODY, userMelody);
+    window.renderStyledStave('user-melody-staff', userMelody, styleMap);
+
+    CORRECT_EXTRA.forEach(line => {
+      const lkey = line.file.replace('.mid', '');
+      const uid  = 'user-' + lkey + '-staff';
+      if (document.getElementById(uid)) {
+        const uNotes    = USER_DATA[lkey] || [];
+        const correctN  = line.notes || [];
+        const sm        = buildStyleMap(correctN, uNotes);
+        window.renderStyledStave(uid, uNotes, sm);
+      }
+    });
+  }
+
+  // Render user harmony blocks with colour coding
+  renderChordBlockList('user-harmony-blocks', USER_DATA['harmony'] || [], CORRECT_HARMONY);
+
+  // MIDI playback
+  const btnCorrect = document.getElementById('btn-play-correct-midi');
+  const btnUser    = document.getElementById('btn-play-user-midi');
+  const btnStop    = document.getElementById('btn-stop-midi');
+
+  function resetPlayBtns() {
+    if (btnCorrect) btnCorrect.disabled = false;
+    if (btnUser)    btnUser.disabled    = false;
+    if (btnStop)    btnStop.disabled    = true;
+  }
+
+  if (btnCorrect) {
+    btnCorrect.addEventListener('click', async () => {
+      btnCorrect.disabled = true;
+      if (btnUser) btnUser.disabled = true;
+      if (btnStop) btnStop.disabled = false;
+      const voiced = getChordVoicing(CORRECT_HARMONY);
+      Tone.Transport.cancel();
+      if (CORRECT_MELODY && CORRECT_MELODY.length) {
+        await window.playNoteArray(CORRECT_MELODY, EXERCISE_BPM, null);
+      }
+      if (voiced && voiced.length) {
+        await window.playChordArray(voiced, EXERCISE_BPM, resetPlayBtns);
+      } else {
+        resetPlayBtns();
+      }
+    });
+  }
+
+  if (btnUser) {
+    btnUser.addEventListener('click', async () => {
+      if (btnCorrect) btnCorrect.disabled = true;
+      btnUser.disabled = true;
+      if (btnStop) btnStop.disabled = false;
+      const userMel  = USER_DATA['melody'] || [];
+      const userHarm = USER_DATA['harmony'] || [];
+      const voiced   = getChordVoicing(userHarm);
+      Tone.Transport.cancel();
+      if (userMel.length) {
+        await window.playNoteArray(userMel, EXERCISE_BPM, null);
+      }
+      if (voiced && voiced.length) {
+        await window.playChordArray(voiced, EXERCISE_BPM, resetPlayBtns);
+      } else {
+        resetPlayBtns();
+      }
+    });
+  }
+
+  if (btnStop) {
+    btnStop.addEventListener('click', () => {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      resetPlayBtns();
+    });
+  }
+
+});
+</script>
+{% endblock %}

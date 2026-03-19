@@ -127,6 +127,61 @@
    * @param {number} bpm    tempo in BPM (default 100)
    * @param {function|null} onDone  callback when finished
    */
+  // Timeout handle for chord-array playback done callback.
+  // Stored inside the IIFE so stopAllNotes can cancel it.
+  let _chordDoneTimeout = null;
+
+  /**
+   * Stop all currently playing notes and cancel any pending chord-array playback.
+   * Also stops the MIDI Transport so MIDI file playback is interrupted.
+   */
+  window.stopAllNotes = function () {
+    if (typeof Tone === 'undefined') return;
+    // Cancel MIDI Transport events
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+    // Cancel any pending onDone callback
+    if (_chordDoneTimeout !== null) {
+      clearTimeout(_chordDoneTimeout);
+      _chordDoneTimeout = null;
+    }
+    // Release all sampler voices
+    try { getSampler().releaseAll(); } catch (e) { /* sampler not yet loaded */ }
+  };
+
+  /**
+   * Play an array of chord voicings through the Salamander piano.
+   * Uses direct AudioContext (Tone.now()) scheduling instead of Transport
+   * to avoid timing glitches from Transport stop/start cycles.
+   * @param {Array}  chords  [['C3','E4','G4','C5'], ...]  — one array of note names per chord
+   * @param {number} bpm     tempo in BPM (default 72); each chord lasts 2 beats
+   * @param {function|null} onDone  callback when finished
+   */
+  window.playChordArray = async function (chords, bpm, onDone) {
+    if (typeof Tone === 'undefined') return;
+    await Tone.start();
+    // Stop any previous playback (MIDI Transport + sampler voices + pending callback)
+    window.stopAllNotes();
+    // Ensure sampler is initialized and samples are loaded
+    getSampler();
+    await Tone.loaded();
+    const s = getSampler();
+    const secPerBeat = 60 / (bpm || 72);
+    const chordDur   = 2 * secPerBeat;
+    // Schedule directly against AudioContext time — avoids Transport race conditions
+    const startTime  = Tone.now() + 0.1;
+    chords.forEach((noteNames, i) => {
+      s.triggerAttackRelease(noteNames, chordDur - 0.05, startTime + i * chordDur, 0.8);
+    });
+    if (onDone) {
+      const totalMs = (chords.length * chordDur + 0.3) * 1000;
+      _chordDoneTimeout = setTimeout(() => {
+        _chordDoneTimeout = null;
+        onDone();
+      }, totalMs);
+    }
+  };
+
   window.playNoteArray = async function (notes, bpm, onDone) {
     if (typeof Tone === 'undefined') return;
     await Tone.start();

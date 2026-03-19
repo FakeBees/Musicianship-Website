@@ -88,6 +88,26 @@ main {
 }
 
 /* ===========================
+   Orange accent — Harmonic Dictation CTAs
+   =========================== */
+.btn-orange {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #fd7e14;
+  --bs-btn-border-color: #fd7e14;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #e8710f;
+  --bs-btn-hover-border-color: #e8710f;
+  --bs-btn-active-bg: #da6b0e;
+  --bs-btn-active-border-color: #da6b0e;
+  --bs-btn-disabled-bg: #fd7e14;
+  --bs-btn-disabled-border-color: #fd7e14;
+}
+.bg-orange {
+  background-color: #fd7e14 !important;
+  color: #fff !important;
+}
+
+/* ===========================
    Difficulty star buttons (home page)
    =========================== */
 .btn-check:checked + .btn-outline-warning {
@@ -111,3 +131,132 @@ main {
   overflow-x: auto;
   min-height: 120px;
 }
+
+/* ===========================
+   Harmonic Dictation — chord blocks
+   =========================== */
+.chord-block {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 56px;
+  border: 2px solid #6c757d;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  user-select: none;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s;
+  padding: 0 10px;
+}
+.chord-block.selected {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+}
+.chord-block.correct  { background: #198754; color: #fff; border-color: #198754; }
+.chord-block.partial  { background: #ffc107; color: #000; border-color: #ffc107; }
+.chord-block.wrong    { background: #dc3545; color: #fff; border-color: #dc3545; }
+.chord-block.extra    { background: #6c757d; color: #fff; border-color: #6c757d; }
+
+/* Modifier panel */
+.modifier-panel { border-top: 1px solid #dee2e6; padding-top: 0.75rem; margin-top: 0.75rem; }
+.modifier-row   { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+.modifier-label { font-size: 0.8rem; font-weight: 600; color: #6c757d; min-width: 80px; }
+
+/* Non-chord-tone bass buttons */
+.bass-btn.non-chord { opacity: 0.45; }
+
+/* Chord building area */
+#chord-building-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 72px;
+  align-items: center;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #ced4da;
+}
+#chord-building-area .placeholder-text {
+  color: #adb5bd;
+  font-size: 0.9rem;
+}
+.chord-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 56px;
+  border: 2px dashed #ced4da;
+  border-radius: 8px;
+  background: #fff;
+  color: #adb5bd;
+  font-size: 1.4rem;
+}
+
+/* ===========================
+   Holistic Dictation — score layout
+   =========================== */
+
+/* Score system container */
+.score-system {
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+/* Chord row below staves */
+.holistic-chord-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 52px;
+  border-top: 2px solid #dee2e6;
+  background: #f8f9fa;
+}
+
+/* Label column on the left of each staff row and chord row */
+.staff-label {
+  width: 80px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+}
+
+/* Individual measure cell in the chord row */
+.chord-measure-cell {
+  position: relative;
+  border-right: 1px solid #ced4da;
+  flex-shrink: 0;
+  /* width is set inline by JS to match VexFlow measure width */
+}
+.chord-measure-cell:last-child { border-right: none; }
+
+/* Chord blocks in holistic view (extend the base .chord-block styles) */
+.chord-block.holistic {
+  position: absolute;
+  height: 44px;
+  top: 4px;
+  /* left and width set inline by JS */
+  min-width: 32px;
+}
+
+/* Staff visibility toggle row */
+.staff-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+/* Results: note colour coding */
+.note-correct        { fill: #198754 !important; }
+.note-pitch-wrong    { fill: #dc3545 !important; }
+.note-duration-wrong { fill: #ffc107 !important; }
+.note-both-wrong     { fill: #dc3545 !important; }

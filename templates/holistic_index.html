@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}Holistic Dictation – Musicianship Trainer{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="mb-3">
+      <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-house me-1"></i>Home
+      </a>
+    </div>
+    <div class="text-center mb-4 mt-2">
+      <h1 class="fw-bold">Holistic Dictation</h1>
+      <p class="text-muted mb-0">Select an exercise, then transcribe melody, harmony, and any additional lines.</p>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Filter sidebar -->
+  <div class="col-lg-3 col-md-4">
+    <div class="card shadow-sm sticky-top" style="top: 1rem;">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-funnel me-2"></i>Filter
+      </div>
+      <div class="card-body p-3">
+
+        <!-- Time Signature -->
+        {% if time_sigs %}
+        <div class="mb-3">
+          <label class="fw-semibold d-block mb-1 small">Time Signature</label>
+          {% for ts in time_sigs %}
+            <div class="form-check">
+              <input class="form-check-input holistic-filter" type="checkbox"
+                     name="time_sig" value="{{ ts }}" id="ts-{{ ts | replace('/','_') }}">
+              <label class="form-check-label" for="ts-{{ ts | replace('/','_') }}">{{ ts }}</label>
+            </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Tonality -->
+        <div class="mb-3">
+          <label class="fw-semibold d-block mb-1 small">Tonality</label>
+          <div class="form-check">
+            <input class="form-check-input holistic-filter" type="checkbox"
+                   name="tonality" value="major" id="ton-major">
+            <label class="form-check-label" for="ton-major">Major</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input holistic-filter" type="checkbox"
+                   name="tonality" value="minor" id="ton-minor">
+            <label class="form-check-label" for="ton-minor">Minor</label>
+          </div>
+        </div>
+
+        <!-- Contains Chord -->
+        {% if contains_tags %}
+        <div class="mb-3">
+          <label class="fw-semibold d-block mb-1 small">Contains Chord</label>
+          {% for tag in contains_tags %}
+            <div class="form-check">
+              <input class="form-check-input holistic-filter" type="checkbox"
+                     name="tag" value="{{ tag.name }}"
+                     id="tag-{{ tag.name | replace(':','_') }}">
+              <label class="form-check-label" for="tag-{{ tag.name | replace(':','_') }}">
+                {{ tag.name[9:] }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Difficulty -->
+        <div class="mb-3">
+          <label class="fw-semibold d-block mb-1 small">Difficulty</label>
+          {% for d in [1,2,3,4,5] %}
+            <div class="form-check">
+              <input class="form-check-input holistic-filter" type="checkbox"
+                     name="difficulty" value="{{ d }}" id="diff-{{ d }}">
+              <label class="form-check-label" for="diff-{{ d }}">
+                {{ '★' * d }}{{ '☆' * (5 - d) }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Other Tags -->
+        {% if other_tags %}
+        <div class="mb-3">
+          <label class="fw-semibold d-block mb-1 small">Other Tags</label>
+          {% for tag in other_tags %}
+            <div class="form-check">
+              <input class="form-check-input holistic-filter" type="checkbox"
+                     name="tag" value="{{ tag.name }}"
+                     id="tag-{{ tag.name | replace(':','_') | replace(' ','_') }}">
+              <label class="form-check-label"
+                     for="tag-{{ tag.name | replace(':','_') | replace(' ','_') }}">
+                {{ tag.name }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="text-muted small" id="holistic-match-count"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Exercise list -->
+  <div class="col-lg-9 col-md-8">
+    <div id="holistic-exercise-list">
+      {% if exercises %}
+        {% for ex in exercises %}
+          {% if ex.is_major %}
+            {% set tonality_val = 'major' %}
+          {% else %}
+            {% set tonality_val = 'minor' %}
+          {% endif %}
+          <div class="card shadow-sm mb-3 holistic-exercise-card"
+               data-time-sig="{{ ex.time_signature }}"
+               data-is-major="{{ 'major' if ex.is_major else 'minor' }}"
+               data-difficulty="{{ ex.difficulty }}"
+               data-tags="{{ ex.tags | map(attribute='name') | join(',') }}">
+            <div class="card-body">
+              <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+                <div>
+                  <h5 class="fw-bold mb-1">{{ ex.name }}</h5>
+                  {% if ex.description %}
+                    <p class="text-muted small mb-1">{{ ex.description }}</p>
+                  {% endif %}
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge bg-secondary">{{ ex.key_signature }}
+                      {{ 'major' if ex.is_major else 'minor' }}
+                    </span>
+                    <span class="badge bg-light text-dark border">{{ ex.time_signature }}</span>
+                    <span class="badge bg-warning text-dark">
+                      {{ '★' * ex.difficulty }}{{ '☆' * (5 - ex.difficulty) }}
+                    </span>
+                    {% for tag in ex.tags %}
+                      <span class="badge bg-info text-dark">{{ tag.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+                <a href="{{ url_for('holistic_exercise', exercise_id=ex.id) }}"
+                   class="btn btn-info btn-sm px-3 align-self-center"
+                   style="color:#000;">
+                  <i class="bi bi-play-fill me-1"></i>Start
+                </a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="alert alert-info">
+          No holistic exercises found. Run <code>python3 generate_holistic_exercises.py</code> to seed the database.
+        </div>
+      {% endif %}
+      <div id="holistic-no-match" class="alert alert-warning d-none">
+        No exercises match your filters.
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Client-side filtering
+const exerciseCards = document.querySelectorAll('.holistic-exercise-card');
+
+function getChecked(name) {
+  return [...document.querySelectorAll(`.holistic-filter[name="${name}"]:checked`)]
+    .map(el => el.value);
+}
+
+function updateHolisticFilters() {
+  const selTimeSigs   = getChecked('time_sig');
+  const selTonalities = getChecked('tonality');
+  const selDiffs      = getChecked('difficulty');
+  const selTags       = getChecked('tag');
+
+  let visible = 0;
+  exerciseCards.forEach(card => {
+    const ts    = card.dataset.timeSig;
+    const ton   = card.dataset.isMajor;
+    const diff  = card.dataset.difficulty;
+    const tags  = card.dataset.tags ? card.dataset.tags.split(',') : [];
+
+    let show = true;
+    if (selTimeSigs.length   && !selTimeSigs.includes(ts))              show = false;
+    if (selTonalities.length && !selTonalities.includes(ton))           show = false;
+    if (selDiffs.length      && !selDiffs.includes(diff))               show = false;
+    if (selTags.length       && !selTags.some(t => tags.includes(t)))   show = false;
+
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  const noMatch = document.getElementById('holistic-no-match');
+  if (noMatch) noMatch.classList.toggle('d-none', visible > 0);
+
+  const countEl = document.getElementById('holistic-match-count');
+  if (countEl) {
+    const total = exerciseCards.length;
+    if (selTimeSigs.length || selTonalities.length || selDiffs.length || selTags.length) {
+      countEl.textContent = visible + ' of ' + total + ' shown';
+      countEl.className   = visible > 0 ? 'text-success small' : 'text-danger small fw-semibold';
+    } else {
+      countEl.textContent = total + ' exercise' + (total !== 1 ? 's' : '') + ' available';
+      countEl.className   = 'text-muted small';
+    }
+  }
+}
+
+document.querySelectorAll('.holistic-filter').forEach(cb => {
+  cb.addEventListener('change', updateHolisticFilters);
+});
+updateHolisticFilters();
+</script>
+{% endblock %}
