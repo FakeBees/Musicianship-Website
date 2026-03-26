@@ -9,13 +9,9 @@ from chord_utils import grade_harmonic_attempt, format_chord_name
 app = Flask(__name__)
 
 # ── Database ─────────────────────────────────────────────────────────────────
-# Render (and most PaaS providers) supply a DATABASE_URL env var pointing to
-# their managed Postgres instance.  SQLAlchemy requires the scheme to be
-# "postgresql://" rather than the legacy "postgres://" that some providers emit.
-_db_url = os.environ.get('DATABASE_URL', 'sqlite:///musicianship.db')
-if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
-app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+# The exercise database is bundled directly in the repository (instance/musicianship.db).
+# No external database service is needed.
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///musicianship.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # ── Secret key ───────────────────────────────────────────────────────────────
