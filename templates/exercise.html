@@ -43,6 +43,16 @@
     <div class="ms-1 text-muted small">
       Listen as many times as you need before submitting.
     </div>
+    <div class="d-flex flex-wrap gap-3 align-items-center ms-1 mt-2">
+      <div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="cb-beat-ref" checked>
+        <label class="form-check-label small" for="cb-beat-ref">Beat Reference</label>
+      </div>
+      <div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="cb-scale-ref">
+        <label class="form-check-label small" for="cb-scale-ref">Scale Reference</label>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -125,6 +135,7 @@
   const BEATS_TOTAL     = NUM_MEASURES * TIME_SIG_TOP * (4 / TIME_SIG_BOTTOM);
   const KEY_SIGNATURE   = "{{ melody.key_signature }}";
   const CLEF            = "{{ melody.clef }}";
+  const MELODY_TEMPO    = {{ melody.tempo }};
 </script>
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 <script src="{{ url_for('static', filename='js/notation.js') }}"></script>
@@ -157,26 +168,60 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    // ── Key Reference (standalone button, unchanged) ─────────────────────────
     const btnKeyRef = document.getElementById('btn-key-ref');
-    if (!btnKeyRef) return;
-
-    btnKeyRef.addEventListener('click', async () => {
-      const scale = KEY_SCALES[KEY_SIGNATURE] || KEY_SCALES['C'];
-
-      // Scale ascending (quarter notes) + brief pause (rest) + tonic triad arpeggio
-      const scaleNotes = scale.map(k => ({ key: k, duration: 'q' }));
-      // Tonic triad: root, 3rd, 5th, octave (indices 0, 2, 4, 7)
-      const triadNotes = [0, 2, 4, 7].map(i => ({ key: scale[i], duration: 'q' }));
-      const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
-
-      btnKeyRef.disabled = true;
-      btnKeyRef.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
-
-      await window.playNoteArray(refNotes, 144, () => {
-        btnKeyRef.disabled = false;
-        btnKeyRef.innerHTML = '<i class="bi bi-music-note-list me-1"></i>Key Reference';
+    if (btnKeyRef) {
+      btnKeyRef.addEventListener('click', async () => {
+        const scale = KEY_SCALES[KEY_SIGNATURE] || KEY_SCALES['C'];
+        const scaleNotes = scale.map(k => ({ key: k, duration: 'q' }));
+        const triadNotes = [0, 2, 4, 7].map(i => ({ key: scale[i], duration: 'q' }));
+        const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
+        btnKeyRef.disabled = true;
+        btnKeyRef.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
+        await window.playNoteArray(refNotes, 144, () => {
+          btnKeyRef.disabled = false;
+          btnKeyRef.innerHTML = '<i class="bi bi-music-note-list me-1"></i>Key Reference';
+        });
       });
-    });
+    }
+
+    // ── Play button — chains optional references then plays the MIDI ──────────
+    const btnPlay = document.getElementById('btn-play');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', async () => {
+        const beatChecked  = document.getElementById('cb-beat-ref')?.checked;
+        const scaleChecked = document.getElementById('cb-scale-ref')?.checked;
+
+        // Build a sequential chain: [beat] → [scale] → MIDI
+        const steps = [];
+        if (beatChecked)  steps.push('beat');
+        if (scaleChecked) steps.push('scale');
+        steps.push('midi');
+
+        // Disable play button for duration of chain
+        btnPlay.disabled = true;
+
+        let i = 0;
+        function runNext() {
+          if (i >= steps.length) { btnPlay.disabled = false; return; }
+          const step = steps[i++];
+          if (step === 'beat') {
+            window.playCountIn(MELODY_TEMPO || 100, TIME_SIG_TOP, TIME_SIG_BOTTOM, runNext);
+          } else if (step === 'scale') {
+            const scale = KEY_SCALES[KEY_SIGNATURE] || KEY_SCALES['C'];
+            const scaleNotes = scale.map(k => ({ key: k, duration: 'q' }));
+            const triadNotes = [0, 2, 4, 7].map(i => ({ key: scale[i], duration: 'q' }));
+            const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
+            window.playNoteArray(refNotes, 144, runNext);
+          } else {
+            // Re-enable before handing off so player.js UI logic works correctly
+            btnPlay.disabled = false;
+            window.playMidi();
+          }
+        }
+        runNext();
+      });
+    }
   });
 </script>
 {% endblock %}

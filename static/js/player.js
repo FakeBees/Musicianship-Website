@@ -101,7 +101,9 @@
     if (btnStop) btnStop.disabled = true;
   }
 
-  if (btnPlay) btnPlay.addEventListener('click', play);
+  // Expose play() publicly so exercise templates can chain it after references.
+  // Templates are responsible for attaching their own btn-play listener.
+  window.playMidi = play;
   if (btnStop) btnStop.addEventListener('click', stop);
 
   // -------------------------------------------------------------------------
@@ -194,15 +196,29 @@
     const secPerBeat = 60 / (bpm || 100);
     let t = Tone.Transport.seconds;
 
-    notes.forEach((n) => {
+    notes.forEach((n, idx) => {
       const baseBeats = DUR_BEATS[n.duration] || 1;
-      const beats  = n.dotted ? baseBeats * 1.5 : baseBeats;
-      const isRest = n.duration.endsWith('r');
+      const beats     = n.dotted ? baseBeats * 1.5 : baseBeats;
+      const isRest    = n.duration.endsWith('r');
+
+      // tieEnd: sound already covered by the tieStart note — advance clock silently.
+      if (n.tieEnd) {
+        t += beats * secPerBeat;
+        return;
+      }
+
       if (!isRest) {
+        // For a tieStart, extend sound to cover the tied continuation.
+        let soundBeats = beats;
+        if (n.tieStart && idx + 1 < notes.length && notes[idx + 1].tieEnd) {
+          const nxt = notes[idx + 1];
+          const nb  = DUR_BEATS[nxt.duration] || 1;
+          soundBeats += nxt.dotted ? nb * 1.5 : nb;
+        }
         const pitch = vexKeyToTonePitch(n.key);
         if (pitch) {
           Tone.Transport.schedule((time) => {
-            s.triggerAttackRelease(pitch, beats * secPerBeat * 0.9, time);
+            s.triggerAttackRelease(pitch, soundBeats * secPerBeat * 0.9, time);
           }, t);
         }
       }
@@ -211,6 +227,45 @@
 
     if (onDone) {
       Tone.Transport.schedule(() => { onDone(); }, t + 0.3);
+    }
+    Tone.Transport.start();
+  };
+
+  /**
+   * Play a metronome count-in: one measure of sine-click ticks.
+   * Compound meters (6/8, 9/8, 12/8): beat = dotted quarter.
+   * Simple meters: beat = quarter note.
+   * @param {number}        bpm      tempo in BPM
+   * @param {number}        top      time signature numerator
+   * @param {number}        bot      time signature denominator
+   * @param {function|null} onDone   callback when finished
+   */
+  window.playCountIn = async function (bpm, top, bot, onDone) {
+    if (typeof Tone === 'undefined') return;
+    await Tone.start();
+
+    const synth = new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.02 },
+    }).toDestination();
+
+    const secPerBeat  = 60 / (bpm || 100);
+    const isCompound  = (bot === 8);
+    const numBeats    = isCompound ? top / 3 : top;
+    const beatSec     = isCompound ? secPerBeat * 1.5 : secPerBeat;
+
+    Tone.Transport.cancel();
+    let t = Tone.Transport.seconds;
+
+    for (let i = 0; i < numBeats; i++) {
+      const beatTime = t + i * beatSec;
+      Tone.Transport.schedule(time => {
+        synth.triggerAttackRelease('A5', '32n', time);
+      }, beatTime);
+    }
+
+    if (onDone) {
+      Tone.Transport.schedule(() => { onDone(); }, t + numBeats * beatSec + 0.1);
     }
     Tone.Transport.start();
   };

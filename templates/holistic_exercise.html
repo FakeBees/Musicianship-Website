@@ -51,6 +51,20 @@
       <i class="bi bi-music-note-list me-1"></i>Key Reference
     </button>
     <div class="ms-1 text-muted small">Listen as many times as needed before submitting.</div>
+    <div class="d-flex flex-wrap gap-3 align-items-center ms-1 mt-2">
+      <div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="cb-scale-ref">
+        <label class="form-check-label small" for="cb-scale-ref">Scale Reference</label>
+      </div>
+      <div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="cb-harmony-ref">
+        <label class="form-check-label small" for="cb-harmony-ref">Harmony Reference</label>
+      </div>
+      <div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="cb-beat-ref" checked>
+        <label class="form-check-label small" for="cb-beat-ref">Beat Reference</label>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -226,6 +240,29 @@
   const UNLOCK_SEVENTH    = {{ unlock_seventh | tojson }};
   const UNLOCK_EXTENSIONS = {{ unlock_extensions | tojson }};
   const UNLOCK_SUS        = {{ unlock_sus | tojson }};
+  const EXERCISE_TEMPO    = {{ exercise.tempo }};
+  const HOLISTIC_KEY_SCALES = {
+    'C':  ['c/4','d/4','e/4','f/4','g/4','a/4','b/4','c/5'],
+    'G':  ['g/4','a/4','b/4','c/5','d/5','e/5','f#/5','g/5'],
+    'D':  ['d/4','e/4','f#/4','g/4','a/4','b/4','c#/5','d/5'],
+    'A':  ['a/3','b/3','c#/4','d/4','e/4','f#/4','g#/4','a/4'],
+    'E':  ['e/4','f#/4','g#/4','a/4','b/4','c#/5','d#/5','e/5'],
+    'B':  ['b/3','c#/4','d#/4','e/4','f#/4','g#/4','a#/4','b/4'],
+    'F#': ['f#/4','g#/4','a#/4','b/4','c#/5','d#/5','f/5','f#/5'],
+    'F':  ['f/4','g/4','a/4','bb/4','c/5','d/5','e/5','f/5'],
+    'Bb': ['bb/3','c/4','d/4','eb/4','f/4','g/4','a/4','bb/4'],
+    'Eb': ['eb/4','f/4','g/4','ab/4','bb/4','c/5','d/5','eb/5'],
+    'Ab': ['ab/3','bb/3','c/4','db/4','eb/4','f/4','g/4','ab/4'],
+    'Db': ['db/4','eb/4','f/4','gb/4','ab/4','bb/4','c/5','db/5'],
+    'Gb': ['gb/3','ab/3','bb/3','cb/4','db/4','eb/4','f/4','gb/4'],
+    'Am': ['a/4','b/4','c/5','d/5','e/5','f/5','g/5','a/5'],
+    'Em': ['e/4','f#/4','g/4','a/4','b/4','c/5','d/5','e/5'],
+    'Bm': ['b/3','c#/4','d/4','e/4','f#/4','g/4','a/4','b/4'],
+    'Dm': ['d/4','e/4','f/4','g/4','a/4','bb/4','c/5','d/5'],
+    'Gm': ['g/4','a/4','bb/4','c/5','d/5','eb/5','f/5','g/5'],
+    'Cm': ['c/4','d/4','eb/4','f/4','g/4','ab/4','bb/4','c/5'],
+    'Fm': ['f/4','g/4','ab/4','bb/4','c/5','db/5','eb/5','f/5'],
+  };
 </script>
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 <script src="{{ url_for('static', filename='js/chord_block_utils.js') }}"></script>
