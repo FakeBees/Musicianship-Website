@@ -190,14 +190,16 @@
 
     function voiceFirst(chord) {
       const tones = getChordTonePcs(chord);
-      // Bass in octave 3 (48-59)
-      let bass = 48 + chord.bass_pc;
-      while (bass % 12 !== chord.bass_pc) bass++;
-      // Three upper voices around octave 4 (60-72)
+      // Bass in octave 3 (MIDI 36–59), pitch-class preserved
+      let bass = 36 + chord.bass_pc;
+      while (bass % 12 !== chord.bass_pc % 12) bass++;
+      while (bass > 59) bass -= 12;
+      while (bass < 36) bass += 12;
+      // Three upper voices near octave 4–5 (MIDI 52–84)
       const upper = [0, 1, 2].map(v => {
         let midi = tones[v % tones.length] + 60;
-        while (midi < 60) midi += 12;
-        while (midi > 72) midi -= 12;
+        while (midi < 52) midi += 12;
+        while (midi > 84) midi -= 12;
         return midi;
       });
       upper.sort((a, b) => a - b);
@@ -211,7 +213,13 @@
     for (let i = 1; i < chords.length; i++) {
       const chord = chords[i];
       const tones = getChordTonePcs(chord);
-      const bass = Math.max(36, Math.min(59, nearestMidiForPc(prev[0], chord.bass_pc)));
+
+      // Bass: find nearest in-range MIDI note with the correct pitch class
+      let bass = nearestMidiForPc(prev[0], chord.bass_pc);
+      while (bass > 59) bass -= 12;
+      while (bass < 36) bass += 12;
+
+      // Upper voices: parsimonious voice leading, pitch-class-safe range restriction
       const upper = prev.slice(1).map(prevMidi => {
         let best = null, bestDist = Infinity;
         tones.forEach(pc => {
@@ -219,8 +227,11 @@
           const d = Math.abs(cand - prevMidi);
           if (d < bestDist) { bestDist = d; best = cand; }
         });
-        return Math.max(52, Math.min(84, best));
+        while (best > 84) best -= 12;
+        while (best < 52) best += 12;
+        return best;
       });
+
       const voicing = [bass, ...upper];
       result.push(voicing.map(midiToToneName));
       prev = voicing;

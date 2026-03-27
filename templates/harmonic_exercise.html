@@ -42,6 +42,10 @@
     <button id="btn-stop" class="btn btn-outline-danger btn-lg px-3" disabled>
       <i class="bi bi-stop-fill"></i> Stop
     </button>
+    <div class="form-check form-check-inline mb-0">
+      <input class="form-check-input" type="checkbox" id="cb-key-ref">
+      <label class="form-check-label small" for="cb-key-ref">Key Reference</label>
+    </div>
     <button id="btn-key-ref" class="btn btn-outline-info btn-lg px-3"
             title="Play I–IV–V–I cadence in this key">
       <i class="bi bi-music-note-list me-1"></i>Key Reference
@@ -125,6 +129,29 @@
   const NUM_CHORDS        = {{ num_chords }};
 </script>
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnPlay = document.getElementById('btn-play');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', async () => {
+        const keyRefChecked = document.getElementById('cb-key-ref')?.checked;
+        if (keyRefChecked) {
+          btnPlay.disabled = true;
+          const chords = window.ChordBlockUtils.HARM_KEY_REFERENCE[KEY_SIGNATURE]
+            || (KEY_SIGNATURE.endsWith('m')
+                ? window.ChordBlockUtils.HARM_KEY_REFERENCE['Am']
+                : window.ChordBlockUtils.HARM_KEY_REFERENCE['C']);
+          await window.playChordArray(chords, 72, () => {
+            btnPlay.disabled = false;
+            window.playMidi();
+          });
+        } else {
+          window.playMidi();
+        }
+      });
+    }
+  });
+</script>
 <script src="{{ url_for('static', filename='js/chord_block_utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/harmonic.js') }}"></script>
 {% endblock %}

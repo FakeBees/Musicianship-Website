@@ -569,7 +569,7 @@
    * @param {number}        bpm     tempo in BPM
    * @param {function|null} onDone  callback when finished
    */
-  window.playRhythmArray = async function (notes, bpm, onDone) {
+  window.playRhythmArray = async function (notes, bpm, onDone, options) {
     if (typeof Tone === 'undefined') return;
     await Tone.start();
     const piano      = getPianoSampler();
@@ -582,17 +582,19 @@
     // --- Count-in: one measure of straight beats ---
     // Compound meters (6/8, 9/8, 12/8): beat = dotted quarter (1.5 q-units)
     // Simple meters: beat = quarter note
-    const top = (typeof TIME_SIG_TOP    !== 'undefined') ? TIME_SIG_TOP    : 4;
-    const bot = (typeof TIME_SIG_BOTTOM !== 'undefined') ? TIME_SIG_BOTTOM : 4;
-    const isCompound    = (bot === 8);
-    const countBeats    = isCompound ? top / 3 : top;
-    const countBeatSec  = isCompound ? secPerBeat * 1.5 : secPerBeat;
+    if (!options || !options.skipCountIn) {
+      const top = (typeof TIME_SIG_TOP    !== 'undefined') ? TIME_SIG_TOP    : 4;
+      const bot = (typeof TIME_SIG_BOTTOM !== 'undefined') ? TIME_SIG_BOTTOM : 4;
+      const isCompound    = (bot === 8);
+      const countBeats    = isCompound ? top / 3 : top;
+      const countBeatSec  = isCompound ? secPerBeat * 1.5 : secPerBeat;
 
-    for (let i = 0; i < countBeats; i++) {
-      Tone.Transport.schedule(time => {
-        countSynth.triggerAttackRelease('A5', '32n', time);
-      }, t);
-      t += countBeatSec;
+      for (let i = 0; i < countBeats; i++) {
+        Tone.Transport.schedule(time => {
+          countSynth.triggerAttackRelease('A5', '32n', time);
+        }, t);
+        t += countBeatSec;
+      }
     }
 
     // --- Rhythm playback ---

@@ -63,19 +63,66 @@ function initWavPlayback() {
   });
 
   if (btnPlay) {
-    btnPlay.addEventListener('click', () => {
-      audio.currentTime = 0;
-      audio.play().then(() => {
-        wavPlayCount++;
-        if (counter) counter.textContent = 'Plays: ' + wavPlayCount;
-        if (btnPlay) btnPlay.disabled = true;
-        if (btnStop) btnStop.disabled = false;
-      }).catch(() => {
-        if (btnPlay) {
-          btnPlay.disabled = true;
-          btnPlay.textContent = 'Audio not available';
+    btnPlay.addEventListener('click', async () => {
+      const scaleChecked   = document.getElementById('cb-scale-ref')?.checked;
+      const harmonyChecked = document.getElementById('cb-harmony-ref')?.checked;
+      const beatChecked    = document.getElementById('cb-beat-ref')?.checked;
+
+      // Build a sequential chain of reference steps before the WAV plays
+      const steps = [];
+      if (scaleChecked)   steps.push('scale');
+      if (harmonyChecked) steps.push('harmony');
+      if (beatChecked)    steps.push('beat');
+      steps.push('wav');
+
+      btnPlay.disabled = true;
+      btnPlay.innerHTML = '<i class="bi bi-volume-up me-1"></i>Playing…';
+
+      let stepIdx = 0;
+      function runNext() {
+        if (stepIdx >= steps.length) return;
+        const step = steps[stepIdx++];
+
+        if (step === 'scale') {
+          const scaleData  = (typeof HOLISTIC_KEY_SCALES !== 'undefined' ? HOLISTIC_KEY_SCALES : {})[KEY_SIGNATURE]
+                          || ['c/4','d/4','e/4','f/4','g/4','a/4','b/4','c/5'];
+          const scaleNotes = scaleData.map(k => ({ key: k, duration: 'q' }));
+          const triadNotes = [0, 2, 4, 7].map(j => ({ key: scaleData[j], duration: 'q' }));
+          const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
+          window.playNoteArray(refNotes, 144, runNext);
+
+        } else if (step === 'harmony') {
+          const chords = HARM_KEY_REFERENCE[KEY_SIGNATURE]
+            || (KEY_SIGNATURE.endsWith('m')
+                ? HARM_KEY_REFERENCE['Am']
+                : HARM_KEY_REFERENCE['C']);
+          window.playChordArray(chords, 72, runNext);
+
+        } else if (step === 'beat') {
+          const tempo  = (typeof EXERCISE_TEMPO !== 'undefined') ? EXERCISE_TEMPO : 100;
+          const sigTop = (typeof TIME_SIG_TOP    !== 'undefined') ? TIME_SIG_TOP    : 4;
+          const sigBot = (typeof TIME_SIG_BOTTOM !== 'undefined') ? TIME_SIG_BOTTOM : 4;
+          window.playCountIn(tempo, sigTop, sigBot, runNext);
+
+        } else if (step === 'wav') {
+          // Restore button state, then play the WAV recording
+          btnPlay.disabled = false;
+          btnPlay.innerHTML = '<i class="bi bi-play-fill"></i> Play Recording';
+          audio.currentTime = 0;
+          audio.play().then(() => {
+            wavPlayCount++;
+            if (counter) counter.textContent = 'Plays: ' + wavPlayCount;
+            if (btnPlay) btnPlay.disabled = true;
+            if (btnStop) btnStop.disabled = false;
+          }).catch(() => {
+            if (btnPlay) {
+              btnPlay.disabled = true;
+              btnPlay.textContent = 'Audio not available';
+            }
+          });
         }
-      });
+      }
+      runNext();
     });
   }
 

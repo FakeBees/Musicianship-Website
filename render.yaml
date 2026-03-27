@@ -1,20 +1,10 @@
-databases:
-  - name: musicianship-db
-    plan: free          # Render free-tier Postgres (expires after 90 days; upgrade to keep it)
-    databaseName: musicianship
-    user: musicianship
-
 services:
   - type: web
     name: musicianship-trainer
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python migrate.py && python generate_midi.py && python generate_rhythms.py && gunicorn app:app
+    startCommand: gunicorn app:app
     envVars:
       - key: SECRET_KEY
-        generateValue: true       # Render generates a cryptographically random value automatically
-      - key: DATABASE_URL
-        fromDatabase:
-          name: musicianship-db
-          property: connectionString
+        generateValue: true
