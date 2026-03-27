@@ -185,41 +185,34 @@
       });
     }
 
-    // ── Play button — chains optional references then plays the MIDI ──────────
+    // ── Play button: scale ref first (if checked), then beat+MIDI together ──────
+    // Beat reference is always last, coupled to MIDI on the same Transport session
+    // (same approach as rhythm exercises) so the melody starts exactly on the beat.
     const btnPlay = document.getElementById('btn-play');
     if (btnPlay) {
       btnPlay.addEventListener('click', async () => {
         const beatChecked  = document.getElementById('cb-beat-ref')?.checked;
         const scaleChecked = document.getElementById('cb-scale-ref')?.checked;
 
-        // Build a sequential chain: [beat] → [scale] → MIDI
-        const steps = [];
-        if (beatChecked)  steps.push('beat');
-        if (scaleChecked) steps.push('scale');
-        steps.push('midi');
-
-        // Disable play button for duration of chain
         btnPlay.disabled = true;
 
-        let i = 0;
-        function runNext() {
-          if (i >= steps.length) { btnPlay.disabled = false; return; }
-          const step = steps[i++];
-          if (step === 'beat') {
-            window.playCountIn(MELODY_TEMPO || 100, TIME_SIG_TOP, TIME_SIG_BOTTOM, runNext);
-          } else if (step === 'scale') {
-            const scale = KEY_SCALES[KEY_SIGNATURE] || KEY_SCALES['C'];
-            const scaleNotes = scale.map(k => ({ key: k, duration: 'q' }));
-            const triadNotes = [0, 2, 4, 7].map(i => ({ key: scale[i], duration: 'q' }));
-            const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
-            window.playNoteArray(refNotes, 144, runNext);
-          } else {
-            // Re-enable before handing off so player.js UI logic works correctly
-            btnPlay.disabled = false;
-            window.playMidi();
-          }
+        // 1. Scale reference plays first and is fully awaited before anything else
+        if (scaleChecked) {
+          const scale      = KEY_SCALES[KEY_SIGNATURE] || KEY_SCALES['C'];
+          const scaleNotes = scale.map(k => ({ key: k, duration: 'q' }));
+          const triadNotes = [0, 2, 4, 7].map(i => ({ key: scale[i], duration: 'q' }));
+          const refNotes   = [...scaleNotes, { key: 'b/4', duration: 'qr' }, ...triadNotes];
+          await new Promise(resolve => { window.playNoteArray(refNotes, 144, resolve); });
         }
-        runNext();
+
+        // 2. Beat reference is last — count-in and MIDI share one Transport session
+        //    so the melody starts exactly on the downbeat (no gap, no cancel/restart).
+        if (beatChecked) {
+          window.playMidiWithCountIn(MELODY_TEMPO || 100, TIME_SIG_TOP, TIME_SIG_BOTTOM);
+        } else {
+          btnPlay.disabled = false; // let player.js manage button state
+          window.playMidi();
+        }
       });
     }
   });

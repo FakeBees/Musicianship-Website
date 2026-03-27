@@ -265,8 +265,81 @@
     }
 
     if (onDone) {
-      Tone.Transport.schedule(() => { onDone(); }, t + numBeats * beatSec + 0.1);
+      // Fire onDone exactly on the next beat — no buffer so WAV/next step starts in time
+      Tone.Transport.schedule(() => { onDone(); }, t + numBeats * beatSec);
     }
     Tone.Transport.start();
+  };
+
+  /**
+   * Play a count-in measure then the MIDI file in one seamless Transport session.
+   * Count-in ticks and MIDI notes are scheduled together (same approach as
+   * playRhythmArray) so the MIDI starts on the exact beat with no gap.
+   * @param {number} bpm   tempo in BPM
+   * @param {number} top   time signature numerator
+   * @param {number} bot   time signature denominator
+   */
+  window.playMidiWithCountIn = async function (bpm, top, bot) {
+    if (isPlaying) return;
+
+    await Tone.start();
+    getSampler();
+    await Tone.loaded();
+    const s = getSampler();
+
+    try {
+      // Load MIDI file (browser-cached after first play, so effectively instant)
+      const midi = await Midi.fromUrl(MIDI_URL);
+
+      const synth = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope:   { attack: 0.001, decay: 0.04, sustain: 0, release: 0.02 },
+      }).toDestination();
+
+      const secPerBeat = 60 / (bpm || 100);
+      const isCompound = (bot === 8);
+      const numBeats   = isCompound ? top / 3 : top;
+      const beatSec    = isCompound ? secPerBeat * 1.5 : secPerBeat;
+
+      // Single Transport session — position advances through count-in then MIDI
+      Tone.Transport.cancel();
+      scheduledEvents = [];
+      let t = 0; // schedule from the start of the Transport
+
+      // Count-in clicks
+      for (let i = 0; i < numBeats; i++) {
+        Tone.Transport.schedule(time => {
+          synth.triggerAttackRelease('A5', '32n', time);
+        }, t + i * beatSec);
+      }
+      t += numBeats * beatSec; // t now points to the first beat of the exercise
+
+      // MIDI notes — seamlessly following the count-in
+      midi.tracks.forEach(track => {
+        track.notes.forEach(note => {
+          const id = Tone.Transport.schedule(time => {
+            s.triggerAttackRelease(note.name, note.duration, time, note.velocity);
+          }, t + note.time);
+          scheduledEvents.push(id);
+        });
+      });
+
+      // UI reset when MIDI finishes
+      const totalDuration = midi.duration || 8;
+      const endId = Tone.Transport.schedule(() => { resetUI(); }, t + totalDuration + 0.5);
+      scheduledEvents.push(endId);
+
+      // Start Transport from the beginning
+      Tone.Transport.stop();
+      Tone.Transport.start();
+      isPlaying = true;
+      playCount++;
+      if (counter) counter.textContent = `Plays: ${playCount}`;
+      if (btnPlay) btnPlay.disabled = true;
+      if (btnStop) btnStop.disabled = false;
+    } catch (err) {
+      console.error('Playback error:', err);
+      alert('Could not load or play the MIDI file. See console for details.');
+    }
   };
 })();
