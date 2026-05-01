@@ -260,3 +260,12 @@ main {
 .note-pitch-wrong    { fill: #dc3545 !important; }
 .note-duration-wrong { fill: #ffc107 !important; }
 .note-both-wrong     { fill: #dc3545 !important; }
+
+/* ── MIDI status indicator ── */
+#midi-status { font-size: 0.85rem; padding: 2px 8px; border-radius: 999px; }
+#midi-status.midi-connected    { background: #d4edda; color: #155724; }
+#midi-status.midi-disconnected { background: #e2e3e5; color: #6c757d; }
+
+/* ── Absolute pitch settings panel ── */
+.ap-settings { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center; margin: 0 0 1rem 0; }
+.ap-setting  { display: flex; gap: 0.5rem; align-items: center; }

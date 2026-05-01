@@ -225,11 +225,31 @@
   </div>
 
   <h1 class="pitch-heading">Absolute Pitch Training</h1>
-  <p class="pitch-sub">2 Octaves &mdash; C4 to B5 &mdash; Identify the note by ear</p>
+  <p class="pitch-sub" id="pitch-sub"></p>
+
+  <div class="ap-settings">
+    <label class="ap-setting">
+      <span>Range:</span>
+      <input id="range-slider" type="range" min="0" max="6" step="1" value="0">
+      <span id="range-label"></span>
+    </label>
+    <label class="ap-setting">
+      <input id="grade-octave" type="checkbox" checked>
+      Grade exact octave
+    </label>
+    <label class="ap-setting">
+      <span>Sound:</span>
+      <select id="instrument-select"></select>
+    </label>
+    <label class="ap-setting">
+      <input id="auto-advance" type="checkbox">
+      Auto-advance (1 s)
+    </label>
+  </div>
 
   <button id="play-btn" disabled>Loading samples…</button>
 
-  <div id="status-display" style="color:#bbb;letter-spacing:0.15em;">Loading Salamander Grand Piano…</div>
+  <div id="status-display"></div>
 
   <div class="piano-area">
     <div class="piano-shell">
@@ -249,60 +269,171 @@
 
 {% block scripts %}
 <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+<script src="{{ url_for('static', filename='js/instruments.js') }}"></script>
 <script>
-  const WHITE_KEYS = [
-    {note:'C4',  label:'C4'}, {note:'D4',  label:'D4'}, {note:'E4',  label:'E4'},
-    {note:'F4',  label:'F4'}, {note:'G4',  label:'G4'}, {note:'A4',  label:'A4'},
-    {note:'B4',  label:'B4'}, {note:'C5',  label:'C5'}, {note:'D5',  label:'D5'},
-    {note:'E5',  label:'E5'}, {note:'F5',  label:'F5'}, {note:'G5',  label:'G5'},
-    {note:'A5',  label:'A5'}, {note:'B5',  label:'B5'},
+  // ── Settings ─────────────────────────────────────────────────────────────────
+  const OCTAVE_RANGES = [
+    { label: 'C4 – C5',        low: 'C4', high: 'C5' },
+    { label: 'C4 – C6',        low: 'C4', high: 'C6' },
+    { label: 'C3 – C6',        low: 'C3', high: 'C6' },
+    { label: 'C3 – C7',        low: 'C3', high: 'C7' },
+    { label: 'C2 – C7',        low: 'C2', high: 'C7' },
+    { label: 'C1 – C7',        low: 'C1', high: 'C7' },
+    { label: 'A0 – C8 (full)', low: 'A0', high: 'C8' },
   ];
 
-  const BLACK_KEYS = [
-    {note:'Cs4', label:'C#', whiteIndex: 0}, {note:'Ds4', label:'D#', whiteIndex: 1},
-    {note:'Fs4', label:'F#', whiteIndex: 3}, {note:'Gs4', label:'G#', whiteIndex: 4},
-    {note:'As4', label:'A#', whiteIndex: 5}, {note:'Cs5', label:'C#', whiteIndex: 7},
-    {note:'Ds5', label:'D#', whiteIndex: 8}, {note:'Fs5', label:'F#', whiteIndex:10},
-    {note:'Gs5', label:'G#', whiteIndex:11}, {note:'As5', label:'A#', whiteIndex:12},
-  ];
+  let currentRangeIdx = parseInt(localStorage.getItem('ap.range') || '0', 10);
+  let gradeOctave     = localStorage.getItem('ap.gradeOctave') !== 'false';
+  let currentInstrId  = localStorage.getItem('ap.instrument') || 'salamander';
+  let autoAdvance     = localStorage.getItem('ap.autoAdvance') === 'true';
 
-  const ALL_NOTES = [
-    ...WHITE_KEYS.map(k => k.note),
-    ...BLACK_KEYS.map(k => k.note),
-  ];
+  // ── Key builders ─────────────────────────────────────────────────────────────
+  const NOTE_ORDER = ['C','D','E','F','G','A','B'];
 
-  const WHITE_W = 52;
+  function parseNote(s) {
+    const m = s.match(/^([A-G])(\d+)$/);
+    return m ? { letter: m[1], octave: parseInt(m[2], 10) } : null;
+  }
 
-  function toTone(note) { return note.replace('s', '#'); }
+  function noteToMidi(s) {
+    const SEMIS = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+    const m = s.match(/^([A-G])(s?)(\d+)$/);
+    if (!m) return 0;
+    return (parseInt(m[3], 10) + 1) * 12 + SEMIS[m[1]] + (m[2] ? 1 : 0);
+  }
 
+  function buildWhiteKeys(low, high) {
+    const lo = parseNote(low), hi = parseNote(high);
+    const loIdx = lo.octave * 7 + NOTE_ORDER.indexOf(lo.letter);
+    const hiIdx = hi.octave * 7 + NOTE_ORDER.indexOf(hi.letter);
+    const keys = [];
+    for (let i = loIdx; i <= hiIdx; i++) {
+      const oct    = Math.floor(i / 7);
+      const letter = NOTE_ORDER[i % 7];
+      keys.push({ note: letter + oct, label: letter + oct });
+    }
+    return keys;
+  }
+
+  function buildBlackKeys(low, high) {
+    const wks    = buildWhiteKeys(low, high);
+    const hiMidi = noteToMidi(high);
+    const keys   = [];
+    wks.forEach((wk, wIdx) => {
+      const letter = wk.note[0];
+      if ('CDFGA'.includes(letter)) {
+        const oct   = parseInt(wk.note.slice(1), 10);
+        const bNote = letter + 's' + oct;
+        if (noteToMidi(bNote) <= hiMidi) {
+          keys.push({ note: bNote, label: letter + '#', whiteIndex: wIdx });
+        }
+      }
+    });
+    return keys;
+  }
+
+  // ── Derived arrays (rebuilt on range/gradeOctave change) ─────────────────────
+  let currentWhiteKeys = [];
+  let currentBlackKeys = [];
+  let allNotes         = [];
+
+  function rebuildArrays() {
+    const range = OCTAVE_RANGES[currentRangeIdx];
+    const wFull = buildWhiteKeys(range.low, range.high);
+    const bFull = buildBlackKeys(range.low, range.high);
+    allNotes = [...wFull.map(k => k.note), ...bFull.map(k => k.note)];
+    if (gradeOctave) {
+      currentWhiteKeys = wFull;
+      currentBlackKeys = bFull;
+    } else {
+      currentWhiteKeys = buildWhiteKeys('C4', 'B4');
+      currentBlackKeys = buildBlackKeys('C4', 'B4');
+    }
+  }
+
+  rebuildArrays();
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  // Scale white-key width so the full keyboard fits within the viewport.
+  function computeKeyWidth(numWhiteKeys) {
+    const available = Math.max(window.innerWidth - 140, 320);
+    return Math.max(18, Math.min(52, Math.floor(available / numWhiteKeys)));
+  }
+
+  function toTone(note)     { return note.replace('s', '#'); }
+  function pitchClass(note) { return note.replace(/\d+$/, ''); }
+
+  function midiToNoteName(midi) {
+    const N = ['C','Cs','D','Ds','E','F','Fs','G','Gs','A','As','B'];
+    return N[midi % 12] + (Math.floor(midi / 12) - 1);
+  }
+
+  function pitchClassEl(midi) {
+    const N = ['C','Cs','D','Ds','E','F','Fs','G','Gs','A','As','B'];
+    return N[midi % 12] + '4';
+  }
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────────
   const playBtn       = document.getElementById('play-btn');
   const freeplayBtn   = document.getElementById('freeplay-btn');
   const statusDisplay = document.getElementById('status-display');
   const statsFraction = document.getElementById('stats-fraction');
   const statsPct      = document.getElementById('stats-pct');
+  const pitchSubEl    = document.getElementById('pitch-sub');
+  const rangeSlider   = document.getElementById('range-slider');
+  const rangeLabelEl  = document.getElementById('range-label');
+  const gradeOctaveEl = document.getElementById('grade-octave');
+  const instrumentSel = document.getElementById('instrument-select');
+  const autoAdvanceEl = document.getElementById('auto-advance');
 
-  let samplesLoaded = false;
+  // ── Instrument selector ───────────────────────────────────────────────────────
+  Instruments.list.forEach(inst => {
+    const opt = document.createElement('option');
+    opt.value       = inst.id;
+    opt.textContent = inst.label;
+    if (inst.id === currentInstrId) opt.selected = true;
+    instrumentSel.appendChild(opt);
+  });
 
-  const sampler = new Tone.Sampler({
-    urls: {
-      A0:'A0.mp3',  C1:'C1.mp3',  'F#1':'Fs1.mp3', A1:'A1.mp3',
-      C2:'C2.mp3',  'F#2':'Fs2.mp3', A2:'A2.mp3',  C3:'C3.mp3',
-      'F#3':'Fs3.mp3', A3:'A3.mp3', C4:'C4.mp3',  'F#4':'Fs4.mp3',
-      A4:'A4.mp3',  C5:'C5.mp3',  'F#5':'Fs5.mp3', A5:'A5.mp3',
-      C6:'C6.mp3',  'F#6':'Fs6.mp3', A6:'A6.mp3',  C7:'C7.mp3',
-      'F#7':'Fs7.mp3', A7:'A7.mp3', C8:'C8.mp3',
-    },
-    release: 2,
-    baseUrl: 'https://tonejs.github.io/audio/salamander/',
-    onload: () => {
-      samplesLoaded           = true;
-      playBtn.disabled        = false;
-      playBtn.textContent     = 'Play Note';
-      statusDisplay.style     = '';
-      statusDisplay.textContent = 'Press "Play Note" to begin';
-    },
-  }).toDestination();
+  // ── Game state (declared before loadInstrument so .then() callback can read them)
+  let gameState       = 'IDLE';
+  let targetNote      = null;
+  let isFirstTry      = true;
+  let totalRounds     = 0;
+  let firstTryWins    = 0;
+  let freePlayMode    = false;
+  let samplesLoaded   = false;
+  let sampler;
+  let heldUserNote    = null;
+  let autoAdvanceTimer = null;
 
+  // ── Instrument loading ────────────────────────────────────────────────────────
+  function loadInstrument(id) {
+    if (sampler && sampler.dispose) sampler.dispose();
+    samplesLoaded    = false;
+    playBtn.disabled = true;
+    statusDisplay.className   = '';
+    statusDisplay.textContent = 'Loading…';
+    sampler = Instruments.create(id);
+    Tone.loaded().then(() => {
+      samplesLoaded = true;
+      if (!freePlayMode) {
+        playBtn.disabled = false;
+        playBtn.textContent = 'Play Note';
+        if (gameState === 'IDLE') {
+          statusDisplay.textContent = 'Press "Play Note" to begin';
+        }
+      }
+    });
+  }
+
+  instrumentSel.addEventListener('change', () => {
+    currentInstrId = instrumentSel.value;
+    localStorage.setItem('ap.instrument', currentInstrId);
+    loadInstrument(currentInstrId);
+  });
+
+  // ── Audio unlock ──────────────────────────────────────────────────────────────
   let audioUnlocked = false;
   async function unlockAudio() {
     if (!audioUnlocked) { await Tone.start(); audioUnlocked = true; }
@@ -313,15 +444,67 @@
     sampler.triggerAttackRelease(toTone(note), 2);
   }
 
-  // ── Free-play mode ───────────────────────────────────────────────────────────
-  let freePlayMode = false;
+  // User-initiated key press: sustain until released.
+  async function startUserNote(note) {
+    await unlockAudio();
+    if (heldUserNote) sampler.triggerRelease(toTone(heldUserNote));
+    heldUserNote = note;
+    sampler.triggerAttack(toTone(note));
+  }
 
+  function stopUserNote() {
+    if (heldUserNote) {
+      sampler.triggerRelease(toTone(heldUserNote));
+      heldUserNote = null;
+    }
+  }
+
+  document.addEventListener('mouseup', stopUserNote);
+
+  // ── Range slider ──────────────────────────────────────────────────────────────
+  function applyRange() {
+    const range = OCTAVE_RANGES[currentRangeIdx];
+    rangeSlider.value        = currentRangeIdx;
+    rangeLabelEl.textContent = range.label;
+    pitchSubEl.textContent   = range.label + ' — Identify the note by ear';
+  }
+
+  rangeSlider.addEventListener('input', () => {
+    currentRangeIdx = parseInt(rangeSlider.value, 10);
+    localStorage.setItem('ap.range', currentRangeIdx);
+    applyRange();
+    rebuildArrays();
+    clearColors();
+    if (gameState !== 'IDLE') { gameState = 'IDLE'; refreshUI(); }
+    buildKeyboard();
+  });
+
+  // ── Grade-octave checkbox ─────────────────────────────────────────────────────
+  gradeOctaveEl.checked   = gradeOctave;
+  autoAdvanceEl.checked   = autoAdvance;
+
+  autoAdvanceEl.addEventListener('change', () => {
+    autoAdvance = autoAdvanceEl.checked;
+    localStorage.setItem('ap.autoAdvance', autoAdvance);
+    if (!autoAdvance) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  });
+
+  gradeOctaveEl.addEventListener('change', () => {
+    gradeOctave = gradeOctaveEl.checked;
+    localStorage.setItem('ap.gradeOctave', gradeOctave);
+    rebuildArrays();
+    clearColors();
+    if (gameState !== 'IDLE') { gameState = 'IDLE'; refreshUI(); }
+    buildKeyboard();
+  });
+
+  // ── Free-play mode ────────────────────────────────────────────────────────────
   freeplayBtn.addEventListener('click', () => {
     freePlayMode = !freePlayMode;
     if (freePlayMode) {
       freeplayBtn.classList.add('active');
-      freeplayBtn.textContent = '✕ Exit Free Play';
-      playBtn.disabled = true;
+      freeplayBtn.textContent   = '✕ Exit Free Play';
+      playBtn.disabled          = true;
       clearColors();
       statusDisplay.className   = 'freeplay';
       statusDisplay.textContent = 'Free play — click any key';
@@ -333,13 +516,7 @@
     }
   });
 
-  // ── Game state ───────────────────────────────────────────────────────────────
-  let gameState    = 'IDLE';
-  let targetNote   = null;
-  let isFirstTry   = true;
-  let totalRounds  = 0;
-  let firstTryWins = 0;
-
+  // ── UI helpers ────────────────────────────────────────────────────────────────
   function clearColors() {
     document.querySelectorAll('.wk, .bk').forEach(el =>
       el.classList.remove('correct', 'wrong', 'pressed')
@@ -372,69 +549,113 @@
     statsPct.textContent      = `${pct}%`;
   }
 
+  // ── Next-note logic (shared by button and auto-advance) ──────────────────────
+  function startNextNote() {
+    clearTimeout(autoAdvanceTimer);
+    autoAdvanceTimer = null;
+    clearColors();
+    targetNote = allNotes[Math.floor(Math.random() * allNotes.length)];
+    isFirstTry = true;
+    playNote(targetNote);
+    gameState  = 'LISTENING';
+    refreshUI();
+  }
+
+  // ── Play button ───────────────────────────────────────────────────────────────
   playBtn.addEventListener('click', () => {
     if (gameState === 'IDLE' || gameState === 'SOLVED') {
-      clearColors();
-      targetNote = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];
-      isFirstTry = true;
-      playNote(targetNote);
-      gameState = 'LISTENING';
-      refreshUI();
+      startNextNote();
     } else if (gameState === 'LISTENING') {
       playNote(targetNote);
     }
   });
 
+  // ── Key click handler ─────────────────────────────────────────────────────────
   function onKeyClick(note, el) {
     if (freePlayMode || gameState === 'IDLE') {
-      playNote(note);
+      startUserNote(note);
       el.classList.add('pressed');
-      setTimeout(() => el.classList.remove('pressed'), 400);
       return;
     }
     if (gameState === 'SOLVED') {
-      playNote(note);
-      if (note !== targetNote) {
-        el.classList.add('pressed');
-        setTimeout(() => el.classList.remove('pressed'), 400);
-      }
+      startUserNote(note);
+      const isMatch = gradeOctave
+        ? note === targetNote
+        : pitchClass(note) === pitchClass(targetNote);
+      if (!isMatch) el.classList.add('pressed');
       return;
     }
-    playNote(note);
-    if (note === targetNote) {
+    startUserNote(note);
+    const isCorrect = gradeOctave
+      ? note === targetNote
+      : pitchClass(note) === pitchClass(targetNote);
+    if (isCorrect) {
       totalRounds++;
       if (isFirstTry) firstTryWins++;
       el.classList.add('correct');
       gameState = 'SOLVED';
       refreshUI();
       refreshStats();
+      if (autoAdvance) {
+        autoAdvanceTimer = setTimeout(startNextNote, 1000);
+      }
     } else {
       isFirstTry = false;
       el.classList.add('wrong');
     }
   }
 
+  // ── Keyboard builder ──────────────────────────────────────────────────────────
   function buildKeyboard() {
-    const kb = document.getElementById('keyboard');
-    WHITE_KEYS.forEach(k => {
+    const kb  = document.getElementById('keyboard');
+    kb.innerHTML = '';
+    const kw  = computeKeyWidth(currentWhiteKeys.length);
+    const kh  = Math.round(kw * 4.04);
+    const bkw = Math.round(kw * 0.65);
+    const bkh = Math.round(kh * 0.64);
+    const showLabel = kw >= 32;
+
+    currentWhiteKeys.forEach(k => {
       const el = document.createElement('div');
       el.className    = 'wk';
       el.dataset.note = k.note;
-      el.innerHTML    = `<span class="wk-label">${k.label}</span>`;
+      el.style.width  = kw + 'px';
+      el.style.height = kh + 'px';
+      el.innerHTML    = showLabel ? `<span class="wk-label">${k.label}</span>` : '';
       el.addEventListener('mousedown', () => onKeyClick(k.note, el));
       kb.appendChild(el);
     });
-    BLACK_KEYS.forEach(k => {
+    currentBlackKeys.forEach(k => {
       const el = document.createElement('div');
       el.className    = 'bk';
       el.dataset.note = k.note;
-      el.style.left   = `${(k.whiteIndex + 0.7) * WHITE_W}px`;
-      el.innerHTML    = `<span class="bk-label">${k.label}</span>`;
+      el.style.width  = bkw + 'px';
+      el.style.height = bkh + 'px';
+      el.style.left   = `${(k.whiteIndex + 0.7) * kw}px`;
+      el.innerHTML    = showLabel ? `<span class="bk-label">${k.label}</span>` : '';
       el.addEventListener('mousedown', e => { e.stopPropagation(); onKeyClick(k.note, el); });
       kb.appendChild(el);
     });
   }
 
+  // ── MIDI input ────────────────────────────────────────────────────────────────
+  MidiInput.onNoteOn(function ({ midi }) {
+    const noteName = midiToNoteName(midi);
+    const targetEl = document.querySelector(`[data-note="${noteName}"]`)
+                  || document.querySelector(`[data-note="${pitchClassEl(midi)}"]`);
+    onKeyClick(noteName, targetEl || document.createElement('div'));
+  });
+
+  MidiInput.onNoteOff(function ({ midi }) {
+    if (!sampler) return;
+    const noteName = midiToNoteName(midi);
+    sampler.triggerRelease(toTone(noteName));
+    if (heldUserNote === noteName) heldUserNote = null;
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  applyRange();
   buildKeyboard();
+  loadInstrument(currentInstrId);
 </script>
 {% endblock %}

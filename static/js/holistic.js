@@ -219,6 +219,9 @@ function getRestKey(clef) {
 
 const staveEditors = {};  // lineKey -> { notes, selectedDur, isDotted, measureInfo, ... }
 
+// Tracks which stave the mouse is currently over for MIDI routing.
+let hoveredMidiTarget = null;
+
 function getEditor(lineKey) {
   if (!staveEditors[lineKey]) {
     staveEditors[lineKey] = {
@@ -446,6 +449,7 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
   });
 
   s.addEventListener('mousemove', (e) => {
+    hoveredMidiTarget = { lineKey, clef, containerEl };
     const rect = s.getBoundingClientRect();
     const my = e.clientY - rect.top;
     const mx = e.clientX - rect.left;
@@ -481,6 +485,7 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
 
   s.addEventListener('mouseleave', () => {
     if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
+    if (hoveredMidiTarget && hoveredMidiTarget.lineKey === lineKey) hoveredMidiTarget = null;
   });
 
   s.addEventListener('mousedown', (e) => {
@@ -551,6 +556,27 @@ function flashStave(svg) {
 
 function refreshStave(lineKey, clef, containerEl) {
   renderStaveForLine(lineKey, clef, containerEl);
+}
+
+function placeMidiNoteOnStave(lineKey, clef, containerEl, midiNumber) {
+  const ed  = getEditor(lineKey);
+  const s   = containerEl.querySelector('svg');
+  const key = (typeof midiToVexKey === 'function')
+    ? midiToVexKey(midiNumber, KEY_SIGNATURE)
+    : null;
+  if (!key) return;
+
+  const beats = noteBeats({ duration: ed.selectedDur, dotted: ed.isDotted });
+  const bTotal = NUM_MEASURES * beatsPerMeasure();
+  if (ed.currentBeats + beats > bTotal + 0.001) { if (s) flashStave(s); return; }
+
+  const bpm = beatsPerMeasure();
+  const incomplete = ed.measureInfo.find(m => !m.isFull);
+  if (incomplete && beats > bpm - incomplete.usedBeats + 0.001) { if (s) flashStave(s); return; }
+
+  ed.notes.push({ key, duration: ed.selectedDur, dotted: ed.isDotted });
+  ed.currentBeats += beats;
+  refreshStave(lineKey, clef, containerEl);
 }
 
 // ---------------------------------------------------------------------------
@@ -1014,4 +1040,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-holistic-submit')?.addEventListener('click', submitHolisticAttempt);
+
+  if (window.MidiInput) {
+    MidiInput.onNoteOn(({ midi }) => {
+      if (!hoveredMidiTarget) return;
+      const { lineKey, clef, containerEl } = hoveredMidiTarget;
+      placeMidiNoteOnStave(lineKey, clef, containerEl, midi);
+    });
+  }
 });
