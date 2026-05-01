@@ -314,16 +314,17 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   ed.staveTopYs = [];
   ed.measureInfo = [];
 
-  const totalWidth = containerEl.clientWidth || 800;
+  const containerWidth = containerEl.clientWidth || 800;
   const numMeasures = NUM_MEASURES;
   const numRows  = Math.ceil(numMeasures / VF_MEASURES_PER_ROW);
   const colCount = Math.min(numMeasures, VF_MEASURES_PER_ROW);
-  const staveWidth = Math.max(120, Math.floor((totalWidth - VF_STAVE_X_PAD * 2) / colCount));
+  const staveWidth = Math.max(120, Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount));
+  const svgWidth   = Math.max(containerWidth, VF_STAVE_X_PAD * 2 + colCount * staveWidth);
   const svgHeight  = VF_ROW_OFFSET + numRows * VF_ROW_HEIGHT;
   const bpm = beatsPerMeasure();
 
   const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
-  renderer.resize(totalWidth, svgHeight);
+  renderer.resize(svgWidth, svgHeight);
   const ctx = renderer.getContext();
 
   const keySig = KEY_SIGNATURE;
@@ -451,7 +452,7 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
   const newSvg = svg.cloneNode(true);
   svg.parentNode.replaceChild(newSvg, svg);
   const s = newSvg;
-  s.style.touchAction = 'none';
+  s.style.touchAction = 'pan-x';
 
   // Ghost ellipse
   {
@@ -624,6 +625,8 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
 
     ed.notes.push({ key, duration: ed.selectedDur, dotted: ed.isDotted });
     ed.currentBeats += beats;
+    selectedNote = { lineKey: null, idx: null };
+    updateStaveSelectionToolbar(lineKey);
     refreshStave(lineKey, clef, containerEl);
   }
 
@@ -652,26 +655,40 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
   });
 
   // --- Touch events ---
+  let touchStartClient = null;
+
   s.addEventListener('touchstart', (e) => {
-    e.preventDefault();
     const t = e.touches[0];
+    touchStartClient = { x: t.clientX, y: t.clientY };
     const rect = s.getBoundingClientRect();
     onPointerStart(
       t.clientX - rect.left, t.clientY - rect.top,
       document.elementFromPoint(t.clientX, t.clientY)
     );
-  }, { passive: false });
+  }, { passive: true });
 
   s.addEventListener('touchmove', (e) => {
-    e.preventDefault();
     const t = e.touches[0];
+    if (touchStartClient) {
+      const dx = Math.abs(t.clientX - touchStartClient.x);
+      const dy = Math.abs(t.clientY - touchStartClient.y);
+      if (dx > dy && dx > 15) { hideGhostEl(); return; }
+    }
+    e.preventDefault();
     const rect = s.getBoundingClientRect();
     onPointerMove(t.clientX - rect.left, t.clientY - rect.top);
   }, { passive: false });
 
   s.addEventListener('touchend', (e) => {
     e.preventDefault();
-    const t = e.changedTouches[0];
+    const t  = e.changedTouches[0];
+    const sc = touchStartClient;
+    touchStartClient = null;
+    if (sc) {
+      const dx = Math.abs(t.clientX - sc.x);
+      const dy = Math.abs(t.clientY - sc.y);
+      if (dx > dy && dx > 15) return;
+    }
     const rect = s.getBoundingClientRect();
     onPointerEnd(t.clientX - rect.left, t.clientY - rect.top);
   }, { passive: false });

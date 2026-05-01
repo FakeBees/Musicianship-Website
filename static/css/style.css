@@ -91,7 +91,7 @@ main {
    Touch input
    =========================== */
 .notation-area svg {
-  touch-action: none;
+  touch-action: pan-x;
 }
 
 /* ===========================

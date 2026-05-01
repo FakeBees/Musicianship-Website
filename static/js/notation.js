@@ -446,15 +446,16 @@
     staveTopYs  = [];
     measureInfo = [];
 
-    const totalWidth = containerEl.clientWidth || 800;
+    const containerWidth = containerEl.clientWidth || 800;
     const numRows    = Math.ceil(numMeasures / MEASURES_PER_ROW);
     const colCount   = Math.min(numMeasures, MEASURES_PER_ROW);
-    const staveWidth = Math.max(120, Math.floor((totalWidth - STAVE_X_PAD * 2) / colCount));
+    const staveWidth = Math.max(120, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
+    const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
     const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
     const bpm        = getBeatsPerMeasure();
 
     const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
-    renderer.resize(totalWidth, svgHeight);
+    renderer.resize(svgWidth, svgHeight);
     const ctx = renderer.getContext();
 
     const keySig       = (typeof KEY_SIGNATURE !== 'undefined') ? KEY_SIGNATURE : 'C';
@@ -745,7 +746,7 @@
 
     ensureGhost(svg);
     updateGhostShape();
-    svg.style.touchAction = 'none';
+    svg.style.touchAction = 'pan-x';
 
     // --- Shared pointer logic ---
 
@@ -861,6 +862,8 @@
       const bTotal = (typeof BEATS_TOTAL !== 'undefined') ? BEATS_TOTAL : Infinity;
       if (currentBeats + beats > bTotal + 0.001) { flashError(); return; }
 
+      selectedNoteIdx = null;   // deselect any selected note when placing a new one
+
       if (!fitsInCurrentMeasure(beats)) {
         const bpm        = getBeatsPerMeasure();
         const incomplete = measureInfo.find(m => !m.isFull);
@@ -907,27 +910,41 @@
     });
 
     // --- Touch events ---
+    let touchStartClient = null;
+
     svg.addEventListener('touchstart', (e) => {
-      e.preventDefault();
       const t    = e.touches[0];
+      touchStartClient = { x: t.clientX, y: t.clientY };
       const rect = svg.getBoundingClientRect();
       onPointerStart(
         t.clientX - rect.left,
         t.clientY - rect.top,
         document.elementFromPoint(t.clientX, t.clientY)
       );
-    }, { passive: false });
+    }, { passive: true });
 
     svg.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (touchStartClient) {
+        const dx = Math.abs(t.clientX - touchStartClient.x);
+        const dy = Math.abs(t.clientY - touchStartClient.y);
+        if (dx > dy && dx > 15) { hideGhost(); return; }
+      }
       e.preventDefault();
-      const t    = e.touches[0];
       const rect = svg.getBoundingClientRect();
       onPointerMove(t.clientX - rect.left, t.clientY - rect.top);
     }, { passive: false });
 
     svg.addEventListener('touchend', (e) => {
       e.preventDefault();
-      const t    = e.changedTouches[0];
+      const t  = e.changedTouches[0];
+      const sc = touchStartClient;
+      touchStartClient = null;
+      if (sc) {
+        const dx = Math.abs(t.clientX - sc.x);
+        const dy = Math.abs(t.clientY - sc.y);
+        if (dx > dy && dx > 15) return;
+      }
       const rect = svg.getBoundingClientRect();
       onPointerEnd(t.clientX - rect.left, t.clientY - rect.top);
     }, { passive: false });
