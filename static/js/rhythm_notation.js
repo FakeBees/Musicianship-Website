@@ -41,14 +41,16 @@
   // =========================================================================
   // Editor state
   // =========================================================================
-  let userNotes     = [];
-  let selectedDur   = 'q';
-  let isDotted      = false;
-  let currentBeats  = 0;
-  let staveTopYs    = [];
-  let staveMiddleYs = [];
-  let measureInfo   = [];
-  let ghostEl       = null;
+  let userNotes        = [];
+  let selectedDur      = 'q';
+  let isDotted         = false;
+  let currentBeats     = 0;
+  let staveTopYs       = [];
+  let staveMiddleYs    = [];
+  let measureInfo      = [];
+  let ghostEl          = null;
+  let selectedNoteIdx  = null;
+  let pointerStartPos  = null;
 
   // =========================================================================
   // Audio — Salamander Grand Piano sampler
@@ -443,6 +445,25 @@
     updateGhostShape();
   }
 
+  function updateSelectionToolbar() {
+    const controls = document.getElementById('selected-note-controls');
+    if (!controls) return;
+    controls.style.display = selectedNoteIdx !== null ? 'flex' : 'none';
+  }
+
+  function selectNote(idx) {
+    selectedNoteIdx = idx;
+    updateSelectionToolbar();
+    refresh();
+  }
+
+  function deselectNote() {
+    if (selectedNoteIdx === null) return;
+    selectedNoteIdx = null;
+    updateSelectionToolbar();
+    refresh();
+  }
+
   function fitsInCurrentMeasure(beats) {
     const bpm = getBeatsPerMeasure();
     const incomplete = measureInfo.find(m => !m.isFull);
@@ -472,42 +493,27 @@
 
     ensureGhost(svg);
     updateGhostShape();
+    svg.style.touchAction = 'none';
 
-    svg.addEventListener('mousemove', (e) => {
-      const rect = svg.getBoundingClientRect();
-      const my   = e.clientY - rect.top;
-      const mx   = e.clientX - rect.left;
-
-      const topY = findStaveRow(my);
-      if (!topY) { hideGhost(); return; }
-
-      const mIdx = findMeasure(mx, my);
-      if (mIdx < 0 || measureInfo[mIdx].isFull) { hideGhost(); return; }
-
-      const snapX  = propX(measureInfo[mIdx], measureInfo[mIdx].usedBeats);
-      const midY   = getMiddleY(topY);
-      showGhost(snapX, midY);
+    // Tag rendered note elements for selection
+    svg.querySelectorAll('.vf-stavenote').forEach((g, idx) => {
+      g.setAttribute('data-note-idx', idx);
     });
 
-    svg.addEventListener('mouseleave', hideGhost);
-
-    svg.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      const rect = svg.getBoundingClientRect();
-      const my   = e.clientY - rect.top;
-      const mx   = e.clientX - rect.left;
-
-      if (!findStaveRow(my)) return;
-
+    function showGhostAt(mx, my) {
+      const topY = findStaveRow(my);
+      if (!topY) { hideGhost(); return; }
       const mIdx = findMeasure(mx, my);
-      if (mIdx >= 0 && measureInfo[mIdx].isFull) { flashError(); return; }
+      if (mIdx < 0 || measureInfo[mIdx].isFull) { hideGhost(); return; }
+      showGhost(propX(measureInfo[mIdx], measureInfo[mIdx].usedBeats), getMiddleY(topY));
+    }
 
+    function placeNote() {
       const beats  = noteBeats({ duration: selectedDur, dotted: isDotted });
       const bTotal = (typeof BEATS_TOTAL !== 'undefined') ? BEATS_TOTAL : Infinity;
       if (currentBeats + beats > bTotal + 0.001) { flashError(); return; }
 
       if (!fitsInCurrentMeasure(beats)) {
-        // Note overflows the current measure — split into a tied pair.
         const bpm        = getBeatsPerMeasure();
         const incomplete = measureInfo.find(m => !m.isFull);
         if (!incomplete) { flashError(); return; }
@@ -525,7 +531,87 @@
       userNotes.push({ duration: selectedDur, dotted: isDotted });
       currentBeats += beats;
       refresh();
+    }
+
+    function onPointerStart(mx, my, targetEl) {
+      pointerStartPos = { x: mx, y: my };
+      const noteG = targetEl ? targetEl.closest('[data-note-idx]') : null;
+      if (noteG) return; // potential selection — resolved on pointerEnd
+      if (!findStaveRow(my)) return;
+      showGhostAt(mx, my);
+    }
+
+    function onPointerEnd(mx, my, targetEl) {
+      const startPos = pointerStartPos;
+      pointerStartPos = null;
+
+      const noteG = targetEl ? targetEl.closest('[data-note-idx]') : null;
+      if (noteG && startPos) {
+        const dx = mx - startPos.x, dy = my - startPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= 8) {
+          const idx = parseInt(noteG.getAttribute('data-note-idx'), 10);
+          hideGhost();
+          if (idx >= 0 && idx < userNotes.length) {
+            if (selectedNoteIdx === idx) deselectNote(); else selectNote(idx);
+          }
+          return;
+        }
+      }
+
+      hideGhost();
+      if (!findStaveRow(my)) return;
+      const mIdx = findMeasure(mx, my);
+      if (mIdx >= 0 && measureInfo[mIdx].isFull) { flashError(); return; }
+      placeNote();
+    }
+
+    // --- Mouse events ---
+    svg.addEventListener('mousemove', (e) => {
+      const rect = svg.getBoundingClientRect();
+      showGhostAt(e.clientX - rect.left, e.clientY - rect.top);
     });
+
+    svg.addEventListener('mouseleave', hideGhost);
+
+    svg.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const rect = svg.getBoundingClientRect();
+      onPointerStart(e.clientX - rect.left, e.clientY - rect.top, e.target);
+    });
+
+    svg.addEventListener('mouseup', (e) => {
+      if (e.button !== 0) return;
+      const rect = svg.getBoundingClientRect();
+      onPointerEnd(e.clientX - rect.left, e.clientY - rect.top, e.target);
+    });
+
+    // --- Touch events ---
+    svg.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const rect = svg.getBoundingClientRect();
+      onPointerStart(
+        t.clientX - rect.left, t.clientY - rect.top,
+        document.elementFromPoint(t.clientX, t.clientY)
+      );
+    }, { passive: false });
+
+    svg.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const rect = svg.getBoundingClientRect();
+      showGhostAt(t.clientX - rect.left, t.clientY - rect.top);
+    }, { passive: false });
+
+    svg.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      const rect = svg.getBoundingClientRect();
+      onPointerEnd(
+        t.clientX - rect.left, t.clientY - rect.top,
+        document.elementFromPoint(t.clientX, t.clientY)
+      );
+    }, { passive: false });
   }
 
   // =========================================================================
@@ -562,10 +648,18 @@
   // =========================================================================
 
   function refresh() {
+    if (selectedNoteIdx !== null && selectedNoteIdx >= userNotes.length) {
+      selectedNoteIdx = null;
+    }
     const el = document.getElementById('notation-container');
     if (!el) return;
-    renderStaves(el, userNotes, NUM_MEASURES, true, null);
+    // Highlight selected note in blue
+    const styleMap = userNotes.map((_, i) =>
+      i === selectedNoteIdx ? { fillStyle: '#2563eb', strokeStyle: '#2563eb' } : null
+    );
+    renderStaves(el, userNotes, NUM_MEASURES, true, styleMap);
     attachInteractionHandlers(el);
+    updateSelectionToolbar();
   }
 
   // =========================================================================
@@ -699,8 +793,10 @@
     });
 
     document.getElementById('btn-clear')?.addEventListener('click', () => {
-      userNotes = []; currentBeats = 0; refresh();
+      userNotes = []; currentBeats = 0; selectedNoteIdx = null; refresh();
     });
+
+    document.getElementById('btn-sel-deselect')?.addEventListener('click', deselectNote);
 
     document.getElementById('btn-submit')?.addEventListener('click', async () => {
       if (!userNotes.length) { alert('Place at least one note before submitting.'); return; }

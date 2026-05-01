@@ -88,6 +88,13 @@ main {
 }
 
 /* ===========================
+   Touch input
+   =========================== */
+.notation-area svg {
+  touch-action: none;
+}
+
+/* ===========================
    Orange accent — Harmonic Dictation CTAs
    =========================== */
 .btn-orange {
