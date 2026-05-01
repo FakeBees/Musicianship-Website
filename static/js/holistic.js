@@ -426,6 +426,10 @@ function renderStaveForLine(lineKey, clef, containerEl) {
         voice.addTickables(all);
         new VF.Formatter().joinVoices([voice]).format([voice], Math.max(60, noteEndX - noteStartX - 10));
         voice.draw(ctx, stave);
+
+        if (ghosts.length > 0) {
+          try { mInfo.nextNoteX = ghosts[0].getAbsoluteX(); } catch (_) {}
+        }
       }
     } catch (e) {
       console.warn('VexFlow render error measure', i, ':', e.message);
@@ -509,10 +513,9 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
     const tblIdx = step + VF_STEP_OFFSET;
     if (tblIdx < 0 || tblIdx >= tbl.length) return null;
     const mInfo = ed.measureInfo[mIdx];
-    return {
-      x: mInfo.noteStartX + VF_PROP_PAD + (mInfo.usedBeats / beatsPerMeasure()) * mInfo.noteWidth,
-      y: snY(step, sy),
-    };
+    const x = (mInfo.nextNoteX != null) ? mInfo.nextNoteX
+      : (mInfo.noteStartX + VF_PROP_PAD + (mInfo.usedBeats / beatsPerMeasure()) * mInfo.noteWidth);
+    return { x, y: snY(step, sy) };
   }
 
   function showGhostAt(mx, my) {

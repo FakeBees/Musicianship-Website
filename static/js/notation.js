@@ -564,6 +564,12 @@
 
           // Now draw the beam lines (flags already suppressed above)
           beams.forEach(beam => beam.setContext(ctx).draw());
+
+          // Read VexFlow's actual next-note X from the first ghost tickable.
+          // propX() uses a linear estimate that drifts from VexFlow's formatter.
+          if (ghosts.length > 0) {
+            try { mInfo.nextNoteX = ghosts[0].getAbsoluteX(); } catch (_) {}
+          }
         }
       } catch (err) {
         console.warn('VexFlow render error, measure', i, ':', err.message);
@@ -758,7 +764,9 @@
       const step = stepFromY(my, sy);
       const tblIdx = step + STEP_OFFSET;
       if (tblIdx < 0 || tblIdx >= getNoteTable().length) return null;
-      return { x: propX(measureInfo[mIdx], measureInfo[mIdx].usedBeats), y: snappedY(step, sy) };
+      const mInfo = measureInfo[mIdx];
+      const x = (mInfo.nextNoteX != null) ? mInfo.nextNoteX : propX(mInfo, mInfo.usedBeats);
+      return { x, y: snappedY(step, sy) };
     }
 
     function onPointerStart(mx, my, targetEl) {

@@ -375,6 +375,10 @@
 
           voice.draw(ctx, stave);
           beams.forEach(beam => beam.setContext(ctx).draw());
+
+          if (ghosts.length > 0) {
+            try { mInfo.nextNoteX = ghosts[0].getAbsoluteX(); } catch (_) {}
+          }
         }
       } catch (err) {
         console.warn('VexFlow render error, measure', i, ':', err.message);
@@ -506,7 +510,9 @@
       if (!topY) { hideGhost(); return; }
       const mIdx = findMeasure(mx, my);
       if (mIdx < 0 || measureInfo[mIdx].isFull) { hideGhost(); return; }
-      showGhost(propX(measureInfo[mIdx], measureInfo[mIdx].usedBeats), getMiddleY(topY));
+      const mInfo = measureInfo[mIdx];
+      const x = (mInfo.nextNoteX != null) ? mInfo.nextNoteX : propX(mInfo, mInfo.usedBeats);
+      showGhost(x, getMiddleY(topY));
     }
 
     function placeNote() {
