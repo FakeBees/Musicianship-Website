@@ -139,6 +139,12 @@
 </script>
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 <script src="{{ url_for('static', filename='js/notation.js') }}"></script>
+<script src="{{ url_for('static', filename='js/midi_to_vex.js') }}"></script>
+<script>
+  MidiInput.onNoteOn(function (e) {
+    if (typeof window.placeMidiNote === 'function') window.placeMidiNote(e.midi);
+  });
+</script>
 <script>
   // -------------------------------------------------------------------------
   // Key Reference playback

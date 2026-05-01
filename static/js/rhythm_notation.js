@@ -529,6 +529,35 @@
   }
 
   // =========================================================================
+  // MIDI input (rhythmic dictation)
+  // =========================================================================
+
+  window.placeMidiRhythmNote = function () {
+    const beats  = noteBeats({ duration: selectedDur, dotted: isDotted });
+    const bTotal = (typeof BEATS_TOTAL !== 'undefined') ? BEATS_TOTAL : Infinity;
+    if (currentBeats + beats > bTotal + 0.001) { flashError(); return; }
+
+    if (!fitsInCurrentMeasure(beats)) {
+      const bpm        = getBeatsPerMeasure();
+      const incomplete = measureInfo.find(m => !m.isFull);
+      if (!incomplete) { flashError(); return; }
+      const remaining  = bpm - incomplete.usedBeats;
+      const firstSpec  = beatsToNoteSpec(remaining);
+      const secondSpec = beatsToNoteSpec(beats - remaining);
+      if (!firstSpec || !secondSpec) { flashError(); return; }
+      userNotes.push({ duration: firstSpec.duration,  dotted: firstSpec.dotted,  tieStart: true });
+      userNotes.push({ duration: secondSpec.duration, dotted: secondSpec.dotted, tieEnd:   true });
+      currentBeats += beats;
+      refresh();
+      return;
+    }
+
+    userNotes.push({ duration: selectedDur, dotted: isDotted });
+    currentBeats += beats;
+    refresh();
+  };
+
+  // =========================================================================
   // Refresh
   // =========================================================================
 

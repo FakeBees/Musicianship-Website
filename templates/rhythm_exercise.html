@@ -112,6 +112,11 @@
 </script>
 <script src="{{ url_for('static', filename='js/rhythm_notation.js') }}"></script>
 <script>
+  MidiInput.onNoteOn(function () {
+    if (typeof window.placeMidiRhythmNote === 'function') window.placeMidiRhythmNote();
+  });
+</script>
+<script>
   document.addEventListener('DOMContentLoaded', () => {
     const btnPlay  = document.getElementById('btn-play');
     const btnStop  = document.getElementById('btn-stop');
