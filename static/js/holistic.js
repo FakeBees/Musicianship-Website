@@ -310,6 +310,7 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   const ed = getEditor(lineKey);
   const notes = ed.notes;
 
+  const savedScroll = containerEl.scrollLeft;
   containerEl.innerHTML = '';
   ed.staveTopYs = [];
   ed.measureInfo = [];
@@ -333,8 +334,7 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   if (_cur.length) measureGroups.push(_cur);
   while (measureGroups.length < numMeasures) measureGroups.push([]);
 
-  const maxNotes   = measureGroups.reduce((m, mg) => Math.max(m, mg.length), 0);
-  const densityMin = 70 + maxNotes * 15;
+  const densityMin = 70 + Math.ceil(bpm * 4) * 15;
   const deviceMin  = window.matchMedia('(pointer: coarse)').matches ? 200 : 120;
   const staveWidth = Math.max(densityMin, deviceMin, Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount));
   const svgWidth   = Math.max(containerWidth, VF_STAVE_X_PAD * 2 + colCount * staveWidth);
@@ -450,6 +450,7 @@ function renderStaveForLine(lineKey, clef, containerEl) {
     });
     attachStaveInteraction(lineKey, clef, containerEl, svg);
   }
+  containerEl.scrollLeft = savedScroll;
 }
 
 function attachStaveInteraction(lineKey, clef, containerEl, svg) {

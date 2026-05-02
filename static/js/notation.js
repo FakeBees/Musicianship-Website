@@ -442,6 +442,7 @@
    * Core render — draws all staves and applies proportional x positioning.
    */
   function renderStaves(containerEl, notes, numMeasures, interactive, styleMap) {
+    const savedScroll = containerEl.scrollLeft;
     containerEl.innerHTML = '';
     staveTopYs  = [];
     measureInfo = [];
@@ -455,8 +456,9 @@
     const measureGroups = splitIntoMeasures(notes);
     while (measureGroups.length < numMeasures) measureGroups.push([]);
 
-    const maxNotes   = measureGroups.reduce((m, mg) => Math.max(m, mg.length), 0);
-    const densityMin = 70 + maxNotes * 15;   // header overhead + 15px per note minimum
+    // Size for the densest possible fill (all 16th notes) upfront so the
+    // stave never looks full before it actually is.
+    const densityMin = 70 + Math.ceil(bpm * 4) * 15;
     const deviceMin  = window.matchMedia('(pointer: coarse)').matches ? 200 : 120;
     const staveWidth = Math.max(densityMin, deviceMin, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
     const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
@@ -600,6 +602,7 @@
         });
       }
     }
+    containerEl.scrollLeft = savedScroll;
   }
 
   // =========================================================================
