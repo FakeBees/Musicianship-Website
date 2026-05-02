@@ -456,11 +456,16 @@
     const measureGroups = splitIntoMeasures(notes);
     while (measureGroups.length < numMeasures) measureGroups.push([]);
 
-    // Size for the densest possible fill (all 16th notes) upfront so the
-    // stave never looks full before it actually is.
-    const densityMin = 70 + Math.ceil(bpm * 4) * 15;
-    const deviceMin  = window.matchMedia('(pointer: coarse)').matches ? 200 : 120;
-    const staveWidth = Math.max(densityMin, deviceMin, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
+    // Maintain a 2-notehead (24 px) minimum gap between the next-note ghost
+    // and the barline: formattedWidth × (1 − fill) ≥ 24
+    // ⟹ staveWidth ≥ ~80 px header + 24 / (1 − fill)
+    const maxFill    = measureGroups.reduce((m, mg) => {
+      const used = mg.reduce((s, n) => s + noteBeats(n), 0);
+      return Math.max(m, used / bpm);
+    }, 0);
+    const remaining  = Math.max(1 / (bpm * 4), 1 - maxFill); // clamp at one 16th slot
+    const densityMin = 80 + Math.ceil(24 / remaining);
+    const staveWidth = Math.max(densityMin, 120, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
     const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
     const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
 
