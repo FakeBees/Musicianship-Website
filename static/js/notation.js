@@ -449,7 +449,10 @@
     const containerWidth = containerEl.clientWidth || 800;
     const numRows    = Math.ceil(numMeasures / MEASURES_PER_ROW);
     const colCount   = Math.min(numMeasures, MEASURES_PER_ROW);
-    const staveWidth = Math.max(120, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
+    const staveWidth = Math.max(
+      window.matchMedia('(pointer: coarse)').matches ? 200 : 120,
+      Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount)
+    );
     const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
     const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
     const bpm        = getBeatsPerMeasure();

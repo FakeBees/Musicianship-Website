@@ -318,7 +318,10 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   const numMeasures = NUM_MEASURES;
   const numRows  = Math.ceil(numMeasures / VF_MEASURES_PER_ROW);
   const colCount = Math.min(numMeasures, VF_MEASURES_PER_ROW);
-  const staveWidth = Math.max(120, Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount));
+  const staveWidth = Math.max(
+    window.matchMedia('(pointer: coarse)').matches ? 200 : 120,
+    Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount)
+  );
   const svgWidth   = Math.max(containerWidth, VF_STAVE_X_PAD * 2 + colCount * staveWidth);
   const svgHeight  = VF_ROW_OFFSET + numRows * VF_ROW_HEIGHT;
   const bpm = beatsPerMeasure();
