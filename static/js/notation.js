@@ -196,15 +196,18 @@
   // =========================================================================
   // Editor state
   // =========================================================================
-  let userNotes    = [];
-  let selectedDur  = 'q';
-  let selectedAcc  = '';      // '', 'raise', 'lower'
-  let isDotted     = false;
-  let currentBeats = 0;
-  let staveTopYs   = [];
-  let measureInfo  = [];      // { startX, endX, noteStartX, noteWidth, staveY, usedBeats, isFull }
-  let dragState    = null;
-  let ghostEl      = null;
+  let userNotes        = [];
+  let selectedDur      = 'q';
+  let selectedAcc      = '';      // '', 'raise', 'lower'
+  let isDotted         = false;
+  let currentBeats     = 0;
+  let staveTopYs       = [];
+  let measureInfo      = [];      // { startX, endX, noteStartX, noteWidth, staveY, usedBeats, isFull }
+  let dragState        = null;
+  let ghostEl          = null;
+  let selectedNoteIdx  = null;    // index into userNotes of the tapped/selected note
+  let pointerStartPos  = null;    // {x,y} recorded at interaction start
+  let pendingDragTarget = null;   // potential drag before movement threshold is reached
 
   // =========================================================================
   // Pure helpers
@@ -439,24 +442,38 @@
    * Core render — draws all staves and applies proportional x positioning.
    */
   function renderStaves(containerEl, notes, numMeasures, interactive, styleMap) {
+    const savedScroll = containerEl.scrollLeft;
     containerEl.innerHTML = '';
     staveTopYs  = [];
     measureInfo = [];
 
-    const totalWidth = containerEl.clientWidth || 800;
+    const containerWidth = containerEl.clientWidth || 800;
     const numRows    = Math.ceil(numMeasures / MEASURES_PER_ROW);
     const colCount   = Math.min(numMeasures, MEASURES_PER_ROW);
-    const staveWidth = Math.max(120, Math.floor((totalWidth - STAVE_X_PAD * 2) / colCount));
-    const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
     const bpm        = getBeatsPerMeasure();
 
-    const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
-    renderer.resize(totalWidth, svgHeight);
-    const ctx = renderer.getContext();
-
-    const keySig       = (typeof KEY_SIGNATURE !== 'undefined') ? KEY_SIGNATURE : 'C';
+    // Split notes first so we can size the stave to fit actual content.
     const measureGroups = splitIntoMeasures(notes);
     while (measureGroups.length < numMeasures) measureGroups.push([]);
+
+    // Maintain a 2-notehead (24 px) minimum gap between the next-note ghost
+    // and the barline: formattedWidth × (1 − fill) ≥ 24
+    // ⟹ staveWidth ≥ ~80 px header + 24 / (1 − fill)
+    const maxFill    = measureGroups.reduce((m, mg) => {
+      const used = mg.reduce((s, n) => s + noteBeats(n), 0);
+      return Math.max(m, used / bpm);
+    }, 0);
+    const remaining  = Math.max(1 / (bpm * 4), 1 - maxFill); // clamp at one 16th slot
+    const densityMin = 80 + Math.ceil(24 / remaining);
+    const staveWidth = Math.max(densityMin, 120, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
+    const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
+    const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
+
+    const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
+    renderer.resize(svgWidth, svgHeight);
+    const ctx = renderer.getContext();
+
+    const keySig = (typeof KEY_SIGNATURE !== 'undefined') ? KEY_SIGNATURE : 'C';
 
     let globalNoteIdx = 0;
     const tiesToDraw  = [];
@@ -500,7 +517,10 @@
         const startIdx      = globalNoteIdx;
         const measureAccState = {};  // tracks within-measure accidental state
         const vfNotes  = mNotes.map((n, j) => {
-          const s = styleMap ? (styleMap[startIdx + j] || null) : null;
+          let s = styleMap ? (styleMap[startIdx + j] || null) : null;
+          if (interactive && selectedNoteIdx !== null && startIdx + j === selectedNoteIdx) {
+            s = { fillStyle: '#2563eb', strokeStyle: '#2563eb' };
+          }
           return buildStaveNote(n, s, measureAccState);
         });
 
@@ -557,6 +577,12 @@
 
           // Now draw the beam lines (flags already suppressed above)
           beams.forEach(beam => beam.setContext(ctx).draw());
+
+          // Read VexFlow's actual next-note X from the first ghost tickable.
+          // propX() uses a linear estimate that drifts from VexFlow's formatter.
+          if (ghosts.length > 0) {
+            try { mInfo.nextNoteX = ghosts[0].getAbsoluteX(); } catch (_) {}
+          }
         }
       } catch (err) {
         console.warn('VexFlow render error, measure', i, ':', err.message);
@@ -581,6 +607,7 @@
         });
       }
     }
+    containerEl.scrollLeft = savedScroll;
   }
 
   // =========================================================================
@@ -647,6 +674,65 @@
 
   function resetAccidental() { setAccidental(''); }
 
+  function updateSelectionToolbar() {
+    const controls = document.getElementById('selected-note-controls');
+    if (!controls) return;
+    controls.style.display = selectedNoteIdx !== null ? 'flex' : 'none';
+  }
+
+  function selectNote(idx) {
+    selectedNoteIdx = idx;
+    updateSelectionToolbar();
+    refresh();
+  }
+
+  function deselectNote() {
+    if (selectedNoteIdx === null) return;
+    selectedNoteIdx = null;
+    updateSelectionToolbar();
+    refresh();
+  }
+
+  function applyAccidentalToSelected(type) {
+    if (selectedNoteIdx === null) return;
+    const note = userNotes[selectedNoteIdx];
+    if (!note || note.duration.endsWith('r')) return;
+
+    const slash      = note.key.indexOf('/');
+    const letterAcc  = note.key.slice(0, slash);
+    const octave     = note.key.slice(slash);
+    const letter     = letterAcc.charAt(0);
+    const curAcc     = letterAcc.slice(1);
+    const keyDefault = getKeySigAccidentals()[letter] || '';
+
+    let newAcc;
+    if (type === '') {
+      newAcc = keyDefault;
+    } else if (type === 'raise') {
+      if      (curAcc === '')   newAcc = '#';
+      else if (curAcc === 'b')  newAcc = '';
+      else if (curAcc === '#')  newAcc = '##';
+      else if (curAcc === 'bb') newAcc = 'b';
+      else                      newAcc = curAcc;
+    } else {
+      if      (curAcc === '')   newAcc = 'b';
+      else if (curAcc === '#')  newAcc = '';
+      else if (curAcc === 'b')  newAcc = 'bb';
+      else if (curAcc === '##') newAcc = '#';
+      else                      newAcc = curAcc;
+    }
+
+    const newKey = letter + newAcc + octave;
+    userNotes[selectedNoteIdx].key = newKey;
+    const idx = selectedNoteIdx;
+    if (userNotes[idx].tieStart && idx + 1 < userNotes.length && userNotes[idx + 1].tieEnd) {
+      userNotes[idx + 1].key = newKey;
+    } else if (userNotes[idx].tieEnd && idx > 0 && userNotes[idx - 1].tieStart) {
+      userNotes[idx - 1].key = newKey;
+    }
+    refresh();
+  }
+
   /**
    * Return true if a note of `beats` duration fits in the current incomplete measure.
    * Prevents dotted notes from silently overflowing a measure into the next one.
@@ -680,13 +766,49 @@
 
     ensureGhost(svg);
     updateGhostShape();
+    svg.style.touchAction = 'pan-x';
 
-    // --- mousemove: ghost preview or drag visual ---
-    svg.addEventListener('mousemove', (e) => {
-      const rect = svg.getBoundingClientRect();
-      const my   = e.clientY - rect.top;
-      const mx   = e.clientX - rect.left;
+    // --- Shared pointer logic ---
 
+    function ghostPos(mx, my) {
+      const sy = findStaveY(my);
+      if (!sy) return null;
+      const mIdx = findMeasure(mx, my);
+      if (mIdx < 0 || measureInfo[mIdx].isFull) return null;
+      const step = stepFromY(my, sy);
+      const tblIdx = step + STEP_OFFSET;
+      if (tblIdx < 0 || tblIdx >= getNoteTable().length) return null;
+      const mInfo = measureInfo[mIdx];
+      const x = (mInfo.nextNoteX != null) ? mInfo.nextNoteX : propX(mInfo, mInfo.usedBeats);
+      return { x, y: snappedY(step, sy) };
+    }
+
+    function onPointerStart(mx, my, targetEl) {
+      pointerStartPos = { x: mx, y: my };
+
+      const noteG = targetEl ? targetEl.closest('[data-note-idx]') : null;
+      if (noteG) {
+        const idx = parseInt(noteG.getAttribute('data-note-idx'), 10);
+        if (idx >= 0 && idx < userNotes.length && !userNotes[idx].duration.endsWith('r')) {
+          const sy = findStaveY(my);
+          if (sy) {
+            pendingDragTarget = {
+              noteIdx:      idx,
+              staveY:       sy,
+              origSnappedY: snappedY(stepFromY(my, sy), sy),
+              gEl:          noteG,
+            };
+            return;
+          }
+        }
+      }
+
+      pendingDragTarget = null;
+      const pos = ghostPos(mx, my);
+      if (pos) showGhost(pos.x, pos.y); else hideGhost();
+    }
+
+    function onPointerMove(mx, my) {
       if (dragState) {
         const step  = stepFromY(my, dragState.staveY);
         const snY   = snappedY(step, dragState.staveY);
@@ -696,52 +818,59 @@
         return;
       }
 
-      const sy = findStaveY(my);
-      if (!sy) { hideGhost(); return; }
-
-      const mIdx = findMeasure(mx, my);
-      if (mIdx < 0 || measureInfo[mIdx].isFull) { hideGhost(); return; }
-
-      const step = stepFromY(my, sy);
-      const idx  = step + STEP_OFFSET;
-      if (idx < 0 || idx >= getNoteTable().length) { hideGhost(); return; }
-
-      // X snaps to the next available proportional slot; Y snaps to line/space
-      const snapX = propX(measureInfo[mIdx], measureInfo[mIdx].usedBeats);
-      showGhost(snapX, snappedY(step, sy));
-    });
-
-    svg.addEventListener('mouseleave', hideGhost);
-
-    // --- mousedown: start drag or place pitched note ---
-    svg.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      const rect = svg.getBoundingClientRect();
-      const my   = e.clientY - rect.top;
-      const mx   = e.clientX - rect.left;
-
-      // Attempt to start drag on existing note
-      const noteG = e.target.closest('[data-note-idx]');
-      if (noteG) {
-        const idx = parseInt(noteG.getAttribute('data-note-idx'), 10);
-        if (idx >= 0 && idx < userNotes.length && !userNotes[idx].duration.endsWith('r')) {
-          const sy = findStaveY(my);
-          if (sy) {
-            const origStep = stepFromY(my, sy);
-            dragState = {
-              noteIdx:       idx,
-              staveY:        sy,
-              origSnappedY:  snappedY(origStep, sy),
-              gEl:           noteG,
-            };
-            containerEl.classList.add('dragging');
-            e.preventDefault();
-            return;
-          }
+      if (pendingDragTarget && pointerStartPos) {
+        const dx = mx - pointerStartPos.x;
+        const dy = my - pointerStartPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          dragState = pendingDragTarget;
+          pendingDragTarget = null;
+          containerEl.classList.add('dragging');
         }
+        return;
       }
 
-      // Place new pitched note
+      const pos = ghostPos(mx, my);
+      if (pos) showGhost(pos.x, pos.y); else hideGhost();
+    }
+
+    function onPointerEnd(mx, my) {
+      if (dragState) {
+        const newKey = stepToNote(stepFromY(my, dragState.staveY));
+        if (newKey) {
+          const idx = dragState.noteIdx;
+          userNotes[idx].key = newKey;
+          if (userNotes[idx].tieStart && idx + 1 < userNotes.length && userNotes[idx + 1].tieEnd) {
+            userNotes[idx + 1].key = newKey;
+          } else if (userNotes[idx].tieEnd && idx > 0 && userNotes[idx - 1].tieStart) {
+            userNotes[idx - 1].key = newKey;
+          }
+        }
+        containerEl.classList.remove('dragging');
+        dragState = null;
+        pendingDragTarget = null;
+        pointerStartPos   = null;
+        refresh();
+        return;
+      }
+
+      if (pendingDragTarget) {
+        // Tap on existing note — select or deselect
+        const idx = pendingDragTarget.noteIdx;
+        pendingDragTarget = null;
+        pointerStartPos   = null;
+        hideGhost();
+        if (selectedNoteIdx === idx) {
+          deselectNote();
+        } else {
+          selectNote(idx);
+        }
+        return;
+      }
+
+      pointerStartPos = null;
+      hideGhost();
+
+      // Tap on empty area — place new pitched note
       const sy = findStaveY(my);
       if (!sy) return;
 
@@ -755,8 +884,9 @@
       const bTotal = (typeof BEATS_TOTAL !== 'undefined') ? BEATS_TOTAL : Infinity;
       if (currentBeats + beats > bTotal + 0.001) { flashError(); return; }
 
+      selectedNoteIdx = null;   // deselect any selected note when placing a new one
+
       if (!fitsInCurrentMeasure(beats)) {
-        // Note overflows the current measure — split into a tied pair.
         const bpm        = getBeatsPerMeasure();
         const incomplete = measureInfo.find(m => !m.isFull);
         if (!incomplete) { flashError(); return; }
@@ -774,33 +904,72 @@
 
       userNotes.push({ key, duration: selectedDur, dotted: isDotted });
       currentBeats += beats;
-
-      // Auto-reset accidental to None after a non-diatonic note
       if (selectedAcc !== '') resetAccidental();
-
       refresh();
+    }
+
+    // --- Mouse events ---
+    svg.addEventListener('mousemove', (e) => {
+      const rect = svg.getBoundingClientRect();
+      onPointerMove(e.clientX - rect.left, e.clientY - rect.top);
     });
 
-    // --- mouseup: commit drag ---
+    svg.addEventListener('mouseleave', () => {
+      if (!dragState) hideGhost();
+    });
+
+    svg.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const rect = svg.getBoundingClientRect();
+      onPointerStart(e.clientX - rect.left, e.clientY - rect.top, e.target);
+      if (pendingDragTarget) e.preventDefault();
+    });
+
     svg.addEventListener('mouseup', (e) => {
-      if (!dragState) return;
-      const rect   = svg.getBoundingClientRect();
-      const my     = e.clientY - rect.top;
-      const newKey = stepToNote(stepFromY(my, dragState.staveY));
-      if (newKey) {
-        const idx = dragState.noteIdx;
-        userNotes[idx].key = newKey;
-        // Tied pairs share the same pitch — drag either half and both move together.
-        if (userNotes[idx].tieStart && idx + 1 < userNotes.length && userNotes[idx + 1].tieEnd) {
-          userNotes[idx + 1].key = newKey;
-        } else if (userNotes[idx].tieEnd && idx > 0 && userNotes[idx - 1].tieStart) {
-          userNotes[idx - 1].key = newKey;
-        }
-      }
-      containerEl.classList.remove('dragging');
-      dragState = null;
-      refresh();
+      if (e.button !== 0) return;
+      const rect = svg.getBoundingClientRect();
+      onPointerEnd(e.clientX - rect.left, e.clientY - rect.top);
     });
+
+    // --- Touch events ---
+    let touchStartClient = null;
+
+    svg.addEventListener('touchstart', (e) => {
+      const t    = e.touches[0];
+      touchStartClient = { x: t.clientX, y: t.clientY };
+      const rect = svg.getBoundingClientRect();
+      onPointerStart(
+        t.clientX - rect.left,
+        t.clientY - rect.top,
+        document.elementFromPoint(t.clientX, t.clientY)
+      );
+    }, { passive: true });
+
+    svg.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (touchStartClient) {
+        const dx = Math.abs(t.clientX - touchStartClient.x);
+        const dy = Math.abs(t.clientY - touchStartClient.y);
+        if (dx > dy && dx > 15) { hideGhost(); return; }
+      }
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      onPointerMove(t.clientX - rect.left, t.clientY - rect.top);
+    }, { passive: false });
+
+    svg.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const t  = e.changedTouches[0];
+      const sc = touchStartClient;
+      touchStartClient = null;
+      if (sc) {
+        const dx = Math.abs(t.clientX - sc.x);
+        const dy = Math.abs(t.clientY - sc.y);
+        if (dx > dy && dx > 15) return;
+      }
+      const rect = svg.getBoundingClientRect();
+      onPointerEnd(t.clientX - rect.left, t.clientY - rect.top);
+    }, { passive: false });
   }
 
   // =========================================================================
@@ -808,10 +977,14 @@
   // =========================================================================
 
   function refresh() {
+    if (selectedNoteIdx !== null && selectedNoteIdx >= userNotes.length) {
+      selectedNoteIdx = null;
+    }
     const el = document.getElementById('notation-container');
     if (!el) return;
     renderStaves(el, userNotes, NUM_MEASURES, true, null);
     attachInteractionHandlers(el);
+    updateSelectionToolbar();
   }
 
   // =========================================================================
@@ -904,6 +1077,12 @@
     document.querySelectorAll('.acc-btn').forEach((btn) => {
       btn.addEventListener('click', () => setAccidental(btn.dataset.acc));
     });
+
+    // Selected note editing
+    document.getElementById('btn-sel-sharp')?.addEventListener('click', () => applyAccidentalToSelected('raise'));
+    document.getElementById('btn-sel-flat')?.addEventListener('click', () => applyAccidentalToSelected('lower'));
+    document.getElementById('btn-sel-natural')?.addEventListener('click', () => applyAccidentalToSelected(''));
+    document.getElementById('btn-sel-deselect')?.addEventListener('click', deselectNote);
 
     // Undo
     document.getElementById('btn-undo')?.addEventListener('click', () => {

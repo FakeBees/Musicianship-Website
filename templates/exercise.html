@@ -97,11 +97,20 @@
       </button>
     </div>
 
+    <!-- Selected note controls (shown when a note is tapped/clicked) -->
+    <div id="selected-note-controls" class="d-flex flex-wrap gap-2 mb-3 align-items-center" style="display:none">
+      <span class="fw-semibold me-1">Selected note:</span>
+      <button id="btn-sel-sharp"   class="btn btn-outline-secondary">&#9839; Sharp</button>
+      <button id="btn-sel-flat"    class="btn btn-outline-secondary">&#9837; Flat</button>
+      <button id="btn-sel-natural" class="btn btn-outline-secondary">&#9838; Natural</button>
+      <button id="btn-sel-deselect" class="btn btn-outline-secondary ms-2">&#10005; Deselect</button>
+    </div>
+
     <!-- Staff container -->
     <div id="notation-container" class="notation-area border rounded"></div>
 
     <div class="mt-2 text-muted small">
-      <strong>Click</strong> the staff to place a note &mdash; <strong>Drag</strong> a note up/down to change pitch.
+      <strong>Click/tap</strong> the staff to place a note &mdash; <strong>Drag</strong> a note up/down to change pitch &mdash; <strong>Tap a note</strong> to select and edit it.
       &nbsp;|&nbsp; <strong>Keys:</strong>
       <kbd>3</kbd>&nbsp;16th &nbsp;<kbd>4</kbd>&nbsp;8th &nbsp;<kbd>5</kbd>&nbsp;Qtr &nbsp;<kbd>6</kbd>&nbsp;Half &nbsp;<kbd>7</kbd>&nbsp;Whole
       &nbsp;<kbd>.</kbd>&nbsp;Dot &nbsp;<kbd>,</kbd>&nbsp;Rest

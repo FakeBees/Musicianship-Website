@@ -222,21 +222,82 @@ const staveEditors = {};  // lineKey -> { notes, selectedDur, isDotted, measureI
 // Tracks which stave the mouse is currently over for MIDI routing.
 let hoveredMidiTarget = null;
 
+// Globally selected note across all staves (only one note selected at a time).
+let selectedNote = { lineKey: null, idx: null };
+
 function getEditor(lineKey) {
   if (!staveEditors[lineKey]) {
     staveEditors[lineKey] = {
-      notes:       [],
-      selectedDur: 'q',
-      isDotted:    false,
-      currentBeats: 0,
-      measureInfo:  [],
-      staveTopYs:   [],
-      ghostEl:      null,
-      dragState:    null,
+      notes:            [],
+      selectedDur:      'q',
+      isDotted:         false,
+      currentBeats:     0,
+      measureInfo:      [],
+      staveTopYs:       [],
+      ghostEl:          null,
+      dragState:        null,
+      pointerStartPos:  null,
+      pendingDragTarget: null,
     };
     lineNotes[lineKey] = staveEditors[lineKey].notes;
   }
   return staveEditors[lineKey];
+}
+
+function updateStaveSelectionToolbar(lineKey) {
+  const isSelected = selectedNote.lineKey === lineKey && selectedNote.idx !== null;
+  const controls = document.querySelector(`[data-line-key="${lineKey}"] .holistic-sel-controls`);
+  if (!controls) return;
+  controls.style.display = isSelected ? 'flex' : 'none';
+}
+
+function selectStaveNote(lineKey, idx, clef, containerEl) {
+  selectedNote = { lineKey, idx };
+  updateStaveSelectionToolbar(lineKey);
+  refreshStave(lineKey, clef, containerEl);
+}
+
+function deselectStaveNote(lineKey, clef, containerEl) {
+  if (selectedNote.lineKey !== lineKey) return;
+  selectedNote = { lineKey: null, idx: null };
+  updateStaveSelectionToolbar(lineKey);
+  refreshStave(lineKey, clef, containerEl);
+}
+
+function applyAccidentalToStave(lineKey, type) {
+  if (selectedNote.lineKey !== lineKey || selectedNote.idx === null) return;
+  const ed   = getEditor(lineKey);
+  const note = ed.notes[selectedNote.idx];
+  if (!note || note.duration.endsWith('r')) return;
+
+  const slash      = note.key.indexOf('/');
+  const letterAcc  = note.key.slice(0, slash);
+  const octave     = note.key.slice(slash);
+  const letter     = letterAcc.charAt(0);
+  const curAcc     = letterAcc.slice(1);
+  const keyDefault = keySigAcc()[letter] || '';
+
+  let newAcc;
+  if (type === '') {
+    newAcc = keyDefault;
+  } else if (type === 'raise') {
+    if      (curAcc === '')   newAcc = '#';
+    else if (curAcc === 'b')  newAcc = '';
+    else if (curAcc === '#')  newAcc = '##';
+    else if (curAcc === 'bb') newAcc = 'b';
+    else                      newAcc = curAcc;
+  } else {
+    if      (curAcc === '')   newAcc = 'b';
+    else if (curAcc === '#')  newAcc = '';
+    else if (curAcc === 'b')  newAcc = 'bb';
+    else if (curAcc === '##') newAcc = '#';
+    else                      newAcc = curAcc;
+  }
+
+  note.key = letter + newAcc + octave;
+  const containerEl = document.querySelector(`[data-stave-line-key="${lineKey}"]`);
+  const clef = containerEl ? (containerEl.dataset.clef || 'treble') : 'treble';
+  refreshStave(lineKey, clef, containerEl);
 }
 
 // ---------------------------------------------------------------------------
@@ -249,36 +310,45 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   const ed = getEditor(lineKey);
   const notes = ed.notes;
 
+  const savedScroll = containerEl.scrollLeft;
   containerEl.innerHTML = '';
   ed.staveTopYs = [];
   ed.measureInfo = [];
 
-  const totalWidth = containerEl.clientWidth || 800;
+  const containerWidth = containerEl.clientWidth || 800;
   const numMeasures = NUM_MEASURES;
   const numRows  = Math.ceil(numMeasures / VF_MEASURES_PER_ROW);
   const colCount = Math.min(numMeasures, VF_MEASURES_PER_ROW);
-  const staveWidth = Math.max(120, Math.floor((totalWidth - VF_STAVE_X_PAD * 2) / colCount));
-  const svgHeight  = VF_ROW_OFFSET + numRows * VF_ROW_HEIGHT;
   const bpm = beatsPerMeasure();
 
+  // Split notes first so we can size the stave to actual content.
+  const measureGroups = [];
+  let _cur = [], _beats = 0;
+  for (const n of notes) {
+    const b = noteBeats(n);
+    if (_beats + b > bpm + 0.001 && _cur.length) {
+      measureGroups.push(_cur); _cur = []; _beats = 0;
+    }
+    _cur.push(n); _beats += b;
+  }
+  if (_cur.length) measureGroups.push(_cur);
+  while (measureGroups.length < numMeasures) measureGroups.push([]);
+
+  const maxFill    = measureGroups.reduce((m, mg) => {
+    const used = mg.reduce((s, n) => s + noteBeats(n), 0);
+    return Math.max(m, used / bpm);
+  }, 0);
+  const remaining  = Math.max(1 / (bpm * 4), 1 - maxFill);
+  const densityMin = 80 + Math.ceil(24 / remaining);
+  const staveWidth = Math.max(densityMin, 120, Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount));
+  const svgWidth   = Math.max(containerWidth, VF_STAVE_X_PAD * 2 + colCount * staveWidth);
+  const svgHeight  = VF_ROW_OFFSET + numRows * VF_ROW_HEIGHT;
+
   const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
-  renderer.resize(totalWidth, svgHeight);
+  renderer.resize(svgWidth, svgHeight);
   const ctx = renderer.getContext();
 
   const keySig = KEY_SIGNATURE;
-
-  // Split notes into measures
-  const measureGroups = [];
-  let cur = [], beats = 0;
-  for (const n of notes) {
-    const b = noteBeats(n);
-    if (beats + b > bpm + 0.001 && cur.length) {
-      measureGroups.push(cur); cur = []; beats = 0;
-    }
-    cur.push(n); beats += b;
-  }
-  if (cur.length) measureGroups.push(cur);
-  while (measureGroups.length < numMeasures) measureGroups.push([]);
 
   function getDisplayAcc(noteKey) {
     const sl = noteKey.indexOf('/');
@@ -290,6 +360,8 @@ function renderStaveForLine(lineKey, clef, containerEl) {
     if (noteAcc === '') return 'n';
     return noteAcc;
   }
+
+  let globalNoteIdx = 0;
 
   for (let i = 0; i < numMeasures; i++) {
     const row    = Math.floor(i / VF_MEASURES_PER_ROW);
@@ -326,8 +398,10 @@ function renderStaveForLine(lineKey, clef, containerEl) {
     };
     ed.measureInfo.push(mInfo);
 
+    const startIdx = globalNoteIdx;
+
     try {
-      const vfNotes = mNotes.map(n => {
+      const vfNotes = mNotes.map((n, j) => {
         const isRest = n.duration.endsWith('r');
         const vfDur = (n.dotted && !isRest) ? n.duration + 'd' : n.duration;
         const sn = new VF.StaveNote({ keys: [n.key], duration: vfDur, clef });
@@ -335,6 +409,9 @@ function renderStaveForLine(lineKey, clef, containerEl) {
         if (!isRest) {
           const da = getDisplayAcc(n.key);
           if (da) sn.addModifier(new VF.Accidental(da), 0);
+        }
+        if (selectedNote.lineKey === lineKey && selectedNote.idx === startIdx + j) {
+          sn.setStyle({ fillStyle: '#2563eb', strokeStyle: '#2563eb' });
         }
         return sn;
       });
@@ -357,10 +434,16 @@ function renderStaveForLine(lineKey, clef, containerEl) {
         voice.addTickables(all);
         new VF.Formatter().joinVoices([voice]).format([voice], Math.max(60, noteEndX - noteStartX - 10));
         voice.draw(ctx, stave);
+
+        if (ghosts.length > 0) {
+          try { mInfo.nextNoteX = ghosts[0].getAbsoluteX(); } catch (_) {}
+        }
       }
     } catch (e) {
       console.warn('VexFlow render error measure', i, ':', e.message);
     }
+
+    globalNoteIdx += mNotes.length;
   }
 
   // Tag notes for drag
@@ -371,65 +454,21 @@ function renderStaveForLine(lineKey, clef, containerEl) {
     });
     attachStaveInteraction(lineKey, clef, containerEl, svg);
   }
+  containerEl.scrollLeft = savedScroll;
 }
 
 function attachStaveInteraction(lineKey, clef, containerEl, svg) {
-  const ed = getEditor(lineKey);
+  const ed  = getEditor(lineKey);
   const tbl = NOTE_TABLES[clef] || NOTE_TABLES.treble;
 
-  // Ghost note
-  if (!ed.ghostEl || ed.ghostEl.parentNode !== svg) {
-    const ns = 'http://www.w3.org/2000/svg';
-    ed.ghostEl = document.createElementNS(ns, 'ellipse');
-    ed.ghostEl.setAttribute('pointer-events', 'none');
-    ed.ghostEl.setAttribute('visibility', 'hidden');
-    ed.ghostEl.setAttribute('rx', '6');
-    ed.ghostEl.setAttribute('ry', '4');
-    ed.ghostEl.setAttribute('fill', '#555');
-    ed.ghostEl.setAttribute('stroke', '#555');
-    ed.ghostEl.setAttribute('stroke-width', '1.5');
-    ed.ghostEl.setAttribute('opacity', '0.4');
-    svg.appendChild(ed.ghostEl);
-  }
-
-  function findStaveY(cy) {
-    for (const sy of ed.staveTopYs) {
-      if (cy >= sy - 20 && cy <= sy + 60) return sy;
-    }
-    return null;
-  }
-
-  function findMeasure(mx, cy) {
-    const sy = findStaveY(cy);
-    if (sy === null) return -1;
-    for (let i = 0; i < ed.measureInfo.length; i++) {
-      const m = ed.measureInfo[i];
-      if (mx >= m.startX && mx <= m.endX && m.staveY === sy) return i;
-    }
-    return -1;
-  }
-
-  function stepFromY(cy, sy) { return Math.round((cy - sy) / VF_HALF_SPACE); }
-  function snappedY(step, sy) { return sy + step * VF_HALF_SPACE; }
-
-  function applyDiatonicPitch(baseNote) {
-    const acc = keySigAcc();
-    return getDiatonicPitch(baseNote, acc);
-  }
-
-  function stepToNote(step) {
-    const idx = step + VF_STEP_OFFSET;
-    if (idx < 0 || idx >= tbl.length) return null;
-    return applyDiatonicPitch(tbl[idx]);
-  }
-
-  // Remove old listeners by cloning
+  // Remove old listeners by cloning the SVG node
   const newSvg = svg.cloneNode(true);
   svg.parentNode.replaceChild(newSvg, svg);
   const s = newSvg;
+  s.style.touchAction = 'pan-x';
 
-  // Re-attach ghost
-  if (!ed.ghostEl || ed.ghostEl.parentNode !== s) {
+  // Ghost ellipse
+  {
     const ns = 'http://www.w3.org/2000/svg';
     ed.ghostEl = document.createElementNS(ns, 'ellipse');
     ed.ghostEl.setAttribute('pointer-events', 'none');
@@ -443,110 +482,228 @@ function attachStaveInteraction(lineKey, clef, containerEl, svg) {
     s.appendChild(ed.ghostEl);
   }
 
-  // Re-tag notes
+  // Re-tag notes for selection
   s.querySelectorAll('.vf-stavenote').forEach((g, idx) => {
     g.setAttribute('data-note-idx', idx);
   });
 
-  s.addEventListener('mousemove', (e) => {
-    hoveredMidiTarget = { lineKey, clef, containerEl };
-    const rect = s.getBoundingClientRect();
-    const my = e.clientY - rect.top;
-    const mx = e.clientX - rect.left;
-    if (ed.dragState) {
-      const step = stepFromY(my, ed.dragState.staveY);
-      const snY  = snappedY(step, ed.dragState.staveY);
-      const delta = snY - ed.dragState.origSnappedY;
-      ed.dragState.gEl.setAttribute('transform', `translate(0, ${delta})`);
-      if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
-      return;
+  function findStaveY(cy) {
+    for (const sy of ed.staveTopYs) {
+      if (cy >= sy - 20 && cy <= sy + 60) return sy;
     }
+    return null;
+  }
+
+  function findMeasureIdx(mx, cy) {
+    const sy = findStaveY(cy);
+    if (sy === null) return -1;
+    for (let i = 0; i < ed.measureInfo.length; i++) {
+      const m = ed.measureInfo[i];
+      if (mx >= m.startX && mx <= m.endX && m.staveY === sy) return i;
+    }
+    return -1;
+  }
+
+  function sfY(cy, sy) { return Math.round((cy - sy) / VF_HALF_SPACE); }
+  function snY(step, sy) { return sy + step * VF_HALF_SPACE; }
+
+  function stepToNote(step) {
+    const idx = step + VF_STEP_OFFSET;
+    if (idx < 0 || idx >= tbl.length) return null;
+    return getDiatonicPitch(tbl[idx], keySigAcc());
+  }
+
+  function ghostPos(mx, my) {
     const sy = findStaveY(my);
-    if (!sy) { if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden'); return; }
-    const mIdx = findMeasure(mx, my);
-    if (mIdx < 0 || ed.measureInfo[mIdx].isFull) {
-      if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
-      return;
-    }
-    const step = stepFromY(my, sy);
-    const idx  = step + VF_STEP_OFFSET;
-    if (idx < 0 || idx >= tbl.length) {
-      if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
-      return;
-    }
+    if (!sy) return null;
+    const mIdx = findMeasureIdx(mx, my);
+    if (mIdx < 0 || ed.measureInfo[mIdx].isFull) return null;
+    const step = sfY(my, sy);
+    const tblIdx = step + VF_STEP_OFFSET;
+    if (tblIdx < 0 || tblIdx >= tbl.length) return null;
     const mInfo = ed.measureInfo[mIdx];
-    const snapX = mInfo.noteStartX + VF_PROP_PAD + (mInfo.usedBeats / beatsPerMeasure()) * mInfo.noteWidth;
-    if (ed.ghostEl) {
-      ed.ghostEl.setAttribute('cx', snapX);
-      ed.ghostEl.setAttribute('cy', snappedY(step, sy));
+    const x = (mInfo.nextNoteX != null) ? mInfo.nextNoteX
+      : (mInfo.noteStartX + VF_PROP_PAD + (mInfo.usedBeats / beatsPerMeasure()) * mInfo.noteWidth);
+    return { x, y: snY(step, sy) };
+  }
+
+  function showGhostAt(mx, my) {
+    const pos = ghostPos(mx, my);
+    if (pos && ed.ghostEl) {
+      ed.ghostEl.setAttribute('cx', pos.x);
+      ed.ghostEl.setAttribute('cy', pos.y);
       ed.ghostEl.setAttribute('visibility', 'visible');
+    } else if (ed.ghostEl) {
+      ed.ghostEl.setAttribute('visibility', 'hidden');
     }
+  }
+
+  function hideGhostEl() {
+    if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
+  }
+
+  function onPointerStart(mx, my, targetEl) {
+    ed.pointerStartPos = { x: mx, y: my };
+
+    const noteG = targetEl ? targetEl.closest('[data-note-idx]') : null;
+    if (noteG) {
+      const nIdx = parseInt(noteG.getAttribute('data-note-idx'), 10);
+      if (nIdx >= 0 && nIdx < ed.notes.length && !ed.notes[nIdx].duration.endsWith('r')) {
+        const sy = findStaveY(my);
+        if (sy) {
+          ed.pendingDragTarget = {
+            noteIdx:      nIdx,
+            staveY:       sy,
+            origSnappedY: snY(sfY(my, sy), sy),
+            gEl:          noteG,
+          };
+          return;
+        }
+      }
+    }
+
+    ed.pendingDragTarget = null;
+    showGhostAt(mx, my);
+  }
+
+  function onPointerMove(mx, my) {
+    hoveredMidiTarget = { lineKey, clef, containerEl };
+
+    if (ed.dragState) {
+      const step  = sfY(my, ed.dragState.staveY);
+      const delta = snY(step, ed.dragState.staveY) - ed.dragState.origSnappedY;
+      ed.dragState.gEl.setAttribute('transform', `translate(0, ${delta})`);
+      hideGhostEl();
+      return;
+    }
+
+    if (ed.pendingDragTarget && ed.pointerStartPos) {
+      const dx = mx - ed.pointerStartPos.x;
+      const dy = my - ed.pointerStartPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 8) {
+        ed.dragState = ed.pendingDragTarget;
+        ed.pendingDragTarget = null;
+        containerEl.classList.add('dragging');
+      }
+      return;
+    }
+
+    showGhostAt(mx, my);
+  }
+
+  function onPointerEnd(mx, my) {
+    if (ed.dragState) {
+      const newKey = stepToNote(sfY(my, ed.dragState.staveY));
+      if (newKey) ed.notes[ed.dragState.noteIdx].key = newKey;
+      containerEl.classList.remove('dragging');
+      ed.dragState = null;
+      ed.pendingDragTarget = null;
+      ed.pointerStartPos   = null;
+      refreshStave(lineKey, clef, containerEl);
+      return;
+    }
+
+    if (ed.pendingDragTarget) {
+      const nIdx = ed.pendingDragTarget.noteIdx;
+      ed.pendingDragTarget = null;
+      ed.pointerStartPos   = null;
+      hideGhostEl();
+      if (selectedNote.lineKey === lineKey && selectedNote.idx === nIdx) {
+        deselectStaveNote(lineKey, clef, containerEl);
+      } else {
+        selectStaveNote(lineKey, nIdx, clef, containerEl);
+      }
+      return;
+    }
+
+    ed.pointerStartPos = null;
+    hideGhostEl();
+
+    const sy = findStaveY(my);
+    if (!sy) return;
+    const mIdx = findMeasureIdx(mx, my);
+    if (mIdx >= 0 && ed.measureInfo[mIdx].isFull) { flashStave(s); return; }
+
+    const key = stepToNote(sfY(my, sy));
+    if (!key) return;
+
+    const beats  = noteBeats({ duration: ed.selectedDur, dotted: ed.isDotted });
+    const bTotal = NUM_MEASURES * beatsPerMeasure();
+    if (ed.currentBeats + beats > bTotal + 0.001) { flashStave(s); return; }
+
+    const bpm        = beatsPerMeasure();
+    const incomplete = ed.measureInfo.find(m => !m.isFull);
+    if (incomplete && beats > bpm - incomplete.usedBeats + 0.001) { flashStave(s); return; }
+
+    ed.notes.push({ key, duration: ed.selectedDur, dotted: ed.isDotted });
+    ed.currentBeats += beats;
+    selectedNote = { lineKey: null, idx: null };
+    updateStaveSelectionToolbar(lineKey);
+    refreshStave(lineKey, clef, containerEl);
+  }
+
+  // --- Mouse events ---
+  s.addEventListener('mousemove', (e) => {
+    const rect = s.getBoundingClientRect();
+    onPointerMove(e.clientX - rect.left, e.clientY - rect.top);
   });
 
   s.addEventListener('mouseleave', () => {
-    if (ed.ghostEl) ed.ghostEl.setAttribute('visibility', 'hidden');
+    hideGhostEl();
     if (hoveredMidiTarget && hoveredMidiTarget.lineKey === lineKey) hoveredMidiTarget = null;
   });
 
   s.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     const rect = s.getBoundingClientRect();
-    const my = e.clientY - rect.top;
-    const mx = e.clientX - rect.left;
-
-    // Drag existing note
-    const noteG = e.target.closest('[data-note-idx]');
-    if (noteG) {
-      const nIdx = parseInt(noteG.getAttribute('data-note-idx'), 10);
-      if (nIdx >= 0 && nIdx < ed.notes.length && !ed.notes[nIdx].duration.endsWith('r')) {
-        const sy = findStaveY(my);
-        if (sy) {
-          const origStep = stepFromY(my, sy);
-          ed.dragState = {
-            noteIdx:       nIdx,
-            staveY:        sy,
-            origSnappedY:  snappedY(origStep, sy),
-            gEl:           noteG,
-          };
-          containerEl.classList.add('dragging');
-          e.preventDefault();
-          return;
-        }
-      }
-    }
-
-    const sy = findStaveY(my);
-    if (!sy) return;
-    const mIdx = findMeasure(mx, my);
-    if (mIdx >= 0 && ed.measureInfo[mIdx].isFull) { flashStave(s); return; }
-
-    const key = stepToNote(stepFromY(my, sy));
-    if (!key) return;
-
-    const beats = noteBeats({ duration: ed.selectedDur, dotted: ed.isDotted });
-    const bTotal = NUM_MEASURES * beatsPerMeasure();
-    if (ed.currentBeats + beats > bTotal + 0.001) { flashStave(s); return; }
-
-    // Check fits in current measure
-    const bpm = beatsPerMeasure();
-    const incomplete = ed.measureInfo.find(m => !m.isFull);
-    if (incomplete && beats > bpm - incomplete.usedBeats + 0.001) { flashStave(s); return; }
-
-    ed.notes.push({ key, duration: ed.selectedDur, dotted: ed.isDotted });
-    ed.currentBeats += beats;
-    refreshStave(lineKey, clef, containerEl);
+    onPointerStart(e.clientX - rect.left, e.clientY - rect.top, e.target);
+    if (ed.pendingDragTarget) e.preventDefault();
   });
 
   s.addEventListener('mouseup', (e) => {
-    if (!ed.dragState) return;
+    if (e.button !== 0) return;
     const rect = s.getBoundingClientRect();
-    const my = e.clientY - rect.top;
-    const newKey = stepToNote(stepFromY(my, ed.dragState.staveY));
-    if (newKey) ed.notes[ed.dragState.noteIdx].key = newKey;
-    containerEl.classList.remove('dragging');
-    ed.dragState = null;
-    refreshStave(lineKey, clef, containerEl);
+    onPointerEnd(e.clientX - rect.left, e.clientY - rect.top);
   });
+
+  // --- Touch events ---
+  let touchStartClient = null;
+
+  s.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touchStartClient = { x: t.clientX, y: t.clientY };
+    const rect = s.getBoundingClientRect();
+    onPointerStart(
+      t.clientX - rect.left, t.clientY - rect.top,
+      document.elementFromPoint(t.clientX, t.clientY)
+    );
+  }, { passive: true });
+
+  s.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (touchStartClient) {
+      const dx = Math.abs(t.clientX - touchStartClient.x);
+      const dy = Math.abs(t.clientY - touchStartClient.y);
+      if (dx > dy && dx > 15) { hideGhostEl(); return; }
+    }
+    e.preventDefault();
+    const rect = s.getBoundingClientRect();
+    onPointerMove(t.clientX - rect.left, t.clientY - rect.top);
+  }, { passive: false });
+
+  s.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    const t  = e.changedTouches[0];
+    const sc = touchStartClient;
+    touchStartClient = null;
+    if (sc) {
+      const dx = Math.abs(t.clientX - sc.x);
+      const dy = Math.abs(t.clientY - sc.y);
+      if (dx > dy && dx > 15) return;
+    }
+    const rect = s.getBoundingClientRect();
+    onPointerEnd(t.clientX - rect.left, t.clientY - rect.top);
+  }, { passive: false });
 }
 
 function flashStave(svg) {
@@ -627,6 +784,10 @@ function bindStaveControls(lineKey, clef, containerEl) {
       if (!ed.notes.length) return;
       const removed = ed.notes.pop();
       ed.currentBeats = Math.max(0, ed.currentBeats - noteBeats(removed));
+      if (selectedNote.lineKey === lineKey && selectedNote.idx >= ed.notes.length) {
+        selectedNote = { lineKey: null, idx: null };
+        updateStaveSelectionToolbar(lineKey);
+      }
       refreshStave(lineKey, clef, containerEl);
     });
   }
@@ -637,9 +798,21 @@ function bindStaveControls(lineKey, clef, containerEl) {
     clearBtn.addEventListener('click', () => {
       ed.notes.length = 0;
       ed.currentBeats = 0;
+      if (selectedNote.lineKey === lineKey) selectedNote = { lineKey: null, idx: null };
+      updateStaveSelectionToolbar(lineKey);
       refreshStave(lineKey, clef, containerEl);
     });
   }
+
+  // Selected note editing
+  const selSharp   = document.querySelector('[data-line-key="' + lineKey + '"] .holistic-sel-sharp');
+  const selFlat    = document.querySelector('[data-line-key="' + lineKey + '"] .holistic-sel-flat');
+  const selNatural = document.querySelector('[data-line-key="' + lineKey + '"] .holistic-sel-natural');
+  const selDesel   = document.querySelector('[data-line-key="' + lineKey + '"] .holistic-sel-deselect');
+  if (selSharp)   selSharp.addEventListener('click',   () => applyAccidentalToStave(lineKey, 'raise'));
+  if (selFlat)    selFlat.addEventListener('click',    () => applyAccidentalToStave(lineKey, 'lower'));
+  if (selNatural) selNatural.addEventListener('click', () => applyAccidentalToStave(lineKey, ''));
+  if (selDesel)   selDesel.addEventListener('click',   () => deselectStaveNote(lineKey, clef, containerEl));
 }
 
 // ---------------------------------------------------------------------------

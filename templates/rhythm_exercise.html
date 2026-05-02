@@ -76,11 +76,17 @@
       </button>
     </div>
 
+    <!-- Selected note controls (shown when a note is tapped/clicked) -->
+    <div id="selected-note-controls" class="d-flex flex-wrap gap-2 mb-2 align-items-center" style="display:none">
+      <span class="fw-semibold me-1">Selected note:</span>
+      <button id="btn-sel-deselect" class="btn btn-outline-secondary">&#10005; Deselect</button>
+    </div>
+
     <!-- Staff container -->
     <div id="notation-container" class="notation-area border rounded"></div>
 
     <div class="mt-2 text-muted small">
-      <strong>Click</strong> anywhere on the staff to place a note.
+      <strong>Click/tap</strong> anywhere on the staff to place a note &mdash; <strong>Tap a note</strong> to select it.
       &nbsp;|&nbsp; <strong>Keys:</strong>
       <kbd>3</kbd>&nbsp;16th &nbsp;<kbd>4</kbd>&nbsp;8th &nbsp;<kbd>5</kbd>&nbsp;Qtr
       &nbsp;<kbd>6</kbd>&nbsp;Half &nbsp;<kbd>7</kbd>&nbsp;Whole
