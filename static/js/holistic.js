@@ -318,32 +318,33 @@ function renderStaveForLine(lineKey, clef, containerEl) {
   const numMeasures = NUM_MEASURES;
   const numRows  = Math.ceil(numMeasures / VF_MEASURES_PER_ROW);
   const colCount = Math.min(numMeasures, VF_MEASURES_PER_ROW);
-  const staveWidth = Math.max(
-    window.matchMedia('(pointer: coarse)').matches ? 200 : 120,
-    Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount)
-  );
+  const bpm = beatsPerMeasure();
+
+  // Split notes first so we can size the stave to actual content.
+  const measureGroups = [];
+  let _cur = [], _beats = 0;
+  for (const n of notes) {
+    const b = noteBeats(n);
+    if (_beats + b > bpm + 0.001 && _cur.length) {
+      measureGroups.push(_cur); _cur = []; _beats = 0;
+    }
+    _cur.push(n); _beats += b;
+  }
+  if (_cur.length) measureGroups.push(_cur);
+  while (measureGroups.length < numMeasures) measureGroups.push([]);
+
+  const maxNotes   = measureGroups.reduce((m, mg) => Math.max(m, mg.length), 0);
+  const densityMin = 70 + maxNotes * 15;
+  const deviceMin  = window.matchMedia('(pointer: coarse)').matches ? 200 : 120;
+  const staveWidth = Math.max(densityMin, deviceMin, Math.floor((containerWidth - VF_STAVE_X_PAD * 2) / colCount));
   const svgWidth   = Math.max(containerWidth, VF_STAVE_X_PAD * 2 + colCount * staveWidth);
   const svgHeight  = VF_ROW_OFFSET + numRows * VF_ROW_HEIGHT;
-  const bpm = beatsPerMeasure();
 
   const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
   renderer.resize(svgWidth, svgHeight);
   const ctx = renderer.getContext();
 
   const keySig = KEY_SIGNATURE;
-
-  // Split notes into measures
-  const measureGroups = [];
-  let cur = [], beats = 0;
-  for (const n of notes) {
-    const b = noteBeats(n);
-    if (beats + b > bpm + 0.001 && cur.length) {
-      measureGroups.push(cur); cur = []; beats = 0;
-    }
-    cur.push(n); beats += b;
-  }
-  if (cur.length) measureGroups.push(cur);
-  while (measureGroups.length < numMeasures) measureGroups.push([]);
 
   function getDisplayAcc(noteKey) {
     const sl = noteKey.indexOf('/');

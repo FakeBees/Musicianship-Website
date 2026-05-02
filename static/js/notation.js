@@ -449,21 +449,24 @@
     const containerWidth = containerEl.clientWidth || 800;
     const numRows    = Math.ceil(numMeasures / MEASURES_PER_ROW);
     const colCount   = Math.min(numMeasures, MEASURES_PER_ROW);
-    const staveWidth = Math.max(
-      window.matchMedia('(pointer: coarse)').matches ? 200 : 120,
-      Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount)
-    );
+    const bpm        = getBeatsPerMeasure();
+
+    // Split notes first so we can size the stave to fit actual content.
+    const measureGroups = splitIntoMeasures(notes);
+    while (measureGroups.length < numMeasures) measureGroups.push([]);
+
+    const maxNotes   = measureGroups.reduce((m, mg) => Math.max(m, mg.length), 0);
+    const densityMin = 70 + maxNotes * 15;   // header overhead + 15px per note minimum
+    const deviceMin  = window.matchMedia('(pointer: coarse)').matches ? 200 : 120;
+    const staveWidth = Math.max(densityMin, deviceMin, Math.floor((containerWidth - STAVE_X_PAD * 2) / colCount));
     const svgWidth   = Math.max(containerWidth, STAVE_X_PAD * 2 + colCount * staveWidth);
     const svgHeight  = ROW_OFFSET + numRows * ROW_HEIGHT;
-    const bpm        = getBeatsPerMeasure();
 
     const renderer = new VF.Renderer(containerEl, VF.Renderer.Backends.SVG);
     renderer.resize(svgWidth, svgHeight);
     const ctx = renderer.getContext();
 
-    const keySig       = (typeof KEY_SIGNATURE !== 'undefined') ? KEY_SIGNATURE : 'C';
-    const measureGroups = splitIntoMeasures(notes);
-    while (measureGroups.length < numMeasures) measureGroups.push([]);
+    const keySig = (typeof KEY_SIGNATURE !== 'undefined') ? KEY_SIGNATURE : 'C';
 
     let globalNoteIdx = 0;
     const tiesToDraw  = [];
