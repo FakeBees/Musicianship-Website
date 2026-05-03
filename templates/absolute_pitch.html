@@ -155,17 +155,24 @@
   .bk.correct .bk-label,
   .bk.wrong   .bk-label { color: rgba(255,255,255,0.5); }
 
-  /* ── Piano area + side button ── */
+  /* ── Piano area + side panel ── */
   .piano-area {
     position: relative;
     display: inline-block;
   }
 
-  #freeplay-btn {
+  .side-panel {
     position: absolute;
     right: -148px;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 130px;
+  }
+
+  #freeplay-btn, #drill-btn, #sing-btn {
     width: 130px;
     font-size: 0.72rem;
     font-weight: 500;
@@ -181,12 +188,146 @@
     text-align: center;
     transition: all 0.15s;
   }
-  #freeplay-btn:hover { border-color: #555; color: #333; background: rgba(0,0,0,0.04); }
-  #freeplay-btn.active {
+  #freeplay-btn:hover, #drill-btn:hover, #sing-btn:hover {
+    border-color: #555; color: #333; background: rgba(0,0,0,0.04);
+  }
+  #freeplay-btn.active, #drill-btn.active, #sing-btn.active {
     background: #1a1a1a;
     border-color: #1a1a1a;
     color: #f0ece4;
     box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+
+  /* ── Drill picker ── */
+  #drill-picker {
+    display: none;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin-top: 1rem;
+    text-align: center;
+  }
+  #drill-picker h4 {
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  .drill-kbd {
+    position: relative;
+    display: inline-flex;
+    height: 90px;
+    margin-bottom: 1rem;
+  }
+  .dk {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .dk.dk-white {
+    width: 28px;
+    height: 90px;
+    background: linear-gradient(180deg, #f8f8f0 0%, #ffffff 60%);
+    border: 1px solid #aaa;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 5px;
+    box-shadow: 1px 3px 6px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+    font-size: 8px;
+    color: #999;
+  }
+  .dk.dk-black {
+    position: absolute;
+    width: 18px;
+    height: 58px;
+    background: linear-gradient(180deg, #333 0%, #111 70%);
+    border-radius: 0 0 4px 4px;
+    z-index: 2;
+    box-shadow: 1px 4px 8px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 4px;
+    font-size: 7px;
+    color: #555;
+    top: 0;
+  }
+  .dk.dk-white.drill-selected {
+    background: linear-gradient(180deg, #a8c4e8 0%, #6fa8d8 100%) !important;
+    color: rgba(255,255,255,0.9);
+  }
+  .dk.dk-black.drill-selected {
+    background: linear-gradient(180deg, #2a5f9e 0%, #1a3d6e 70%) !important;
+    color: rgba(255,255,255,0.7);
+  }
+  .drill-picker-btns {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .drill-picker-btns button {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  #drill-confirm-btn {
+    background: #1a1a1a;
+    color: #f0ece4;
+    border: none;
+  }
+  #drill-confirm-btn:hover { background: #333; }
+  #drill-cancel-btn {
+    background: transparent;
+    color: #777;
+    border: 1px solid #bbb;
+  }
+  #drill-cancel-btn:hover { border-color: #555; color: #333; }
+  #drill-disable-btn {
+    background: transparent;
+    color: #c0392b;
+    border: 1px solid #c0392b;
+    display: none;
+  }
+  #drill-disable-btn:hover { background: #c0392b; color: #fff; }
+
+  /* ── Sing / pitch indicator ── */
+  #sing-indicator {
+    display: none;
+    text-align: center;
+    margin-top: 1.2rem;
+  }
+  .pitch-meter {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .pitch-line {
+    width: 80px;
+    height: 12px;
+    border-radius: 3px;
+    background: #d0d0d0;
+    transition: background 0.07s;
+  }
+  #pitch-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #888;
+    min-height: 1.1rem;
   }
 
   /* ── Stats panel ── */
@@ -255,7 +396,32 @@
     <div class="piano-shell">
       <div id="keyboard"></div>
     </div>
-    <button id="freeplay-btn">Free Play</button>
+    <div class="side-panel">
+      <button id="freeplay-btn">Free Play</button>
+      <button id="drill-btn">Drill Specific Pitches</button>
+      <button id="sing-btn">Sing Note for Grade</button>
+    </div>
+  </div>
+
+  <div id="drill-picker">
+    <h4>Select pitches to drill</h4>
+    <div class="drill-kbd" id="drill-kbd"></div>
+    <div class="drill-picker-btns">
+      <button id="drill-confirm-btn">Confirm</button>
+      <button id="drill-cancel-btn">Cancel</button>
+      <button id="drill-disable-btn">Disable Drill</button>
+    </div>
+  </div>
+
+  <div id="sing-indicator">
+    <div class="pitch-meter">
+      <div class="pitch-line" id="pLine5"></div>
+      <div class="pitch-line" id="pLine4"></div>
+      <div class="pitch-line" id="pLine3"></div>
+      <div class="pitch-line" id="pLine2"></div>
+      <div class="pitch-line" id="pLine1"></div>
+    </div>
+    <div id="pitch-label">—</div>
   </div>
 
   <div class="stats-panel">
@@ -385,6 +551,22 @@
   const gradeOctaveEl = document.getElementById('grade-octave');
   const instrumentSel = document.getElementById('instrument-select');
   const autoAdvanceEl = document.getElementById('auto-advance');
+  const drillBtn      = document.getElementById('drill-btn');
+  const singBtn       = document.getElementById('sing-btn');
+  const drillPicker   = document.getElementById('drill-picker');
+  const drillKbd      = document.getElementById('drill-kbd');
+  const drillConfirm  = document.getElementById('drill-confirm-btn');
+  const drillCancel   = document.getElementById('drill-cancel-btn');
+  const drillDisable  = document.getElementById('drill-disable-btn');
+  const singIndicator = document.getElementById('sing-indicator');
+  const pitchLabel    = document.getElementById('pitch-label');
+  const pLines        = [null,
+    document.getElementById('pLine1'),
+    document.getElementById('pLine2'),
+    document.getElementById('pLine3'),
+    document.getElementById('pLine4'),
+    document.getElementById('pLine5'),
+  ];
 
   // ── Instrument selector ───────────────────────────────────────────────────────
   Instruments.list.forEach(inst => {
@@ -406,6 +588,19 @@
   let sampler;
   let heldUserNote    = null;
   let autoAdvanceTimer = null;
+
+  // Drill specific pitches
+  let drillMode    = false;
+  let drillPitches = [];   // array of pitch classes e.g. ['C', 'E', 'Fs']
+
+  // Sing note for grade
+  let singMode         = false;
+  let singPhase        = 'waiting_key'; // 'waiting_key' | 'waiting_sing'
+  let singCorrectStart = null;
+  let micStream        = null;
+  let audioCtx         = null;
+  let analyser         = null;
+  let singAnimFrame    = null;
 
   // ── Instrument loading ────────────────────────────────────────────────────────
   function loadInstrument(id) {
@@ -475,6 +670,7 @@
     applyRange();
     rebuildArrays();
     clearColors();
+    if (drillMode) { drillMode = false; drillPitches = []; drillBtn.classList.remove('active'); drillPicker.style.display = 'none'; }
     if (gameState !== 'IDLE') { gameState = 'IDLE'; refreshUI(); }
     buildKeyboard();
   });
@@ -494,6 +690,7 @@
     localStorage.setItem('ap.gradeOctave', gradeOctave);
     rebuildArrays();
     clearColors();
+    if (drillMode) { drillMode = false; drillPitches = []; drillBtn.classList.remove('active'); drillPicker.style.display = 'none'; }
     if (gameState !== 'IDLE') { gameState = 'IDLE'; refreshUI(); }
     buildKeyboard();
   });
@@ -515,6 +712,261 @@
       refreshUI();
     }
   });
+
+  // ── Drill specific pitches ────────────────────────────────────────────────────
+  const DRILL_WHITES = ['C','D','E','F','G','A','B'];
+  const DRILL_BLACKS = [
+    { pc: 'Cs', label: 'C#', whiteIndex: 0 },
+    { pc: 'Ds', label: 'D#', whiteIndex: 1 },
+    { pc: 'Fs', label: 'F#', whiteIndex: 3 },
+    { pc: 'Gs', label: 'G#', whiteIndex: 4 },
+    { pc: 'As', label: 'A#', whiteIndex: 5 },
+  ];
+  const DRILL_KW = 28;
+
+  function buildDrillPicker() {
+    drillKbd.innerHTML = '';
+    DRILL_WHITES.forEach((letter, i) => {
+      const el = document.createElement('div');
+      el.className = 'dk dk-white';
+      el.dataset.pc = letter;
+      el.textContent = letter;
+      if (drillPitches.includes(letter)) el.classList.add('drill-selected');
+      el.addEventListener('click', () => {
+        if (drillPitches.includes(letter)) {
+          drillPitches = drillPitches.filter(p => p !== letter);
+          el.classList.remove('drill-selected');
+        } else {
+          drillPitches.push(letter);
+          el.classList.add('drill-selected');
+        }
+      });
+      drillKbd.appendChild(el);
+    });
+    DRILL_BLACKS.forEach(bk => {
+      const el = document.createElement('div');
+      el.className = 'dk dk-black';
+      el.dataset.pc = bk.pc;
+      el.textContent = bk.label;
+      el.style.left = `${(bk.whiteIndex + 0.7) * DRILL_KW}px`;
+      if (drillPitches.includes(bk.pc)) el.classList.add('drill-selected');
+      el.addEventListener('click', () => {
+        if (drillPitches.includes(bk.pc)) {
+          drillPitches = drillPitches.filter(p => p !== bk.pc);
+          el.classList.remove('drill-selected');
+        } else {
+          drillPitches.push(bk.pc);
+          el.classList.add('drill-selected');
+        }
+      });
+      drillKbd.appendChild(el);
+    });
+    drillDisable.style.display = drillMode ? 'inline-block' : 'none';
+  }
+
+  drillBtn.addEventListener('click', () => {
+    if (drillPicker.style.display === 'block') {
+      drillPicker.style.display = 'none';
+    } else {
+      buildDrillPicker();
+      drillPicker.style.display = 'block';
+    }
+  });
+
+  drillConfirm.addEventListener('click', () => {
+    if (drillPitches.length === 0) {
+      const orig = drillConfirm.textContent;
+      drillConfirm.textContent = 'Pick at least 1!';
+      setTimeout(() => { drillConfirm.textContent = orig; }, 1500);
+      return;
+    }
+    drillMode = true;
+    drillPicker.style.display = 'none';
+    drillBtn.classList.add('active');
+    if (gameState !== 'IDLE') { gameState = 'IDLE'; clearColors(); refreshUI(); }
+  });
+
+  drillCancel.addEventListener('click', () => {
+    drillPicker.style.display = 'none';
+  });
+
+  drillDisable.addEventListener('click', () => {
+    drillMode = false;
+    drillPitches = [];
+    drillBtn.classList.remove('active');
+    drillPicker.style.display = 'none';
+    if (gameState !== 'IDLE') { gameState = 'IDLE'; clearColors(); refreshUI(); }
+  });
+
+  // ── Sing note for grade ───────────────────────────────────────────────────────
+  function stopMic() {
+    if (singAnimFrame) { cancelAnimationFrame(singAnimFrame); singAnimFrame = null; }
+    if (micStream)     { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioCtx)      { audioCtx.close(); audioCtx = null; analyser = null; }
+    singMode = false;
+    singPhase = 'waiting_key';
+    singCorrectStart = null;
+    resetZoneDebounce();
+    singIndicator.style.display = 'none';
+    singBtn.classList.remove('active');
+    singBtn.textContent = 'Sing Note for Grade';
+  }
+
+  singBtn.addEventListener('click', async () => {
+    if (singMode) {
+      const wasWaitingSing = singPhase === 'waiting_sing';
+      stopMic();
+      if (wasWaitingSing) { clearColors(); refreshUI(); }
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+      const prev = statusDisplay.textContent;
+      const prevClass = statusDisplay.className;
+      statusDisplay.className = '';
+      statusDisplay.textContent = 'Microphone access denied';
+      setTimeout(() => { statusDisplay.textContent = prev; statusDisplay.className = prevClass; }, 2500);
+      return;
+    }
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    singMode = true;
+    singIndicator.style.display = 'block';
+    singBtn.classList.add('active');
+    singBtn.textContent = '✕ Exit Sing Mode';
+    startPitchLoop();
+  });
+
+  function detectPitchHz(buffer, sampleRate) {
+    const SIZE = buffer.length;
+    let rms = 0;
+    for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
+    if (Math.sqrt(rms / SIZE) < 0.01) return -1;
+
+    // Find signal boundaries to trim silence at edges
+    let r1 = 0, r2 = SIZE - 1;
+    for (let i = 0; i < SIZE / 2; i++) {
+      if (Math.abs(buffer[i]) >= 0.2) { r1 = i; break; }
+    }
+    for (let i = 1; i < SIZE / 2; i++) {
+      if (Math.abs(buffer[SIZE - i]) >= 0.2) { r2 = SIZE - i; break; }
+    }
+
+    const buf2 = buffer.slice(r1, r2 + 1);
+    const len = buf2.length;
+    if (len < 2) return -1;
+
+    // Autocorrelation
+    const c = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      for (let j = 0; j < len - i; j++) c[i] += buf2[j] * buf2[j + i];
+    }
+
+    // Find first dip then dominant peak
+    let d = 0;
+    while (d < len - 1 && c[d] > c[d + 1]) d++;
+    let maxVal = -1, maxPos = -1;
+    for (let i = d; i < len; i++) {
+      if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
+    }
+    if (maxPos < 1 || maxPos >= len - 1) return -1;
+
+    // Parabolic interpolation for sub-sample accuracy
+    const x1 = c[maxPos - 1], x2 = c[maxPos], x3 = c[maxPos + 1];
+    const a = (x1 + x3 - 2 * x2) / 2;
+    const b = (x3 - x1) / 2;
+    let T0 = maxPos;
+    if (a) T0 -= b / (2 * a);
+    return sampleRate / T0;
+  }
+
+  function getCentsFromTarget(hz, targetNoteName) {
+    if (hz <= 0 || !targetNoteName) return null;
+    const targetPC = noteToMidi(targetNoteName) % 12;
+    const detectedMidi = 12 * Math.log2(hz / 440) + 69;
+    const roughOctave = Math.round(detectedMidi / 12);
+    let closestMidi = null, closestDist = Infinity;
+    for (let o = roughOctave - 1; o <= roughOctave + 1; o++) {
+      const cand = targetPC + o * 12;
+      const dist = Math.abs(cand - detectedMidi);
+      if (dist < closestDist) { closestDist = dist; closestMidi = cand; }
+    }
+    return (detectedMidi - closestMidi) * 100;
+  }
+
+  const ZONE_LABELS = ['—', 'Very Flat', 'Slightly Flat', 'Correct', 'Slightly Sharp', 'Very Sharp'];
+  const ZONE_COLORS = [null, '#c0392b', '#e67e22', '#27ae60', '#e67e22', '#c0392b'];
+  let _displayedZone   = 0;
+  let _candidateZone   = 0;
+  let _candidateStart  = null;
+
+  function centsToZone(cents) {
+    if (cents === null) return 0;
+    if (cents > 50)   return 5;
+    if (cents > 10)   return 4;
+    if (cents >= -10) return 3;
+    if (cents >= -50) return 2;
+    return 1;
+  }
+
+  function applyZone(zone) {
+    for (let i = 1; i <= 5; i++) pLines[i].style.background = '#d0d0d0';
+    pitchLabel.textContent = ZONE_LABELS[zone];
+    if (zone >= 1) pLines[zone].style.background = ZONE_COLORS[zone];
+  }
+
+  function resetZoneDebounce() {
+    _displayedZone = 0; _candidateZone = 0; _candidateStart = null;
+    applyZone(0);
+  }
+
+  function updatePitchIndicator(cents) {
+    const raw = centsToZone(cents);
+    if (raw === _displayedZone) { _candidateZone = raw; _candidateStart = null; return; }
+    const now = performance.now();
+    if (raw !== _candidateZone) { _candidateZone = raw; _candidateStart = now; return; }
+    if (now - _candidateStart >= 10) {
+      _displayedZone = raw; _candidateStart = null; applyZone(raw);
+    }
+  }
+
+  const _pitchBuf = new Float32Array(2048);
+  function startPitchLoop() {
+    function loop() {
+      if (!singMode) return;
+      singAnimFrame = requestAnimationFrame(loop);
+      if (singPhase !== 'waiting_sing' || !analyser) {
+        updatePitchIndicator(null);
+        return;
+      }
+      analyser.getFloatTimeDomainData(_pitchBuf);
+      const hz    = detectPitchHz(_pitchBuf, audioCtx.sampleRate);
+      const cents = getCentsFromTarget(hz, targetNote);
+      updatePitchIndicator(cents);
+      if (cents !== null && Math.abs(cents) <= 10) {
+        const now = performance.now();
+        if (singCorrectStart === null) singCorrectStart = now;
+        else if (now - singCorrectStart >= 500) completeSingPhase();
+      } else {
+        singCorrectStart = null;
+      }
+    }
+    loop();
+  }
+
+  function completeSingPhase() {
+    singPhase = 'waiting_key';
+    singCorrectStart = null;
+    totalRounds++;
+    if (isFirstTry) firstTryWins++;
+    gameState = 'SOLVED';
+    refreshUI();
+    refreshStats();
+    if (autoAdvance) autoAdvanceTimer = setTimeout(startNextNote, 1000);
+  }
 
   // ── UI helpers ────────────────────────────────────────────────────────────────
   function clearColors() {
@@ -550,11 +1002,20 @@
   }
 
   // ── Next-note logic (shared by button and auto-advance) ──────────────────────
+  function getAvailableNotes() {
+    if (!drillMode || drillPitches.length === 0) return allNotes;
+    return allNotes.filter(n => drillPitches.includes(pitchClass(n)));
+  }
+
   function startNextNote() {
     clearTimeout(autoAdvanceTimer);
     autoAdvanceTimer = null;
     clearColors();
-    targetNote = allNotes[Math.floor(Math.random() * allNotes.length)];
+    singPhase = 'waiting_key';
+    singCorrectStart = null;
+    resetZoneDebounce();
+    const pool = getAvailableNotes();
+    targetNote = pool[Math.floor(Math.random() * pool.length)];
     isFirstTry = true;
     playNote(targetNote);
     gameState  = 'LISTENING';
@@ -585,19 +1046,29 @@
       if (!isMatch) el.classList.add('pressed');
       return;
     }
+    // While waiting for the user to sing, ignore further key presses
+    if (singPhase === 'waiting_sing') {
+      startUserNote(note);
+      return;
+    }
     startUserNote(note);
     const isCorrect = gradeOctave
       ? note === targetNote
       : pitchClass(note) === pitchClass(targetNote);
     if (isCorrect) {
-      totalRounds++;
-      if (isFirstTry) firstTryWins++;
       el.classList.add('correct');
-      gameState = 'SOLVED';
-      refreshUI();
-      refreshStats();
-      if (autoAdvance) {
-        autoAdvanceTimer = setTimeout(startNextNote, 1000);
+      if (singMode) {
+        singPhase = 'waiting_sing';
+        singCorrectStart = null;
+        statusDisplay.className = 'listening';
+        statusDisplay.textContent = 'Now sing the note!';
+      } else {
+        totalRounds++;
+        if (isFirstTry) firstTryWins++;
+        gameState = 'SOLVED';
+        refreshUI();
+        refreshStats();
+        if (autoAdvance) autoAdvanceTimer = setTimeout(startNextNote, 1000);
       }
     } else {
       isFirstTry = false;
