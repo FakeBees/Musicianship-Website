@@ -197,11 +197,6 @@ def home():
     return render_template('home.html')
 
 
-@app.route('/absolute-pitch')
-def absolute_pitch():
-    return render_template('absolute_pitch.html')
-
-
 @app.route('/melodic')
 def melodic_index():
     all_tags = Tag.query.order_by(Tag.name).all()
@@ -658,5 +653,5 @@ def init_db():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, port=port)
