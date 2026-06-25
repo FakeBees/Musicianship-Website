@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}{{ cls.name }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-1">
+    <h2>{{ cls.name }}</h2>
+    <span class="badge bg-secondary fs-6">Join code: {{ cls.join_code }}</span>
+  </div>
+  <p class="text-muted mb-4">{{ roster | length }} student{{ 's' if roster | length != 1 }}</p>
+
+  {% if roster %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th class="text-center">Melodic</th>
+          <th class="text-center">Rhythmic</th>
+          <th class="text-center">Harmonic</th>
+          <th class="text-center">Holistic</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in roster %}
+        <tr>
+          <td>{{ row.student.display_name or row.student.email }}</td>
+          {% for mode in ['melodic', 'rhythmic', 'harmonic', 'holistic'] %}
+          <td class="text-center">
+            {% if row[mode] is not none %}
+              <span class="badge {% if row[mode] >= 80 %}bg-success{% elif row[mode] >= 60 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                {{ row[mode] }}%
+              </span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">No students have joined yet. Share the join code: <strong>{{ cls.join_code }}</strong></p>
+  {% endif %}
+
+  <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link mt-3">← Back to classes</a>
+</div>
+{% endblock %}

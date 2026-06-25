@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}New Class{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:500px">
+  <h2 class="mb-4">Create a new class</h2>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Class name</label>
+      <input type="text" name="name" class="form-control" required autofocus placeholder="e.g. MUS 101 Fall 2026">
+    </div>
+    <button type="submit" class="btn btn-primary">Create class</button>
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link">Cancel</a>
+  </form>
+</div>
+{% endblock %}

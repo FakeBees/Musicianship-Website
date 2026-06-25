@@ -769,7 +769,71 @@ def me():
 @login_required
 @role_required('teacher', 'admin')
 def teacher_dashboard():
-    return render_template('teacher/dashboard.html', classes=[])
+    classes = Class.query.filter_by(teacher_id=current_user.id).all()
+    return render_template('teacher/dashboard.html', classes=classes)
+
+
+@app.route('/teacher/class/new', methods=['GET', 'POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_new_class():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if not name:
+            flash('Class name is required.', 'danger')
+            return render_template('teacher/new_class.html')
+        import secrets as _secrets
+        join_code = _secrets.token_urlsafe(8)[:8].upper()
+        cls = Class(name=name, join_code=join_code, teacher_id=current_user.id)
+        db.session.add(cls)
+        db.session.commit()
+        flash(f'Class "{name}" created. Join code: {join_code}', 'success')
+        return redirect(url_for('teacher_class_detail', class_id=cls.id))
+    return render_template('teacher/new_class.html')
+
+
+@app.route('/teacher/class/<int:class_id>')
+@login_required
+@role_required('teacher', 'admin')
+def teacher_class_detail(class_id):
+    cls = Class.query.get_or_404(class_id)
+    if cls.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+
+    roster = []
+    for student in cls.members:
+        uid = student.id
+
+        def mode_avg(model, score_field, _uid=uid):
+            rows = model.query.filter_by(user_id=_uid).order_by(model.created_at.desc()).limit(20).all()
+            vals = [getattr(r, score_field) for r in rows if getattr(r, score_field) is not None]
+            return round(sum(vals) / len(vals) * 100) if vals else None
+
+        roster.append({
+            'student':  student,
+            'melodic':  mode_avg(UserAttempt,    'overall_score'),
+            'rhythmic': mode_avg(RhythmAttempt,  'duration_accuracy'),
+            'harmonic': mode_avg(HarmonicAttempt,'overall_score'),
+            'holistic': mode_avg(HolisticAttempt,'overall_score'),
+        })
+
+    return render_template('teacher/class_detail.html', cls=cls, roster=roster)
+
+
+@app.route('/teacher/join', methods=['POST'])
+@login_required
+def join_class():
+    code = request.form.get('join_code', '').strip().upper()
+    cls  = Class.query.filter_by(join_code=code).first()
+    if not cls:
+        flash('Invalid join code.', 'danger')
+    elif current_user in cls.members:
+        flash('You are already in this class.', 'info')
+    else:
+        cls.members.append(current_user)
+        db.session.commit()
+        flash(f'Joined "{cls.name}".', 'success')
+    return redirect(url_for('me'))
 
 
 # ---------------------------------------------------------------------------
