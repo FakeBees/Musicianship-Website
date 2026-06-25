@@ -3,7 +3,7 @@ import os
 import random
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
-                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt
+                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, User
 from chord_utils import grade_harmonic_attempt, format_chord_name
 
 app = Flask(__name__)
@@ -20,6 +20,29 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 db.init_app(app)
+
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from functools import wraps
+from flask import abort
+
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
+def role_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in roles:
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 # ---------------------------------------------------------------------------
