@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 import json
 
 db = SQLAlchemy()
@@ -79,6 +80,8 @@ class UserAttempt(db.Model):
     duration_accuracy = db.Column(db.Float, default=0.0)
     overall_score = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user    = db.relationship('User', backref='melody_attempts')
 
     @property
     def user_notes(self):
@@ -132,6 +135,8 @@ class RhythmAttempt(db.Model):
     user_notes_json = db.Column(db.Text, nullable=False, default='[]')
     duration_accuracy = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user    = db.relationship('User', backref='rhythm_attempts')
 
     @property
     def user_notes(self):
@@ -275,6 +280,8 @@ class HolisticAttempt(db.Model):
 
     overall_score  = db.Column(db.Float, default=0.0)
     created_at     = db.Column(db.DateTime, server_default=db.func.now())
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user    = db.relationship('User', backref='holistic_attempts')
 
     @property
     def user_data(self):
@@ -297,6 +304,8 @@ class HarmonicAttempt(db.Model):
     chord_quality_accuracy = db.Column(db.Float, default=0.0)
     overall_score          = db.Column(db.Float, default=0.0)
     created_at             = db.Column(db.DateTime, server_default=db.func.now())
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user    = db.relationship('User', backref='harmonic_attempts')
 
     @property
     def user_chords(self):
@@ -304,3 +313,38 @@ class HarmonicAttempt(db.Model):
 
     def __repr__(self):
         return f'<HarmonicAttempt prog={self.progression_id} score={self.overall_score:.1f}>'
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'user'
+    id            = db.Column(db.Integer, primary_key=True)
+    email         = db.Column(db.String(255), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    display_name  = db.Column(db.String(100))
+    role          = db.Column(db.String(20), nullable=False, default='student')
+    created_at    = db.Column(db.DateTime, server_default=db.func.now())
+
+    def __repr__(self):
+        return f'<User {self.email} role={self.role}>'
+
+
+class_members = db.Table(
+    'class_members',
+    db.Column('class_id', db.Integer, db.ForeignKey('class.id'), primary_key=True),
+    db.Column('user_id',  db.Integer, db.ForeignKey('user.id'),  primary_key=True),
+)
+
+
+class Class(db.Model):
+    __tablename__ = 'class'
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(120), nullable=False)
+    join_code  = db.Column(db.String(12), unique=True, nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    teacher = db.relationship('User', backref='classes_taught')
+    members = db.relationship('User', secondary=class_members, backref='classes')
+
+    def __repr__(self):
+        return f'<Class {self.name}>'
