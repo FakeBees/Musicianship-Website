@@ -1,5 +1,107 @@
 {% extends 'base.html' %}
 {% block title %}My Progress{% endblock %}
 {% block content %}
-<p>Progress page coming soon.</p>
+<div class="container py-4">
+  <h2 class="mb-4">My Progress — {{ current_user.display_name or current_user.email }}</h2>
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    {% for mode, s in stats.items() %}
+    <div class="col-6 col-md-3">
+      <div class="card text-center h-100">
+        <div class="card-body">
+          <h6 class="card-subtitle text-muted mb-1 text-capitalize">{{ mode }}</h6>
+          <div class="fs-3 fw-bold">{{ s.avg ~ '%' if s.avg is not none else '—' }}</div>
+          <small class="text-muted">{{ s.count }} attempt{{ 's' if s.count != 1 }}</small>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Melodic history -->
+  {% if melody_attempts %}
+  <h5>Melodic dictation</h5>
+  <table class="table table-sm table-striped mb-4">
+    <thead><tr><th>Date</th><th>Exercise</th><th>Pitch</th><th>Duration</th><th>Overall</th></tr></thead>
+    <tbody>
+    {% for a in melody_attempts %}
+      <tr>
+        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
+        <td>{{ a.melody.name }}</td>
+        <td>{{ (a.pitch_accuracy * 100) | round | int }}%</td>
+        <td>{{ (a.duration_accuracy * 100) | round | int }}%</td>
+        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- Harmonic history -->
+  {% if harmonic_attempts %}
+  <h5>Harmonic dictation</h5>
+  <table class="table table-sm table-striped mb-4">
+    <thead><tr><th>Date</th><th>Exercise</th><th>Overall</th></tr></thead>
+    <tbody>
+    {% for a in harmonic_attempts %}
+      <tr>
+        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
+        <td>{{ a.progression.name if a.progression else a.progression_id }}</td>
+        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- Rhythmic history -->
+  {% if rhythm_attempts %}
+  <h5>Rhythmic dictation</h5>
+  <table class="table table-sm table-striped mb-4">
+    <thead><tr><th>Date</th><th>Exercise</th><th>Duration acc.</th></tr></thead>
+    <tbody>
+    {% for a in rhythm_attempts %}
+      <tr>
+        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
+        <td>{{ a.rhythm.name }}</td>
+        <td>{{ (a.duration_accuracy * 100) | round | int }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <!-- Holistic history -->
+  {% if holistic_attempts %}
+  <h5>Holistic dictation</h5>
+  <table class="table table-sm table-striped mb-4">
+    <thead><tr><th>Date</th><th>Exercise</th><th>Overall</th></tr></thead>
+    <tbody>
+    {% for a in holistic_attempts %}
+      <tr>
+        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
+        <td>{{ a.exercise.name if a.exercise else a.exercise_id }}</td>
+        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if not (melody_attempts or harmonic_attempts or rhythm_attempts or holistic_attempts) %}
+  <p class="text-muted">No attempts yet. Complete some exercises to see your history here.</p>
+  {% endif %}
+
+  <!-- Join a class -->
+  <hr>
+  <h5>Join a class</h5>
+  <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2" style="max-width:360px">
+    <input type="text" name="join_code" class="form-control" placeholder="Enter join code" required>
+    <button type="submit" class="btn btn-outline-primary">Join</button>
+  </form>
+  {% if current_user.classes %}
+  <p class="mt-3 text-muted small">You're enrolled in: {{ current_user.classes | map(attribute='name') | join(', ') }}</p>
+  {% endif %}
+</div>
 {% endblock %}

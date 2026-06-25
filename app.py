@@ -739,7 +739,30 @@ def admin_index():
 @app.route('/me')
 @login_required
 def me():
-    return render_template('me.html')
+    uid = current_user.id
+
+    melody_attempts   = UserAttempt.query.filter_by(user_id=uid).order_by(UserAttempt.created_at.desc()).limit(50).all()
+    rhythm_attempts   = RhythmAttempt.query.filter_by(user_id=uid).order_by(RhythmAttempt.created_at.desc()).limit(50).all()
+    harmonic_attempts = HarmonicAttempt.query.filter_by(user_id=uid).order_by(HarmonicAttempt.created_at.desc()).limit(50).all()
+    holistic_attempts = HolisticAttempt.query.filter_by(user_id=uid).order_by(HolisticAttempt.created_at.desc()).limit(50).all()
+
+    def avg(attempts, field='overall_score'):
+        vals = [getattr(a, field) for a in attempts if getattr(a, field) is not None]
+        return round(sum(vals) / len(vals) * 100) if vals else None
+
+    stats = {
+        'melodic':  {'count': len(melody_attempts),   'avg': avg(melody_attempts)},
+        'rhythmic': {'count': len(rhythm_attempts),   'avg': avg(rhythm_attempts, 'duration_accuracy')},
+        'harmonic': {'count': len(harmonic_attempts), 'avg': avg(harmonic_attempts)},
+        'holistic': {'count': len(holistic_attempts), 'avg': avg(holistic_attempts)},
+    }
+
+    return render_template('me.html',
+                           stats=stats,
+                           melody_attempts=melody_attempts,
+                           rhythm_attempts=rhythm_attempts,
+                           harmonic_attempts=harmonic_attempts,
+                           holistic_attempts=holistic_attempts)
 
 
 @app.route('/teacher')
