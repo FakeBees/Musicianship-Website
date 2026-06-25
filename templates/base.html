@@ -23,7 +23,33 @@
     <a class="navbar-brand fw-bold" href="{{ url_for('home') }}">
       <i class="bi bi-music-note-beamed me-1"></i>Musicianship Trainer
     </a>
-    <span id="midi-status" class="midi-disconnected">MIDI: not connected</span>
+    <div class="d-flex align-items-center gap-3">
+      <span id="midi-status" class="midi-disconnected">MIDI: not connected</span>
+      <ul class="navbar-nav flex-row gap-1 mb-0">
+        {% if current_user.is_authenticated %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            {{ current_user.display_name or current_user.email }}
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
+            {% if current_user.role in ('teacher', 'admin') %}
+            <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
+            {% endif %}
+            {% if current_user.role == 'admin' %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin_index') }}">Admin</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Log out</a></li>
+          </ul>
+        </li>
+        {% else %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Log in</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register</a></li>
+        {% endif %}
+      </ul>
+    </div>
   </div>
 </nav>
 

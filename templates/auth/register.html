@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width:420px">
+  <h2 class="mb-4">Create account</h2>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Display name (optional)</label>
+      <input type="text" name="display_name" class="form-control">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" name="email" class="form-control" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-control" required minlength="8">
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Create account</button>
+  </form>
+  <p class="mt-3 text-center">
+    Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+  </p>
+</div>
+{% endblock %}

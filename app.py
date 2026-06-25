@@ -1,7 +1,7 @@
 import json
 import os
 import random
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, User
 from chord_utils import grade_harmonic_attempt, format_chord_name
@@ -660,6 +660,89 @@ def holistic_results(attempt_id):
     return render_template('holistic_results.html',
                            attempt=attempt,
                            exercise=exercise)
+
+
+# ---------------------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------------------
+from werkzeug.security import generate_password_hash, check_password_hash
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        name     = request.form.get('display_name', '').strip()
+        if not email or not password:
+            flash('Email and password are required.', 'danger')
+            return render_template('auth/register.html')
+        if User.query.filter_by(email=email).first():
+            flash('An account with that email already exists.', 'danger')
+            return render_template('auth/register.html')
+        user = User(
+            email         = email,
+            password_hash = generate_password_hash(password),
+            display_name  = name or email.split('@')[0],
+            role          = 'student',
+        )
+        db.session.add(user)
+        db.session.commit()
+        login_user(user)
+        flash('Account created! Welcome.', 'success')
+        return redirect(url_for('home'))
+    return render_template('auth/register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        user     = User.query.filter_by(email=email).first()
+        if not user or not check_password_hash(user.password_hash, password):
+            flash('Invalid email or password.', 'danger')
+            return render_template('auth/login.html')
+        login_user(user, remember=request.form.get('remember') == 'on')
+        next_page = request.args.get('next')
+        return redirect(next_page or url_for('home'))
+    return render_template('auth/login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('home'))
+
+
+# ---------------------------------------------------------------------------
+# Stub routes (replaced in Tasks 1-G and 1-H)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin')
+@login_required
+@role_required('admin')
+def admin_index():
+    return '<h2>Admin CMS — coming in Phase 3</h2>', 200
+
+
+@app.route('/me')
+@login_required
+def me():
+    return render_template('me.html')
+
+
+@app.route('/teacher')
+@login_required
+@role_required('teacher', 'admin')
+def teacher_dashboard():
+    return render_template('teacher/dashboard.html', classes=[])
 
 
 # ---------------------------------------------------------------------------
