@@ -29,9 +29,9 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.melody.name }}</td>
-        <td>{{ (a.pitch_accuracy * 100) | round | int }}%</td>
-        <td>{{ (a.duration_accuracy * 100) | round | int }}%</td>
-        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+        <td>{{ ((a.pitch_accuracy or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.duration_accuracy or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -48,7 +48,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.progression.name if a.progression else a.progression_id }}</td>
-        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -65,7 +65,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.rhythm.name }}</td>
-        <td>{{ (a.duration_accuracy * 100) | round | int }}%</td>
+        <td>{{ ((a.duration_accuracy or 0) * 100) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -82,7 +82,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.exercise.name if a.exercise else a.exercise_id }}</td>
-        <td>{{ (a.overall_score * 100) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>

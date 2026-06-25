@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import secrets
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, User
@@ -683,6 +684,9 @@ def register():
         if not email or not password:
             flash('Email and password are required.', 'danger')
             return render_template('auth/register.html')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'danger')
+            return render_template('auth/register.html')
         if User.query.filter_by(email=email).first():
             flash('An account with that email already exists.', 'danger')
             return render_template('auth/register.html')
@@ -712,7 +716,10 @@ def login():
             flash('Invalid email or password.', 'danger')
             return render_template('auth/login.html')
         login_user(user, remember=request.form.get('remember') == 'on')
+        from urllib.parse import urlparse
         next_page = request.args.get('next')
+        if next_page and urlparse(next_page).netloc != '':
+            next_page = None
         return redirect(next_page or url_for('home'))
     return render_template('auth/login.html')
 
@@ -782,8 +789,7 @@ def teacher_new_class():
         if not name:
             flash('Class name is required.', 'danger')
             return render_template('teacher/new_class.html')
-        import secrets as _secrets
-        join_code = _secrets.token_urlsafe(8)[:8].upper()
+        join_code = secrets.token_urlsafe(8)[:8].upper()
         cls = Class(name=name, join_code=join_code, teacher_id=current_user.id)
         db.session.add(cls)
         db.session.commit()
@@ -824,6 +830,9 @@ def teacher_class_detail(class_id):
 @login_required
 def join_class():
     code = request.form.get('join_code', '').strip().upper()
+    if not code:
+        flash('Please enter a join code.', 'danger')
+        return redirect(url_for('me'))
     cls  = Class.query.filter_by(join_code=code).first()
     if not cls:
         flash('Invalid join code.', 'danger')
