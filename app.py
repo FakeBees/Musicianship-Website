@@ -299,6 +299,7 @@ def submit(melody_id):
         pitch_accuracy=pitch_acc,
         duration_accuracy=dur_acc,
         overall_score=overall,
+        user_id=current_user.id if current_user.is_authenticated else None,
     )
     db.session.add(attempt)
     db.session.commit()
@@ -401,6 +402,7 @@ def rhythm_submit(rhythm_id):
         rhythm_id=rhythm_id,
         user_notes_json=json.dumps(user_notes),
         duration_accuracy=dur_acc,
+        user_id=current_user.id if current_user.is_authenticated else None,
     )
     db.session.add(attempt)
     db.session.commit()
@@ -522,6 +524,7 @@ def harmonic_submit(progression_id):
         chord_letter_accuracy = letter_acc,
         chord_quality_accuracy= quality_acc,
         overall_score         = overall,
+        user_id               = current_user.id if current_user.is_authenticated else None,
     )
     db.session.add(attempt)
     db.session.commit()
@@ -646,6 +649,7 @@ def holistic_submit(exercise_id):
         user_data_json = json.dumps(user_data),
         scores_json    = json.dumps(scores),
         overall_score  = overall,
+        user_id        = current_user.id if current_user.is_authenticated else None,
     )
     db.session.add(attempt)
     db.session.commit()
