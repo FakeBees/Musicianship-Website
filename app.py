@@ -1121,16 +1121,21 @@ def teacher_dashboard():
 def teacher_new_class():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        course_id = request.form.get('course_id', type=int)
         if not name:
             flash('Class name is required.', 'danger')
-            return render_template('teacher/new_class.html')
+            courses = Course.query.order_by(Course.name).all()
+            return render_template('teacher/new_class.html', courses=courses)
         join_code = secrets.token_urlsafe(8)[:8].upper()
-        cls = Class(name=name, join_code=join_code, teacher_id=current_user.id)
+        cls = Class(name=name, join_code=join_code,
+                    teacher_id=current_user.id,
+                    course_id=course_id if course_id else None)
         db.session.add(cls)
         db.session.commit()
         flash(f'Class "{name}" created. Join code: {join_code}', 'success')
         return redirect(url_for('teacher_class_detail', class_id=cls.id))
-    return render_template('teacher/new_class.html')
+    courses = Course.query.order_by(Course.name).all()
+    return render_template('teacher/new_class.html', courses=courses)
 
 
 @app.route('/teacher/class/<int:class_id>')
