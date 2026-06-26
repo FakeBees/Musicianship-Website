@@ -186,8 +186,8 @@
 <script src="{{ url_for('static', filename='js/player.js') }}"></script>
 <script>
   // Chord data injected from Flask
-  const CORRECT_CHORDS = {{ correct_chords_json | safe }};
-  const USER_CHORDS    = {{ user_chords_json    | safe }};
+  const CORRECT_CHORDS = {{ correct_chords_json | tojson }};
+  const USER_CHORDS    = {{ user_chords_json    | tojson }};
   const PROGRESSION_BPM = {{ progression.tempo }};
 
   // ---------------------------------------------------------------------------

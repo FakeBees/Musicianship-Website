@@ -225,12 +225,12 @@ const TIME_SIG_TOP    = {{ exercise.time_signature.split('/')[0] }};
 const TIME_SIG_BOTTOM = {{ exercise.time_signature.split('/')[1] }};
 const CLEF            = "{{ exercise.melody_clef }}";
 
-const CORRECT_MELODY  = {{ exercise.melody_notes_json | safe }};
-const CORRECT_HARMONY = {{ exercise.harmony_chords_json | safe }};
-const CORRECT_EXTRA   = {{ exercise.extra_lines_json | safe }};  // [{type,file,label,clef,notes}]
+const CORRECT_MELODY  = {{ exercise.melody_notes_json | tojson }};
+const CORRECT_HARMONY = {{ exercise.harmony_chords_json | tojson }};
+const CORRECT_EXTRA   = {{ exercise.extra_lines_json | tojson }};  // [{type,file,label,clef,notes}]
 
-const USER_DATA   = {{ attempt.user_data_json | safe }};    // {melody:[...], harmony:[...], ...}
-const SCORES      = {{ attempt.scores_json | safe }};
+const USER_DATA   = {{ attempt.user_data_json | tojson }};    // {melody:[...], harmony:[...], ...}
+const SCORES      = {{ attempt.scores_json | tojson }};
 
 const EXERCISE_BPM = {{ exercise.tempo }};
 
