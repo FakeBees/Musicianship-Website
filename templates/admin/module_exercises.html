@@ -5,64 +5,129 @@
   <h2>{{ module.name }} — Exercises</h2>
   <a href="{{ url_for('admin_modules', course_id=module.course_id) }}" class="btn btn-outline-secondary btn-sm mb-3">← Modules</a>
 
-  <form method="post" class="card p-3 mb-4">
-    <div class="row g-2">
-      <div class="col-md-3">
-        <select name="exercise_type" class="form-select" required>
-          <option value="">Type…</option>
-          <option value="melody">Melodic</option>
-          <option value="rhythm">Rhythmic</option>
-          <option value="harmonic">Harmonic</option>
-          <option value="holistic">Holistic</option>
+  <div class="card p-3 mb-4">
+    <form method="post">
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Name</label>
+          <input name="name" class="form-control" placeholder="e.g. Basic Melodic Dictation" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Type</label>
+          <select name="exercise_type" class="form-select" id="ex-type" required>
+            <option value="">Choose…</option>
+            <option value="melody">Melodic</option>
+            <option value="rhythm">Rhythmic</option>
+            <option value="harmonic">Harmonic</option>
+            <option value="holistic">Holistic</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Order</label>
+          <input name="order" type="number" class="form-control" value="0">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Completion</label>
+          <input name="completion_criterion" class="form-control" value='{"attempts":1}'
+                 placeholder='{"attempts":3} or {"passing":3,"min_score":70}'>
+        </div>
+      </div>
+
+      <!-- Filter fields (melody / rhythm / harmonic) -->
+      <div id="filter-fields" class="border rounded p-3 mb-2 d-none">
+        <p class="fw-semibold mb-2">Filters <span class="text-muted fw-normal small">(leave blank = no filter)</span></p>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label">Difficulty</label>
+            <div class="d-flex gap-2 flex-wrap">
+              {% for d in [1,2,3,4,5] %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="difficulty" value="{{ d }}" id="diff{{ d }}">
+                <label class="form-check-label" for="diff{{ d }}">{{ d }}</label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Time Signature</label>
+            <select name="time_signature" class="form-select form-select-sm">
+              <option value="">Any</option>
+              <option value="4/4">4/4</option>
+              <option value="3/4">3/4</option>
+              <option value="6/8">6/8</option>
+              <option value="2/4">2/4</option>
+            </select>
+          </div>
+          <div class="col-md-3" id="key-sig-field">
+            <label class="form-label">Key Signature <span class="text-muted small">(harmonic only)</span></label>
+            <input name="key_signature" class="form-control form-control-sm" placeholder="e.g. C, G, Bb">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Tags <span class="text-muted small">(comma-separated)</span></label>
+            <input name="tags" class="form-control form-control-sm" placeholder="e.g. diatonic, minor">
+          </div>
+        </div>
+      </div>
+
+      <!-- Holistic: pick specific exercise -->
+      <div id="holistic-field" class="mb-2 d-none">
+        <label class="form-label fw-semibold">Exercise</label>
+        <select name="exercise_id" class="form-select">
+          <option value="">Choose a holistic exercise…</option>
+          {% for ex in holistics %}
+          <option value="{{ ex.id }}">{{ ex.name }}</option>
+          {% endfor %}
         </select>
       </div>
-      <div class="col-md-4">
-        <select name="exercise_id" class="form-select" required>
-          <optgroup label="Melodic">
-            {% for ex in melodies %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
-          </optgroup>
-          <optgroup label="Rhythmic">
-            {% for ex in rhythms %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
-          </optgroup>
-          <optgroup label="Harmonic">
-            {% for ex in progressions %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
-          </optgroup>
-          <optgroup label="Holistic">
-            {% for ex in holistics %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
-          </optgroup>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <input name="order" type="number" class="form-control" placeholder="Order" value="0">
-      </div>
-      <div class="col-md-2">
-        <input name="completion_criterion" class="form-control" placeholder='{"attempts":1}' value='{"attempts":1}'>
-      </div>
-      <div class="col-md-1">
-        <button class="btn btn-primary w-100">Add</button>
-      </div>
-    </div>
-  </form>
+
+      <button class="btn btn-primary mt-2">Add Exercise</button>
+    </form>
+  </div>
 
   <table class="table table-sm">
-    <thead><tr><th>#</th><th>Type</th><th>Exercise ID</th><th>Criterion</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Filters / Exercise</th><th>Criterion</th><th></th></tr></thead>
     <tbody>
     {% for ex in exercises %}
     <tr>
       <td>{{ ex.order }}</td>
-      <td>{{ ex.exercise_type }}</td>
-      <td>{{ ex.exercise_id }}</td>
-      <td><code>{{ ex.completion_criterion_json }}</code></td>
+      <td>{{ ex.name }}</td>
+      <td><span class="badge bg-secondary">{{ ex.exercise_type }}</span></td>
       <td>
-        <form method="post" action="{{ url_for('admin_delete_module_exercise', me_id=ex.id) }}" onsubmit="return confirm('Remove this exercise from the module?')">
+        {% if ex.params_json %}
+          <code class="small">{{ ex.params_json }}</code>
+        {% elif ex.exercise_type == 'holistic' %}
+          {% set hol = holistics | selectattr('id', 'equalto', ex.exercise_id) | first %}
+          {{ hol.name if hol else 'ID ' ~ ex.exercise_id }}
+        {% else %}—{% endif %}
+      </td>
+      <td><code class="small">{{ ex.completion_criterion_json }}</code></td>
+      <td>
+        <form method="post" action="{{ url_for('admin_delete_module_exercise', me_id=ex.id) }}"
+              onsubmit="return confirm('Remove this exercise from the module?')">
           <button class="btn btn-sm btn-outline-danger">Remove</button>
         </form>
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-muted">No exercises yet.</td></tr>
+    <tr><td colspan="6" class="text-muted">No exercises yet.</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const typeSelect = document.getElementById('ex-type');
+const filterFields = document.getElementById('filter-fields');
+const holisticField = document.getElementById('holistic-field');
+const keySigField = document.getElementById('key-sig-field');
+
+typeSelect.addEventListener('change', () => {
+  const t = typeSelect.value;
+  filterFields.classList.toggle('d-none', t === '' || t === 'holistic');
+  holisticField.classList.toggle('d-none', t !== 'holistic');
+  keySigField.classList.toggle('d-none', t !== 'harmonic');
+});
+</script>
 {% endblock %}

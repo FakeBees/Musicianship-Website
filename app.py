@@ -949,19 +949,42 @@ def admin_module_exercises(module_id):
     module = Module.query.get_or_404(module_id)
     if request.method == 'POST':
         ex_type   = request.form['exercise_type']
-        ex_id     = int(request.form['exercise_id'])
+        name      = request.form.get('name', '').strip() or ex_type.capitalize()
         order     = int(request.form.get('order', 0))
         criterion = request.form.get('completion_criterion', '{"attempts":1}')
         try:
             json.loads(criterion)
         except (ValueError, TypeError):
             criterion = '{"attempts":1}'
+
+        if ex_type == 'holistic':
+            ex_id      = int(request.form['exercise_id'])
+            params_val = None
+        else:
+            ex_id = 0  # sentinel — not used for filter-based exercises
+            difficulties = request.form.getlist('difficulty')
+            tags_raw     = request.form.get('tags', '').strip()
+            time_sig     = request.form.get('time_signature', '').strip()
+            key_sig      = request.form.get('key_signature', '').strip()
+            params_dict  = {}
+            if difficulties:
+                params_dict['difficulty'] = [int(d) for d in difficulties]
+            if tags_raw:
+                params_dict['tags'] = [t.strip() for t in tags_raw.split(',') if t.strip()]
+            if time_sig:
+                params_dict['time_signature'] = time_sig
+            if key_sig and ex_type == 'harmonic':
+                params_dict['key_signature'] = key_sig
+            params_val = json.dumps(params_dict) if params_dict else None
+
         db.session.add(ModuleExercise(
             module_id=module_id,
+            name=name,
             exercise_type=ex_type,
             exercise_id=ex_id,
             order=order,
             completion_criterion_json=criterion,
+            params_json=params_val,
         ))
         db.session.commit()
         flash('Exercise added to module.', 'success')
