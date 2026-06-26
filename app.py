@@ -1047,6 +1047,11 @@ def teacher_delete_class(class_id):
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
         abort(403)
     name = klass.name
+    # Clear dependent records before deleting
+    ModuleCompletion.query.filter_by(class_id=class_id).delete()
+    ClassModuleExercise.query.filter_by(class_id=class_id).delete()
+    klass.members.clear()
+    db.session.flush()
     db.session.delete(klass)
     db.session.commit()
     flash(f'Class "{name}" deleted.', 'success')
