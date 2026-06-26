@@ -79,6 +79,10 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
     me = ModuleExercise.query.get(me_id_int) if me_id_int else None
     criterion = me.completion_criterion if me else {'attempts': 1}
 
+    # Validate me_id belongs to this class's course (prevent forged me_id)
+    if me and (klass.course_id is None or me.module.course_id != klass.course_id):
+        return None
+
     mc, just_completed = cur.record_attempt(
         current_user.id, class_id_int, me_id_int, cme_id_int, score, criterion
     )
@@ -90,7 +94,7 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
     module = me.module if me else None
     if not module and cme_id_int:
         cme = ClassModuleExercise.query.get(cme_id_int)
-        if cme:
+        if cme and cme.class_id == class_id_int:
             module = Module.query.get(cme.module_id)
 
     if not module:
