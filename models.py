@@ -408,6 +408,8 @@ class ModuleExercise(db.Model):
     module_id     = db.Column(db.Integer, db.ForeignKey('module.id'), nullable=False)
     exercise_type = db.Column(db.String(20), nullable=False)
     exercise_id   = db.Column(db.Integer, nullable=False)
+    name          = db.Column(db.String(100), nullable=False, default='')
+    params_json   = db.Column(db.Text, nullable=True)
     order         = db.Column(db.Integer, nullable=False, default=0)
     completion_criterion_json = db.Column(db.Text, nullable=False, default='{"attempts":1}')
 
@@ -415,8 +417,12 @@ class ModuleExercise(db.Model):
     def completion_criterion(self):
         return json.loads(self.completion_criterion_json)
 
+    @property
+    def params(self):
+        return json.loads(self.params_json) if self.params_json else {}
+
     def __repr__(self):
-        return f'<ModuleExercise {self.exercise_type}:{self.exercise_id}>'
+        return f'<ModuleExercise {self.name or self.exercise_type}>'
 
 
 class ClassModuleExercise(db.Model):
@@ -450,6 +456,9 @@ class ModuleCompletion(db.Model):
     module_exercise_id = db.Column(db.Integer, db.ForeignKey('module_exercise.id'), nullable=True)
     class_exercise_id  = db.Column(db.Integer, db.ForeignKey('class_module_exercise.id'), nullable=True)
     best_score         = db.Column(db.Float, nullable=True)
+    attempt_count      = db.Column(db.Integer, nullable=False, default=0)
+    passing_count      = db.Column(db.Integer, nullable=False, default=0)
+    is_complete        = db.Column(db.Boolean, nullable=False, default=False)
     completed_at       = db.Column(db.DateTime, server_default=db.func.now())
 
     user  = db.relationship('User', backref='module_completions')
