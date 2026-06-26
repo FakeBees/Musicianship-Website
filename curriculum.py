@@ -83,36 +83,82 @@ def get_completion(user_id, class_id, module_exercise_id=None, class_exercise_id
     return q.first()
 
 
-def mark_complete(user_id, class_id, module_exercise_id=None, class_exercise_id=None, score=None):
+def record_attempt(user_id, class_id, module_exercise_id=None, class_exercise_id=None,
+                   score=None, criterion=None):
     """
-    Mark a module exercise complete for the student. Idempotent — updates best_score if higher.
+    Record one attempt toward a module exercise. Increments counters and marks complete
+    when criterion is met. Returns (ModuleCompletion, just_completed: bool).
     """
-    existing = get_completion(user_id, class_id, module_exercise_id, class_exercise_id)
-    if existing:
-        if score is not None and (existing.best_score is None or score > existing.best_score):
-            existing.best_score = score
-            db.session.commit()
-        return existing
+    if criterion is None:
+        criterion = {'attempts': 1}
 
-    mc = ModuleCompletion(
-        user_id=user_id,
-        class_id=class_id,
-        module_exercise_id=module_exercise_id,
-        class_exercise_id=class_exercise_id,
-        best_score=score,
-    )
-    db.session.add(mc)
+    mc = get_completion(user_id, class_id, module_exercise_id, class_exercise_id)
+    if mc is None:
+        mc = ModuleCompletion(
+            user_id=user_id,
+            class_id=class_id,
+            module_exercise_id=module_exercise_id,
+            class_exercise_id=class_exercise_id,
+            attempt_count=0,
+            passing_count=0,
+            is_complete=False,
+            best_score=None,
+        )
+        db.session.add(mc)
+
+    was_complete = mc.is_complete
+    mc.attempt_count += 1
+
+    if score is not None:
+        if mc.best_score is None or score > mc.best_score:
+            mc.best_score = score
+        min_score = criterion.get('min_score', 70)
+        if score >= min_score:
+            mc.passing_count += 1
+
+    if not was_complete:
+        required_attempts = criterion.get('attempts')
+        required_passing  = criterion.get('passing')
+        if required_attempts is not None and mc.attempt_count >= required_attempts:
+            mc.is_complete = True
+        elif required_passing is not None and mc.passing_count >= required_passing:
+            mc.is_complete = True
+
     db.session.commit()
-    return mc
+    return mc, (mc.is_complete and not was_complete)
 
 
 def completion_map(user_id, class_id):
     """
-    Return a set of (module_exercise_id, class_exercise_id) tuples that are completed
-    for this user in this class.
+    Return a set of (module_exercise_id, class_exercise_id) tuples that are
+    fully complete (is_complete=True) for this user in this class.
     """
-    completions = ModuleCompletion.query.filter_by(user_id=user_id, class_id=class_id).all()
+    completions = ModuleCompletion.query.filter_by(
+        user_id=user_id, class_id=class_id, is_complete=True
+    ).all()
     return {(c.module_exercise_id, c.class_exercise_id) for c in completions}
+
+
+def get_progress(user_id, class_id, module_exercise_id=None, class_exercise_id=None,
+                 criterion=None):
+    """
+    Return progress dict: {'count': int, 'required': int, 'complete': bool}.
+    'count' is attempts or passing_count depending on criterion type.
+    """
+    if criterion is None:
+        criterion = {'attempts': 1}
+
+    mc = get_completion(user_id, class_id, module_exercise_id, class_exercise_id)
+    if mc is None:
+        count = 0
+    elif 'passing' in criterion:
+        count = mc.passing_count
+    else:
+        count = mc.attempt_count
+
+    required = criterion.get('attempts') or criterion.get('passing') or 1
+    complete = mc.is_complete if mc else False
+    return {'count': count, 'required': required, 'complete': complete}
 
 
 def next_incomplete(user_id, class_id, class_obj, module):
