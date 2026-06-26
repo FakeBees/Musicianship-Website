@@ -1391,6 +1391,38 @@ def class_module_detail(class_id, module_id):
         else:
             obj = None
         ex['name'] = obj.name if obj else f"Exercise #{ex['exercise_id']}"
+    for ex in ex_with_status:
+        # Prefer ModuleExercise.name if set
+        me_obj = ModuleExercise.query.get(ex['module_exercise_id']) if ex['module_exercise_id'] else None
+        if me_obj and me_obj.name:
+            ex['name'] = me_obj.name
+
+        # Start URL
+        if ex['module_exercise_id']:
+            ex['start_url'] = url_for('start_module_exercise',
+                                      class_id=class_id,
+                                      me_id=ex['module_exercise_id'])
+        else:
+            type_to_route = {
+                'melody':   ('exercise',          'melody_id'),
+                'rhythm':   ('rhythm_exercise',   'rhythm_id'),
+                'harmonic': ('harmonic_exercise', 'progression_id'),
+                'holistic': ('holistic_exercise', 'exercise_id'),
+            }
+            route_name, param_name = type_to_route.get(ex['exercise_type'], ('class_home', 'class_id'))
+            ex['start_url'] = url_for(route_name,
+                                      **{param_name: ex['exercise_id']},
+                                      class_id=class_id,
+                                      me_id='', cme_id=ex['class_exercise_id'] or '')
+
+        # Progress
+        me_obj2 = ModuleExercise.query.get(ex['module_exercise_id']) if ex['module_exercise_id'] else None
+        criterion = me_obj2.completion_criterion if me_obj2 else {'attempts': 1}
+        ex['progress'] = cur.get_progress(
+            current_user.id, class_id,
+            ex['module_exercise_id'], ex['class_exercise_id'],
+            criterion
+        )
     return render_template('student/module_detail.html',
                            klass=klass,
                            module=module,

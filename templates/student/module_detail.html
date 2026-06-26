@@ -11,37 +11,47 @@
   </nav>
   <h2 class="mb-4">{{ module.name }}</h2>
 
-  {% if exercises %}
-  <div class="list-group">
-    {% for ex in exercises %}
-      {% if ex.exercise_type == 'melody' %}
-        {% set play_url = url_for('exercise', melody_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
-      {% elif ex.exercise_type == 'rhythm' %}
-        {% set play_url = url_for('rhythm_exercise', rhythm_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
-      {% elif ex.exercise_type == 'harmonic' %}
-        {% set play_url = url_for('harmonic_exercise', progression_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
-      {% elif ex.exercise_type == 'holistic' %}
-        {% set play_url = url_for('holistic_exercise', exercise_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
-      {% else %}
-        {% set play_url = '#' %}
-      {% endif %}
-      <a href="{{ play_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-        <div>
-          <span class="fw-semibold">{{ ex.name }}</span>
-          <span class="badge bg-secondary ms-2">{{ ex.exercise_type }}</span>
-        </div>
-        {% if ex.completed %}
-          <span class="badge bg-success">
-            &#10003;{% if ex.best_score is not none %} {{ (ex.best_score * 100) | int }}%{% endif %}
-          </span>
-        {% else %}
-          <span class="text-muted small">Not done</span>
-        {% endif %}
-      </a>
-    {% endfor %}
-  </div>
+  {% if not exercises %}
+  <p class="text-muted">No exercises in this module yet.</p>
   {% else %}
-    <p class="text-muted">No exercises in this module yet.</p>
+  <div class="row g-3">
+  {% for ex in exercises %}
+    {% set prog = ex.progress %}
+    <div class="col-sm-6 col-md-4">
+      <a href="{{ ex.start_url }}" class="card h-100 text-decoration-none{% if ex.completed %} border-success{% endif %}">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="badge bg-secondary">
+              {% if ex.exercise_type == 'melody' %}Melodic
+              {% elif ex.exercise_type == 'rhythm' %}Rhythmic
+              {% elif ex.exercise_type == 'harmonic' %}Harmonic
+              {% elif ex.exercise_type == 'holistic' %}Holistic
+              {% else %}{{ ex.exercise_type }}{% endif %}
+            </span>
+            {% if ex.completed %}
+              <span class="badge bg-success">&#10003;{% if ex.best_score is not none %} {{ ex.best_score | int }}%{% endif %}</span>
+            {% endif %}
+          </div>
+          <h5 class="card-title mb-1">{{ ex.name }}</h5>
+          <div class="mt-auto pt-2">
+            {% if prog.required > 1 %}
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span>Progress</span>
+              <span>{{ prog.count }}/{{ prog.required }}</span>
+            </div>
+            <div class="progress" style="height:4px">
+              <div class="progress-bar {% if ex.completed %}bg-success{% endif %}"
+                   style="width:{{ [prog.count / prog.required * 100, 100] | min | int }}%"></div>
+            </div>
+            {% elif not ex.completed %}
+            <span class="text-muted small">Not started</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+    </div>
+  {% endfor %}
+  </div>
   {% endif %}
 </div>
 {% endblock %}
