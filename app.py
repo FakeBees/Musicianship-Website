@@ -997,9 +997,15 @@ def admin_delete_module_exercise(me_id):
 @role_required('admin')
 def admin_delete_school(school_id):
     school = School.query.get_or_404(school_id)
+    name = school.name
+    for course in school.courses.all():
+        for module in course.modules.all():
+            ModuleExercise.query.filter_by(module_id=module.id).delete()
+            db.session.delete(module)
+        db.session.delete(course)
     db.session.delete(school)
     db.session.commit()
-    flash(f'School "{school.name}" deleted.', 'success')
+    flash(f'School "{name}" deleted.', 'success')
     return redirect(url_for('admin_schools'))
 
 
@@ -1009,9 +1015,13 @@ def admin_delete_school(school_id):
 def admin_delete_course(course_id):
     course = Course.query.get_or_404(course_id)
     school_id = course.school_id
+    name = course.name
+    for module in course.modules.all():
+        ModuleExercise.query.filter_by(module_id=module.id).delete()
+        db.session.delete(module)
     db.session.delete(course)
     db.session.commit()
-    flash(f'Course "{course.name}" deleted.', 'success')
+    flash(f'Course "{name}" deleted.', 'success')
     return redirect(url_for('admin_courses', school_id=school_id))
 
 
@@ -1021,9 +1031,11 @@ def admin_delete_course(course_id):
 def admin_delete_module(module_id):
     module = Module.query.get_or_404(module_id)
     course_id = module.course_id
+    name = module.name
+    ModuleExercise.query.filter_by(module_id=module.id).delete()
     db.session.delete(module)
     db.session.commit()
-    flash(f'Module "{module.name}" deleted.', 'success')
+    flash(f'Module "{name}" deleted.', 'success')
     return redirect(url_for('admin_modules', course_id=course_id))
 
 
