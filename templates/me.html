@@ -29,9 +29,9 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.melody.name }}</td>
-        <td>{{ ((a.pitch_accuracy or 0) * 100) | round | int }}%</td>
-        <td>{{ ((a.duration_accuracy or 0) * 100) | round | int }}%</td>
-        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.pitch_accuracy or 0) ) | round | int }}%</td>
+        <td>{{ ((a.duration_accuracy or 0) ) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -48,7 +48,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.progression.name if a.progression else a.progression_id }}</td>
-        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -65,7 +65,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.rhythm.name }}</td>
-        <td>{{ ((a.duration_accuracy or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.duration_accuracy or 0) ) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -82,7 +82,7 @@
       <tr>
         <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
         <td>{{ a.exercise.name if a.exercise else a.exercise_id }}</td>
-        <td>{{ ((a.overall_score or 0) * 100) | round | int }}%</td>
+        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -101,7 +101,43 @@
     <button type="submit" class="btn btn-outline-primary">Join</button>
   </form>
   {% if current_user.classes %}
-  <p class="mt-3 text-muted small">You're enrolled in: {{ current_user.classes | map(attribute='name') | join(', ') }}</p>
+  <div class="mt-3">
+    <strong>Your classes:</strong>
+    <ul class="list-unstyled mt-1">
+    {% for klass in current_user.classes %}
+      <li><a href="{{ url_for('class_home', class_id=klass.id) }}">{{ klass.name }}</a>
+      {% if klass.course_id and klass.course %}<span class="text-muted small ms-1">({{ klass.course.name }})</span>{% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if module_progress_by_class %}
+  <hr>
+  <h5>Module Progress</h5>
+  {% for item in module_progress_by_class %}
+  <h6 class="mt-3">{{ item.class.name }}</h6>
+  <div class="list-group mb-3">
+  {% for m in item.modules %}
+    {% set pct = (m.completed / m.total * 100) | int if m.total else 0 %}
+    <div class="list-group-item">
+      <div class="d-flex justify-content-between">
+        <span>{{ m.module.name }}</span>
+        {% if m.total == 0 %}—
+        {% elif m.completed == m.total %}<span class="badge bg-success">Complete</span>
+        {% else %}<span class="text-muted small">{{ m.completed }}/{{ m.total }}</span>
+        {% endif %}
+      </div>
+      {% if m.total > 0 %}
+      <div class="progress mt-1" style="height:4px">
+        <div class="progress-bar" style="width:{{ pct }}%"></div>
+      </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  {% endfor %}
   {% endif %}
 </div>
 {% endblock %}

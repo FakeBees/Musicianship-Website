@@ -286,6 +286,23 @@ def build_next_rhythm_url():
     return url_for('random_rhythm')
 
 
+def _visible_exercise_filter(model):
+    """Returns a SQLAlchemy filter for sandbox visibility."""
+    from sqlalchemy import or_, and_
+    if not current_user.is_authenticated:
+        return model.visibility == 'public'
+    user_school_ids = set()
+    for klass in current_user.classes:
+        if klass.course_id and klass.course:
+            user_school_ids.add(klass.course.school_id)
+    if user_school_ids:
+        return or_(
+            model.visibility == 'public',
+            and_(model.visibility == 'school', model.school_id.in_(user_school_ids))
+        )
+    return model.visibility == 'public'
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -298,7 +315,7 @@ def home():
 @app.route('/melodic')
 def melodic_index():
     all_tags = Tag.query.order_by(Tag.name).all()
-    melodies = Melody.query.all()
+    melodies = Melody.query.filter(_visible_exercise_filter(Melody)).all()
     melodies_data = [
         {
             'time_signature': m.time_signature,
@@ -427,7 +444,7 @@ def results(attempt_id):
 @app.route('/rhythm')
 def rhythm_index():
     all_tags = Tag.query.filter(Tag.rhythms.any()).order_by(Tag.name).all()
-    rhythms = Rhythm.query.all()
+    rhythms = Rhythm.query.filter(_visible_exercise_filter(Rhythm)).all()
     rhythms_data = [
         {
             'time_signature': r.time_signature,
@@ -541,7 +558,7 @@ def harmonic_index():
     all_tags     = Tag.query.filter(Tag.progressions.any()).order_by(Tag.name).all()
     contains_tags = [t for t in all_tags if t.name.startswith('contains:')]
     other_tags    = [t for t in all_tags if not t.name.startswith('contains:')]
-    progressions = ChordProgression.query.all()
+    progressions = ChordProgression.query.filter(_visible_exercise_filter(ChordProgression)).all()
     progressions_data = [
         {
             'category':   p.category,
@@ -710,7 +727,7 @@ def harmonic_results(attempt_id):
 
 @app.route('/holistic')
 def holistic_index():
-    exercises = HolisticExercise.query.all()
+    exercises = HolisticExercise.query.filter(_visible_exercise_filter(HolisticExercise)).all()
     all_tags  = Tag.query.filter(Tag.holistic_exercises.any()).order_by(Tag.name).all()
     contains_tags = [t for t in all_tags if t.name.startswith('contains:')]
     other_tags    = [t for t in all_tags if not t.name.startswith('contains:')]
@@ -986,12 +1003,19 @@ def me():
         'holistic': {'count': len(holistic_attempts), 'avg': avg(holistic_attempts)},
     }
 
+    module_progress_by_class = []
+    for klass in current_user.classes:
+        mods = cur.modules_with_progress(current_user.id, klass.id, klass)
+        if mods:
+            module_progress_by_class.append({'class': klass, 'modules': mods})
+
     return render_template('me.html',
                            stats=stats,
                            melody_attempts=melody_attempts,
                            rhythm_attempts=rhythm_attempts,
                            harmonic_attempts=harmonic_attempts,
-                           holistic_attempts=holistic_attempts)
+                           holistic_attempts=holistic_attempts,
+                           module_progress_by_class=module_progress_by_class)
 
 
 @app.route('/teacher')
