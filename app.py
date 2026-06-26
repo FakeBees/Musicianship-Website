@@ -926,7 +926,78 @@ def teacher_class_detail(class_id):
             'holistic': mode_avg(HolisticAttempt,'overall_score'),
         })
 
-    return render_template('teacher/class_detail.html', cls=cls, roster=roster)
+    all_courses = Course.query.order_by(Course.name).all()
+    overrides = ClassModuleExercise.query.filter_by(class_id=cls.id).all()
+    modules_progress = []
+    if cls.course_id:
+        for mod in cls.course.modules.order_by(Module.order).all():
+            student_completions = {}
+            for member in cls.members:
+                exs = cur.effective_exercises(cls, mod)
+                done = cur.completion_map(member.id, cls.id)
+                completed = sum(1 for ex in exs if (ex['module_exercise_id'], ex['class_exercise_id']) in done)
+                student_completions[member.id] = {'completed': completed, 'total': len(exs)}
+            modules_progress.append({'module': mod, 'student_completions': student_completions})
+
+    return render_template('teacher/class_detail.html', cls=cls, roster=roster,
+                           all_courses=all_courses, modules_progress=modules_progress, overrides=overrides)
+
+
+@app.route('/teacher/classes/<int:class_id>/set_course', methods=['POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_set_course(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    course_id = request.form.get('course_id')
+    klass.course_id = int(course_id) if course_id else None
+    db.session.commit()
+    flash('Course assignment updated.', 'success')
+    return redirect(url_for('teacher_class_detail', class_id=class_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/overrides/add', methods=['POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_add_override(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    action    = request.form['action']
+    module_id = request.form.get('module_id', type=int)
+    me_id     = request.form.get('module_exercise_id', type=int)
+    ex_type   = request.form.get('exercise_type')
+    ex_id     = request.form.get('exercise_id', type=int)
+    order     = request.form.get('order', type=int)
+    criterion = request.form.get('completion_criterion')
+    cme = ClassModuleExercise(
+        class_id=class_id,
+        action=action,
+        module_exercise_id=me_id,
+        module_id=module_id,
+        exercise_type=ex_type,
+        exercise_id=ex_id,
+        order=order,
+        completion_criterion_json=criterion,
+    )
+    db.session.add(cme)
+    db.session.commit()
+    flash('Override added.', 'success')
+    return redirect(url_for('teacher_class_detail', class_id=class_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/overrides/<int:cme_id>/delete', methods=['POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_delete_override(class_id, cme_id):
+    cme = ClassModuleExercise.query.get_or_404(cme_id)
+    if cme.class_id != class_id:
+        abort(403)
+    db.session.delete(cme)
+    db.session.commit()
+    flash('Override removed.', 'success')
+    return redirect(url_for('teacher_class_detail', class_id=class_id))
 
 
 @app.route('/teacher/join', methods=['POST'])

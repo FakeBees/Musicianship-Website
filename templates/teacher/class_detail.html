@@ -45,5 +45,71 @@
   {% endif %}
 
   <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link mt-3">← Back to classes</a>
+
+  <hr>
+  <h5>Course Assignment</h5>
+  <form method="post" action="{{ url_for('teacher_set_course', class_id=cls.id) }}" class="d-flex gap-2 align-items-center mb-3">
+    <select name="course_id" class="form-select" style="max-width:320px">
+      <option value="">— No course —</option>
+      {% for c in all_courses %}
+      <option value="{{ c.id }}" {% if cls.course_id == c.id %}selected{% endif %}>{{ c.school.name }} / {{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary">Save</button>
+  </form>
+
+  {% if modules_progress %}
+  <h6 class="mt-3">Module Completion by Student</h6>
+  <div class="table-responsive">
+  <table class="table table-sm table-bordered">
+    <thead>
+      <tr>
+        <th>Student</th>
+        {% for mp in modules_progress %}<th>{{ mp.module.name }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for member in cls.members %}
+    <tr>
+      <td>{{ member.display_name or member.email }}</td>
+      {% for mp in modules_progress %}
+      {% set sc = mp.student_completions.get(member.id, {'completed':0,'total':0}) %}
+      <td class="text-center">
+        {% if sc.total == 0 %}—
+        {% elif sc.completed == sc.total %}<span class="badge bg-success">Done</span>
+        {% else %}<span class="text-muted">{{ sc.completed }}/{{ sc.total }}</span>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  <hr>
+  <h5>Class-Specific Overrides</h5>
+  {% if overrides %}
+  <table class="table table-sm mb-3">
+    <thead><tr><th>Action</th><th>Type</th><th>Exercise ID</th><th></th></tr></thead>
+    <tbody>
+    {% for o in overrides %}
+    <tr>
+      <td><span class="badge bg-secondary">{{ o.action }}</span></td>
+      <td>{{ o.exercise_type or '—' }}</td>
+      <td>{{ o.exercise_id or '—' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('teacher_delete_override', class_id=cls.id, cme_id=o.id) }}">
+          <button class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted small">No class-specific overrides.</p>
+  {% endif %}
 </div>
 {% endblock %}
