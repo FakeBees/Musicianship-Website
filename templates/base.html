@@ -47,7 +47,7 @@
             {% endif %}
             {% if current_user.role == 'admin' %}
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{{ url_for('admin_index') }}">Admin</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('logout') }}">Log out</a></li>
