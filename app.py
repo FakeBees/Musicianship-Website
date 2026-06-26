@@ -107,18 +107,17 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
         }
 
     if mc.is_complete:
-        # Find next incomplete exercise in same module
-        next_me_list = ModuleExercise.query.filter_by(module_id=module.id).order_by(
-            ModuleExercise.order).all()
-        cmap = cur.completion_map(current_user.id, class_id_int)
-        next_incomplete_me = next(
-            (x for x in next_me_list if (x.id, None) not in cmap),
-            None
-        )
-        if next_incomplete_me:
-            next_url = url_for('start_module_exercise',
-                               class_id=class_id_int,
-                               me_id=next_incomplete_me.id)
+        # Find next incomplete exercise using effective_exercises (includes class overrides)
+        next_ex = cur.next_incomplete(current_user.id, class_id_int, klass, module)
+        if next_ex:
+            if next_ex['module_exercise_id']:
+                next_url = url_for('start_module_exercise',
+                                   class_id=class_id_int,
+                                   me_id=next_ex['module_exercise_id'])
+            else:
+                # Class-level add override — link to module detail (no /start for CME-only)
+                next_url = url_for('class_module_detail',
+                                   class_id=class_id_int, module_id=module.id)
             return {
                 'next_url': next_url,
                 'module_done': False,
