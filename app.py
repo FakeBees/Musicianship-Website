@@ -1033,13 +1033,15 @@ def admin_module_exercises(module_id):
     rhythms      = Rhythm.query.order_by(Rhythm.name).all()
     progressions = ChordProgression.query.order_by(ChordProgression.name).all()
     holistics    = HolisticExercise.query.order_by(HolisticExercise.name).all()
+    all_tags = [t.name for t in Tag.query.order_by(Tag.name).all()]
     return render_template('admin/module_exercises.html',
                            module=module,
                            exercises=exercises,
                            melodies=melodies,
                            rhythms=rhythms,
                            progressions=progressions,
-                           holistics=holistics)
+                           holistics=holistics,
+                           all_tags=all_tags)
 
 
 @app.route('/admin/module_exercises/<int:me_id>/delete', methods=['POST'])
