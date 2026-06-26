@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Module Exercises{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2>{{ module.name }} — Exercises</h2>
+  <a href="{{ url_for('admin_modules', course_id=module.course_id) }}" class="btn btn-outline-secondary btn-sm mb-3">← Modules</a>
+
+  <form method="post" class="card p-3 mb-4">
+    <div class="row g-2">
+      <div class="col-md-3">
+        <select name="exercise_type" class="form-select" required>
+          <option value="">Type…</option>
+          <option value="melody">Melodic</option>
+          <option value="rhythm">Rhythmic</option>
+          <option value="harmonic">Harmonic</option>
+          <option value="holistic">Holistic</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <select name="exercise_id" class="form-select" required>
+          <optgroup label="Melodic">
+            {% for ex in melodies %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Rhythmic">
+            {% for ex in rhythms %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Harmonic">
+            {% for ex in progressions %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Holistic">
+            {% for ex in holistics %}<option value="{{ ex.id }}">{{ ex.name }}</option>{% endfor %}
+          </optgroup>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <input name="order" type="number" class="form-control" placeholder="Order" value="0">
+      </div>
+      <div class="col-md-2">
+        <input name="completion_criterion" class="form-control" placeholder='{"attempts":1}' value='{"attempts":1}'>
+      </div>
+      <div class="col-md-1">
+        <button class="btn btn-primary w-100">Add</button>
+      </div>
+    </div>
+  </form>
+
+  <table class="table table-sm">
+    <thead><tr><th>#</th><th>Type</th><th>Exercise ID</th><th>Criterion</th><th></th></tr></thead>
+    <tbody>
+    {% for ex in exercises %}
+    <tr>
+      <td>{{ ex.order }}</td>
+      <td>{{ ex.exercise_type }}</td>
+      <td>{{ ex.exercise_id }}</td>
+      <td><code>{{ ex.completion_criterion_json }}</code></td>
+      <td>
+        <form method="post" action="{{ url_for('admin_delete_module_exercise', me_id=ex.id) }}" onsubmit="return confirm('Remove?')">
+          <button class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">No exercises yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

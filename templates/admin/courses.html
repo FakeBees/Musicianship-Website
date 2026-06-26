@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Courses{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2>{{ school.name }} — Courses</h2>
+  <a href="{{ url_for('admin_schools') }}" class="btn btn-outline-secondary btn-sm mb-3">← Schools</a>
+  <form method="post" class="d-flex gap-2 mb-4" style="max-width:420px">
+    <input name="name" class="form-control" placeholder="New course name" required>
+    <button class="btn btn-primary">Add</button>
+  </form>
+  <table class="table table-sm">
+    <thead><tr><th>Name</th><th>Modules</th><th></th></tr></thead>
+    <tbody>
+    {% for c in courses %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ c.modules.count() }}</td>
+      <td><a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary">Modules →</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="text-muted">No courses yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

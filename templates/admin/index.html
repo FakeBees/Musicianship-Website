@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2>Admin</h2>
+  <div class="row g-3 mt-2">
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ user_count }}</div>
+        <div class="text-muted">Users</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ school_count }}</div>
+        <div class="text-muted">Schools</div>
+        <a href="{{ url_for('admin_schools') }}" class="btn btn-sm btn-outline-primary mt-2">Manage →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ class_count }}</div>
+        <div class="text-muted">Classes</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

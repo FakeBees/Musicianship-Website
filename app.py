@@ -4,8 +4,11 @@ import random
 import secrets
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
-                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, User
+                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, \
+                   User, Class, School, Course, Module, ModuleExercise, \
+                   ClassModuleExercise, ModuleCompletion
 from chord_utils import grade_harmonic_attempt, format_chord_name
+import curriculum as cur
 
 app = Flask(__name__)
 
@@ -739,8 +742,108 @@ def logout():
 @app.route('/admin')
 @login_required
 @role_required('admin')
-def admin_index():
-    return '<h2>Admin CMS — coming in Phase 3</h2>', 200
+def admin():
+    user_count   = User.query.count()
+    school_count = School.query.count()
+    class_count  = Class.query.count()
+    return render_template('admin/index.html',
+                           user_count=user_count,
+                           school_count=school_count,
+                           class_count=class_count)
+
+
+@app.route('/admin/schools', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_schools():
+    if request.method == 'POST':
+        name = request.form['name'].strip()
+        if name:
+            db.session.add(School(name=name))
+            db.session.commit()
+            flash('School created.', 'success')
+        return redirect(url_for('admin_schools'))
+    schools = School.query.order_by(School.name).all()
+    return render_template('admin/schools.html', schools=schools)
+
+
+@app.route('/admin/schools/<int:school_id>/courses', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_courses(school_id):
+    school = School.query.get_or_404(school_id)
+    if request.method == 'POST':
+        name = request.form['name'].strip()
+        if name:
+            db.session.add(Course(name=name, school_id=school_id))
+            db.session.commit()
+            flash('Course created.', 'success')
+        return redirect(url_for('admin_courses', school_id=school_id))
+    courses = Course.query.filter_by(school_id=school_id).order_by(Course.name).all()
+    return render_template('admin/courses.html', school=school, courses=courses)
+
+
+@app.route('/admin/courses/<int:course_id>/modules', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_modules(course_id):
+    course = Course.query.get_or_404(course_id)
+    if request.method == 'POST':
+        name  = request.form['name'].strip()
+        order = int(request.form.get('order', 0))
+        if name:
+            db.session.add(Module(name=name, course_id=course_id, order=order))
+            db.session.commit()
+            flash('Module created.', 'success')
+        return redirect(url_for('admin_modules', course_id=course_id))
+    modules = Module.query.filter_by(course_id=course_id).order_by(Module.order).all()
+    return render_template('admin/modules.html', course=course, modules=modules)
+
+
+@app.route('/admin/modules/<int:module_id>/exercises', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_module_exercises(module_id):
+    module = Module.query.get_or_404(module_id)
+    if request.method == 'POST':
+        ex_type   = request.form['exercise_type']
+        ex_id     = int(request.form['exercise_id'])
+        order     = int(request.form.get('order', 0))
+        criterion = request.form.get('completion_criterion', '{"attempts":1}')
+        db.session.add(ModuleExercise(
+            module_id=module_id,
+            exercise_type=ex_type,
+            exercise_id=ex_id,
+            order=order,
+            completion_criterion_json=criterion,
+        ))
+        db.session.commit()
+        flash('Exercise added to module.', 'success')
+        return redirect(url_for('admin_module_exercises', module_id=module_id))
+    exercises = module.exercises.order_by(ModuleExercise.order).all()
+    melodies     = Melody.query.order_by(Melody.name).all()
+    rhythms      = Rhythm.query.order_by(Rhythm.name).all()
+    progressions = ChordProgression.query.order_by(ChordProgression.name).all()
+    holistics    = HolisticExercise.query.order_by(HolisticExercise.name).all()
+    return render_template('admin/module_exercises.html',
+                           module=module,
+                           exercises=exercises,
+                           melodies=melodies,
+                           rhythms=rhythms,
+                           progressions=progressions,
+                           holistics=holistics)
+
+
+@app.route('/admin/module_exercises/<int:me_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_module_exercise(me_id):
+    me = ModuleExercise.query.get_or_404(me_id)
+    module_id = me.module_id
+    db.session.delete(me)
+    db.session.commit()
+    flash('Exercise removed.', 'success')
+    return redirect(url_for('admin_module_exercises', module_id=module_id))
 
 
 @app.route('/me')
@@ -755,7 +858,7 @@ def me():
 
     def avg(attempts, field='overall_score'):
         vals = [getattr(a, field) for a in attempts if getattr(a, field) is not None]
-        return round(sum(vals) / len(vals) * 100) if vals else None
+        return round(sum(vals) / len(vals)) if vals else None
 
     stats = {
         'melodic':  {'count': len(melody_attempts),   'avg': avg(melody_attempts)},
@@ -813,7 +916,7 @@ def teacher_class_detail(class_id):
         def mode_avg(model, score_field, _uid=uid):
             rows = model.query.filter_by(user_id=_uid).order_by(model.created_at.desc()).limit(20).all()
             vals = [getattr(r, score_field) for r in rows if getattr(r, score_field) is not None]
-            return round(sum(vals) / len(vals) * 100) if vals else None
+            return round(sum(vals) / len(vals)) if vals else None
 
         roster.append({
             'student':  student,
