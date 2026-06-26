@@ -244,6 +244,9 @@
 {% block scripts %}
 <script>
   const EXERCISE_ID       = {{ exercise.id }};
+  const MODULE_CLASS_ID = "{{ request.args.get('class_id', '') }}";
+  const MODULE_ME_ID    = "{{ request.args.get('me_id', '') }}";
+  const MODULE_CME_ID   = "{{ request.args.get('cme_id', '') }}";
   const WAV_URL           = "{{ url_for('static', filename=exercise.wav_url_path) }}";
   const KEY_SIGNATURE     = "{{ exercise.key_signature }}";
   const TIME_SIG_TOP      = {{ exercise.time_signature.split('/')[0] }};

@@ -1177,7 +1177,7 @@ async function submitHolisticAttempt() {
     const response = await fetch('/holistic/submit/' + EXERCISE_ID, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lines }),
+      body: JSON.stringify({ lines, class_id: MODULE_CLASS_ID, me_id: MODULE_ME_ID, cme_id: MODULE_CME_ID }),
     });
     const data = await response.json();
     if (data.redirect) {

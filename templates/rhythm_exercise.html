@@ -109,6 +109,9 @@
 {% block scripts %}
 <script>
   const RHYTHM_ID       = {{ rhythm.id }};
+  const MODULE_CLASS_ID = "{{ request.args.get('class_id', '') }}";
+  const MODULE_ME_ID    = "{{ request.args.get('me_id', '') }}";
+  const MODULE_CME_ID   = "{{ request.args.get('cme_id', '') }}";
   const RHYTHM_NOTES    = {{ rhythm.notes | tojson }};
   const RHYTHM_TEMPO    = {{ rhythm.tempo }};
   const NUM_MEASURES    = {{ rhythm.num_measures }};

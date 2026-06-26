@@ -1112,7 +1112,7 @@
         const res  = await fetch(`/submit/${MELODY_ID}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notes: userNotes }),
+          body: JSON.stringify({ notes: userNotes, class_id: MODULE_CLASS_ID, me_id: MODULE_ME_ID, cme_id: MODULE_CME_ID }),
         });
         const data = await res.json();
         if (data.redirect) { window.location.href = data.redirect; return; }

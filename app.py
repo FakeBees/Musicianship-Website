@@ -50,6 +50,77 @@ def role_required(*roles):
 
 
 # ---------------------------------------------------------------------------
+# Module-completion helper
+# ---------------------------------------------------------------------------
+
+def _handle_module_completion(class_id, me_id, cme_id, score):
+    """
+    Called after a drill submission when the student came from a module.
+    Returns dict with next_url and module_done, or None if no module context.
+    """
+    if not class_id:
+        return None
+    try:
+        class_id_int = int(class_id)
+        klass = Class.query.get(class_id_int)
+        if not klass:
+            return None
+    except (ValueError, TypeError):
+        return None
+
+    me_id_int  = int(me_id)  if me_id  else None
+    cme_id_int = int(cme_id) if cme_id else None
+
+    criterion = {'attempts': 1}
+    me = ModuleExercise.query.get(me_id_int) if me_id_int else None
+    if me:
+        criterion = me.completion_criterion
+
+    completed = False
+    if 'attempts' in criterion:
+        completed = True
+    elif 'min_score' in criterion and score is not None:
+        completed = score >= criterion['min_score']
+
+    if completed and current_user.is_authenticated:
+        cur.mark_complete(current_user.id, class_id_int, me_id_int, cme_id_int, score)
+
+    module = me.module if me else None
+    if not module and cme_id_int:
+        cme = ClassModuleExercise.query.get(cme_id_int)
+        if cme:
+            module = Module.query.get(cme.module_id)
+
+    if not module:
+        return {'next_url': url_for('class_home', class_id=class_id_int),
+                'module_done': False, 'class_id': class_id_int}
+
+    next_ex = cur.next_incomplete(current_user.id, class_id_int, klass, module)
+    if next_ex:
+        type_to_route = {
+            'melody':   ('exercise',          'melody_id'),
+            'rhythm':   ('rhythm_exercise',   'rhythm_id'),
+            'harmonic': ('harmonic_exercise', 'progression_id'),
+            'holistic': ('holistic_exercise', 'exercise_id'),
+        }
+        route_name, param_name = type_to_route.get(next_ex['exercise_type'], ('class_home', 'class_id'))
+        if route_name == 'class_home':
+            next_url = url_for('class_home', class_id=class_id_int)
+        else:
+            next_url = url_for(route_name,
+                               **{param_name: next_ex['exercise_id']},
+                               class_id=class_id_int,
+                               me_id=next_ex['module_exercise_id'] or '',
+                               cme_id=next_ex['class_exercise_id'] or '')
+        return {'next_url': next_url, 'module_done': False,
+                'class_id': class_id_int, 'module_id': module.id}
+    else:
+        return {'next_url': url_for('class_module_detail',
+                                    class_id=class_id_int, module_id=module.id),
+                'module_done': True, 'class_id': class_id_int, 'module_id': module.id}
+
+
+# ---------------------------------------------------------------------------
 # Grading helpers
 # ---------------------------------------------------------------------------
 
@@ -308,7 +379,11 @@ def submit(melody_id):
     db.session.add(attempt)
     db.session.commit()
 
-    return jsonify({'redirect': url_for('results', attempt_id=attempt.id)})
+    class_id = data.get('class_id', '')
+    me_id    = data.get('me_id', '')
+    cme_id   = data.get('cme_id', '')
+    return jsonify({'redirect': url_for('results', attempt_id=attempt.id,
+                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
 
 
 @app.route('/results/<int:attempt_id>')
@@ -334,8 +409,15 @@ def results(attempt_id):
 
     next_url = build_next_url()
 
+    class_id = request.args.get('class_id')
+    me_id    = request.args.get('me_id')
+    cme_id   = request.args.get('cme_id')
+    module_ctx = None
+    if current_user.is_authenticated and class_id:
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+
     return render_template('results.html', attempt=attempt, melody=melody,
-                           comparison=comparison, next_url=next_url)
+                           comparison=comparison, next_url=next_url, module_ctx=module_ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -411,7 +493,11 @@ def rhythm_submit(rhythm_id):
     db.session.add(attempt)
     db.session.commit()
 
-    return jsonify({'redirect': url_for('rhythm_results', attempt_id=attempt.id)})
+    class_id = data.get('class_id', '')
+    me_id    = data.get('me_id', '')
+    cme_id   = data.get('cme_id', '')
+    return jsonify({'redirect': url_for('rhythm_results', attempt_id=attempt.id,
+                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
 
 
 @app.route('/rhythm/results/<int:attempt_id>')
@@ -434,8 +520,16 @@ def rhythm_results(attempt_id):
         })
 
     next_url = build_next_rhythm_url()
+
+    class_id = request.args.get('class_id')
+    me_id    = request.args.get('me_id')
+    cme_id   = request.args.get('cme_id')
+    module_ctx = None
+    if current_user.is_authenticated and class_id:
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.duration_accuracy)
+
     return render_template('rhythm_results.html', attempt=attempt, rhythm=rhythm,
-                           comparison=comparison, next_url=next_url)
+                           comparison=comparison, next_url=next_url, module_ctx=module_ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +627,11 @@ def harmonic_submit(progression_id):
     db.session.add(attempt)
     db.session.commit()
 
-    return jsonify({'redirect': url_for('harmonic_results', attempt_id=attempt.id)})
+    class_id = data.get('class_id', '')
+    me_id    = data.get('me_id', '')
+    cme_id   = data.get('cme_id', '')
+    return jsonify({'redirect': url_for('harmonic_results', attempt_id=attempt.id,
+                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
 
 
 @app.route('/harmonic/results/<int:attempt_id>')
@@ -587,6 +685,13 @@ def harmonic_results(attempt_id):
     )
     next_url = url_for('random_harmonic') + '?' + urlencode(params)
 
+    class_id = request.args.get('class_id')
+    me_id    = request.args.get('me_id')
+    cme_id   = request.args.get('cme_id')
+    module_ctx = None
+    if current_user.is_authenticated and class_id:
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+
     return render_template('harmonic_results.html',
                            attempt=attempt,
                            progression=progression,
@@ -595,7 +700,8 @@ def harmonic_results(attempt_id):
                            user_formatted=user_formatted,
                            next_url=next_url,
                            correct_chords_json=json.dumps(correct_chords),
-                           user_chords_json=json.dumps(user_chords))
+                           user_chords_json=json.dumps(user_chords),
+                           module_ctx=module_ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -658,16 +764,29 @@ def holistic_submit(exercise_id):
     db.session.add(attempt)
     db.session.commit()
 
-    return jsonify({'redirect': url_for('holistic_results', attempt_id=attempt.id)})
+    class_id = data.get('class_id', '')
+    me_id    = data.get('me_id', '')
+    cme_id   = data.get('cme_id', '')
+    return jsonify({'redirect': url_for('holistic_results', attempt_id=attempt.id,
+                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
 
 
 @app.route('/holistic/results/<int:attempt_id>')
 def holistic_results(attempt_id):
     attempt  = HolisticAttempt.query.get_or_404(attempt_id)
     exercise = attempt.exercise
+
+    class_id = request.args.get('class_id')
+    me_id    = request.args.get('me_id')
+    cme_id   = request.args.get('cme_id')
+    module_ctx = None
+    if current_user.is_authenticated and class_id:
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+
     return render_template('holistic_results.html',
                            attempt=attempt,
-                           exercise=exercise)
+                           exercise=exercise,
+                           module_ctx=module_ctx)
 
 
 # ---------------------------------------------------------------------------
