@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}{{ module.name }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('class_home', class_id=klass.id) }}">{{ klass.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('class_modules', class_id=klass.id) }}">Modules</a></li>
+      <li class="breadcrumb-item active">{{ module.name }}</li>
+    </ol>
+  </nav>
+  <h2 class="mb-4">{{ module.name }}</h2>
+
+  {% if exercises %}
+  <div class="list-group">
+    {% for ex in exercises %}
+      {% if ex.exercise_type == 'melody' %}
+        {% set play_url = url_for('exercise', melody_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
+      {% elif ex.exercise_type == 'rhythm' %}
+        {% set play_url = url_for('rhythm_exercise', rhythm_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
+      {% elif ex.exercise_type == 'harmonic' %}
+        {% set play_url = url_for('harmonic_exercise', progression_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
+      {% elif ex.exercise_type == 'holistic' %}
+        {% set play_url = url_for('holistic_exercise', exercise_id=ex.exercise_id, class_id=klass.id, me_id=ex.module_exercise_id, cme_id=ex.class_exercise_id or '') %}
+      {% else %}
+        {% set play_url = '#' %}
+      {% endif %}
+      <a href="{{ play_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-semibold">{{ ex.name }}</span>
+          <span class="badge bg-secondary ms-2">{{ ex.exercise_type }}</span>
+        </div>
+        {% if ex.completed %}
+          <span class="badge bg-success">
+            &#10003;{% if ex.best_score is not none %} {{ (ex.best_score * 100) | int }}%{% endif %}
+          </span>
+        {% else %}
+          <span class="text-muted small">Not done</span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p class="text-muted">No exercises in this module yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

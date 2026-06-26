@@ -1020,6 +1020,72 @@ def join_class():
 
 
 # ---------------------------------------------------------------------------
+# Student class routes
+# ---------------------------------------------------------------------------
+
+@app.route('/class/<int:class_id>')
+@login_required
+def class_home(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+        abort(403)
+    has_course = klass.course_id is not None
+    return render_template('student/mode_select.html', klass=klass, has_course=has_course)
+
+
+@app.route('/class/<int:class_id>/modules')
+@login_required
+def class_modules(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+        abort(403)
+    if not klass.course_id:
+        flash('This class has no course assigned yet.', 'info')
+        return redirect(url_for('class_home', class_id=class_id))
+    mods = cur.modules_with_progress(current_user.id, class_id, klass)
+    return render_template('student/module_list.html', klass=klass, mods=mods)
+
+
+@app.route('/class/<int:class_id>/modules/<int:module_id>')
+@login_required
+def class_module_detail(class_id, module_id):
+    klass  = Class.query.get_or_404(class_id)
+    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+        abort(403)
+    module = Module.query.get_or_404(module_id)
+    exercises = cur.effective_exercises(klass, module)
+    done = cur.completion_map(current_user.id, class_id)
+    ex_with_status = []
+    for ex in exercises:
+        key = (ex['module_exercise_id'], ex['class_exercise_id'])
+        completion = cur.get_completion(
+            current_user.id, class_id,
+            ex['module_exercise_id'], ex['class_exercise_id']
+        )
+        ex_with_status.append({
+            **ex,
+            'completed': key in done,
+            'best_score': completion.best_score if completion else None,
+        })
+    for ex in ex_with_status:
+        if ex['exercise_type'] == 'melody':
+            obj = Melody.query.get(ex['exercise_id'])
+        elif ex['exercise_type'] == 'rhythm':
+            obj = Rhythm.query.get(ex['exercise_id'])
+        elif ex['exercise_type'] == 'harmonic':
+            obj = ChordProgression.query.get(ex['exercise_id'])
+        elif ex['exercise_type'] == 'holistic':
+            obj = HolisticExercise.query.get(ex['exercise_id'])
+        else:
+            obj = None
+        ex['name'] = obj.name if obj else f"Exercise #{ex['exercise_id']}"
+    return render_template('student/module_detail.html',
+                           klass=klass,
+                           module=module,
+                           exercises=ex_with_status)
+
+
+# ---------------------------------------------------------------------------
 # Dev helpers
 # ---------------------------------------------------------------------------
 
