@@ -1100,6 +1100,11 @@ def admin_delete_school(school_id):
     name = school.name
     for course in school.courses.all():
         for module in course.modules.all():
+            # Clean up dependent records before deleting ModuleExercise
+            me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
+            if me_ids:
+                ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+                ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
             ModuleExercise.query.filter_by(module_id=module.id).delete()
             db.session.delete(module)
         db.session.delete(course)
@@ -1117,6 +1122,11 @@ def admin_delete_course(course_id):
     school_id = course.school_id
     name = course.name
     for module in course.modules.all():
+        # Clean up dependent records before deleting ModuleExercise
+        me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
+        if me_ids:
+            ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+            ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
         ModuleExercise.query.filter_by(module_id=module.id).delete()
         db.session.delete(module)
     db.session.delete(course)
@@ -1132,6 +1142,11 @@ def admin_delete_module(module_id):
     module = Module.query.get_or_404(module_id)
     course_id = module.course_id
     name = module.name
+    # Clean up dependent records before deleting ModuleExercise
+    me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
+    if me_ids:
+        ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+        ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
     ModuleExercise.query.filter_by(module_id=module.id).delete()
     db.session.delete(module)
     db.session.commit()
