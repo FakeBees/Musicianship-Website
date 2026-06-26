@@ -56,7 +56,7 @@ def role_required(*roles):
 def _handle_module_completion(class_id, me_id, cme_id, score):
     """
     Called after a drill submission when the student came from a module.
-    Returns dict with next_url and module_done, or None if no module context.
+    Records the attempt, checks criterion, returns nav context dict or None.
     """
     if not class_id:
         return None
@@ -68,7 +68,6 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
     except (ValueError, TypeError):
         return None
 
-    # Verify the user is actually a member of this class
     is_member = current_user in klass.members
     is_own_teacher = klass.teacher_id == current_user.id
     if not is_member and not is_own_teacher and current_user.role != 'admin':
@@ -77,19 +76,16 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
     me_id_int  = int(me_id)  if me_id  else None
     cme_id_int = int(cme_id) if cme_id else None
 
-    criterion = {'attempts': 1}
     me = ModuleExercise.query.get(me_id_int) if me_id_int else None
-    if me:
-        criterion = me.completion_criterion
+    criterion = me.completion_criterion if me else {'attempts': 1}
 
-    completed = False
-    if 'attempts' in criterion:
-        completed = True
-    elif 'min_score' in criterion and score is not None:
-        completed = score >= criterion['min_score']
+    mc, just_completed = cur.record_attempt(
+        current_user.id, class_id_int, me_id_int, cme_id_int, score, criterion
+    )
 
-    if completed and current_user.is_authenticated:
-        cur.mark_complete(current_user.id, class_id_int, me_id_int, cme_id_int, score)
+    progress = cur.get_progress(
+        current_user.id, class_id_int, me_id_int, cme_id_int, criterion
+    )
 
     module = me.module if me else None
     if not module and cme_id_int:
@@ -98,32 +94,61 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
             module = Module.query.get(cme.module_id)
 
     if not module:
-        return {'next_url': url_for('class_home', class_id=class_id_int),
-                'module_done': False, 'class_id': class_id_int}
-
-    next_ex = cur.next_incomplete(current_user.id, class_id_int, klass, module)
-    if next_ex:
-        type_to_route = {
-            'melody':   ('exercise',          'melody_id'),
-            'rhythm':   ('rhythm_exercise',   'rhythm_id'),
-            'harmonic': ('harmonic_exercise', 'progression_id'),
-            'holistic': ('holistic_exercise', 'exercise_id'),
+        return {
+            'next_url': url_for('class_home', class_id=class_id_int),
+            'module_done': False,
+            'complete': mc.is_complete,
+            'progress': progress,
+            'class_id': class_id_int,
         }
-        route_name, param_name = type_to_route.get(next_ex['exercise_type'], ('class_home', 'class_id'))
-        if route_name == 'class_home':
-            next_url = url_for('class_home', class_id=class_id_int)
-        else:
-            next_url = url_for(route_name,
-                               **{param_name: next_ex['exercise_id']},
+
+    if mc.is_complete:
+        # Find next incomplete exercise in same module
+        next_me_list = ModuleExercise.query.filter_by(module_id=module.id).order_by(
+            ModuleExercise.order).all()
+        cmap = cur.completion_map(current_user.id, class_id_int)
+        next_incomplete_me = next(
+            (x for x in next_me_list if (x.id, None) not in cmap),
+            None
+        )
+        if next_incomplete_me:
+            next_url = url_for('start_module_exercise',
                                class_id=class_id_int,
-                               me_id=next_ex['module_exercise_id'] or '',
-                               cme_id=next_ex['class_exercise_id'] or '')
-        return {'next_url': next_url, 'module_done': False,
-                'class_id': class_id_int, 'module_id': module.id}
-    else:
-        return {'next_url': url_for('class_module_detail',
+                               me_id=next_incomplete_me.id)
+            return {
+                'next_url': next_url,
+                'module_done': False,
+                'complete': True,
+                'progress': progress,
+                'class_id': class_id_int,
+                'module_id': module.id,
+            }
+        else:
+            return {
+                'next_url': url_for('class_module_detail',
                                     class_id=class_id_int, module_id=module.id),
-                'module_done': True, 'class_id': class_id_int, 'module_id': module.id}
+                'module_done': True,
+                'complete': True,
+                'progress': progress,
+                'class_id': class_id_int,
+                'module_id': module.id,
+            }
+    else:
+        # Not yet complete — go back to /start to get another exercise
+        if me_id_int:
+            start_url = url_for('start_module_exercise',
+                                class_id=class_id_int, me_id=me_id_int)
+        else:
+            start_url = url_for('class_module_detail',
+                                class_id=class_id_int, module_id=module.id)
+        return {
+            'next_url': start_url,
+            'module_done': False,
+            'complete': False,
+            'progress': progress,
+            'class_id': class_id_int,
+            'module_id': module.id,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +332,20 @@ def _visible_exercise_filter(model):
             and_(model.visibility == 'school', model.school_id.in_(user_school_ids))
         )
     return model.visibility == 'public'
+
+
+def _apply_exercise_filters(query, model, params):
+    """Apply params_json filter dict to a SQLAlchemy query for melody/rhythm/harmonic."""
+    if params.get('difficulty'):
+        query = query.filter(model.difficulty.in_(params['difficulty']))
+    if params.get('time_signature'):
+        query = query.filter(model.time_signature == params['time_signature'])
+    if params.get('key_signature') and hasattr(model, 'key_signature'):
+        query = query.filter(model.key_signature == params['key_signature'])
+    if params.get('tags'):
+        for tag_name in params['tags']:
+            query = query.filter(model.tags.any(Tag.name == tag_name))
+    return query
 
 
 # ---------------------------------------------------------------------------
@@ -1356,6 +1395,47 @@ def class_module_detail(class_id, module_id):
                            klass=klass,
                            module=module,
                            exercises=ex_with_status)
+
+
+@app.route('/class/<int:class_id>/module_exercise/<int:me_id>/start')
+@login_required
+def start_module_exercise(class_id, me_id):
+    klass = Class.query.get_or_404(class_id)
+    is_member = current_user in klass.members
+    is_own_teacher = klass.teacher_id == current_user.id
+    if not is_member and not is_own_teacher and current_user.role != 'admin':
+        abort(403)
+
+    me = ModuleExercise.query.get_or_404(me_id)
+    if me.module.course_id != klass.course_id:
+        abort(404)
+
+    params = me.params
+    type_map = {
+        'melody':   (Melody,           'exercise',          'melody_id'),
+        'rhythm':   (Rhythm,           'rhythm_exercise',   'rhythm_id'),
+        'harmonic': (ChordProgression, 'harmonic_exercise', 'progression_id'),
+    }
+
+    if me.exercise_type == 'holistic':
+        return redirect(url_for('holistic_exercise',
+                                exercise_id=me.exercise_id,
+                                class_id=class_id, me_id=me_id, cme_id=''))
+
+    model_class, route_name, param_name = type_map[me.exercise_type]
+    q = model_class.query.filter(_visible_exercise_filter(model_class))
+    q = _apply_exercise_filters(q, model_class, params)
+    candidates = q.all()
+
+    if not candidates:
+        flash('No exercises match the filters for this module exercise. Ask your teacher to adjust the filters.', 'warning')
+        return redirect(url_for('class_module_detail',
+                                class_id=class_id, module_id=me.module_id))
+
+    chosen = random.choice(candidates)
+    return redirect(url_for(route_name,
+                            **{param_name: chosen.id},
+                            class_id=class_id, me_id=me_id, cme_id=''))
 
 
 # ---------------------------------------------------------------------------
