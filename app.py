@@ -418,6 +418,7 @@ def exercise(melody_id):
 
 
 @app.route('/submit/<int:melody_id>', methods=['POST'])
+@login_required
 def submit(melody_id):
     melody = Melody.query.get_or_404(melody_id)
 
@@ -449,8 +450,15 @@ def submit(melody_id):
 
 
 @app.route('/results/<int:attempt_id>')
+@login_required
 def results(attempt_id):
     attempt = UserAttempt.query.get_or_404(attempt_id)
+    if attempt.user_id is not None and attempt.user_id != current_user.id:
+        is_teacher = attempt.user and any(
+            cls.teacher_id == current_user.id for cls in attempt.user.classes
+        )
+        if not is_teacher and current_user.role != 'admin':
+            abort(403)
     melody = attempt.melody
     correct_notes = melody.notes
     user_notes = attempt.user_notes
@@ -535,6 +543,7 @@ def rhythm_exercise(rhythm_id):
 
 
 @app.route('/rhythm/submit/<int:rhythm_id>', methods=['POST'])
+@login_required
 def rhythm_submit(rhythm_id):
     rhythm = Rhythm.query.get_or_404(rhythm_id)
 
@@ -563,8 +572,15 @@ def rhythm_submit(rhythm_id):
 
 
 @app.route('/rhythm/results/<int:attempt_id>')
+@login_required
 def rhythm_results(attempt_id):
     attempt = RhythmAttempt.query.get_or_404(attempt_id)
+    if attempt.user_id is not None and attempt.user_id != current_user.id:
+        is_teacher = attempt.user and any(
+            cls.teacher_id == current_user.id for cls in attempt.user.classes
+        )
+        if not is_teacher and current_user.role != 'admin':
+            abort(403)
     rhythm  = attempt.rhythm
     correct_notes = rhythm.notes
     user_notes    = attempt.user_notes
@@ -667,6 +683,7 @@ def harmonic_exercise(progression_id):
 
 
 @app.route('/harmonic/submit/<int:progression_id>', methods=['POST'])
+@login_required
 def harmonic_submit(progression_id):
     progression = ChordProgression.query.get_or_404(progression_id)
     data = request.get_json()
@@ -697,8 +714,15 @@ def harmonic_submit(progression_id):
 
 
 @app.route('/harmonic/results/<int:attempt_id>')
+@login_required
 def harmonic_results(attempt_id):
     attempt     = HarmonicAttempt.query.get_or_404(attempt_id)
+    if attempt.user_id is not None and attempt.user_id != current_user.id:
+        is_teacher = attempt.user and any(
+            cls.teacher_id == current_user.id for cls in attempt.user.classes
+        )
+        if not is_teacher and current_user.role != 'admin':
+            abort(403)
     progression = attempt.progression
     correct_chords = progression.chords
     user_chords    = attempt.user_chords
@@ -807,6 +831,7 @@ def holistic_exercise(exercise_id):
 
 
 @app.route('/holistic/submit/<int:exercise_id>', methods=['POST'])
+@login_required
 def holistic_submit(exercise_id):
     exercise = HolisticExercise.query.get_or_404(exercise_id)
     data = request.get_json()
@@ -834,8 +859,15 @@ def holistic_submit(exercise_id):
 
 
 @app.route('/holistic/results/<int:attempt_id>')
+@login_required
 def holistic_results(attempt_id):
     attempt  = HolisticAttempt.query.get_or_404(attempt_id)
+    if attempt.user_id is not None and attempt.user_id != current_user.id:
+        is_teacher = attempt.user and any(
+            cls.teacher_id == current_user.id for cls in attempt.user.classes
+        )
+        if not is_teacher and current_user.role != 'admin':
+            abort(403)
     exercise = attempt.exercise
 
     class_id = request.args.get('class_id')
