@@ -413,7 +413,6 @@ class ModuleExercise(db.Model):
 
     @property
     def completion_criterion(self):
-        import json
         return json.loads(self.completion_criterion_json)
 
     def __repr__(self):
@@ -437,7 +436,6 @@ class ClassModuleExercise(db.Model):
 
     @property
     def completion_criterion(self):
-        import json
         return json.loads(self.completion_criterion_json) if self.completion_criterion_json else None
 
     def __repr__(self):
@@ -460,6 +458,8 @@ class ModuleCompletion(db.Model):
     __table_args__ = (
         db.UniqueConstraint('user_id', 'class_id', 'module_exercise_id',
                             name='uq_completion_module_exercise'),
+        db.UniqueConstraint('user_id', 'class_id', 'class_exercise_id',
+                            name='uq_completion_class_exercise'),
     )
 
     def __repr__(self):
