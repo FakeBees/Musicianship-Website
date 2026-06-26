@@ -992,6 +992,68 @@ def admin_delete_module_exercise(me_id):
     return redirect(url_for('admin_module_exercises', module_id=module_id))
 
 
+@app.route('/admin/schools/<int:school_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_school(school_id):
+    school = School.query.get_or_404(school_id)
+    db.session.delete(school)
+    db.session.commit()
+    flash(f'School "{school.name}" deleted.', 'success')
+    return redirect(url_for('admin_schools'))
+
+
+@app.route('/admin/courses/<int:course_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_course(course_id):
+    course = Course.query.get_or_404(course_id)
+    school_id = course.school_id
+    db.session.delete(course)
+    db.session.commit()
+    flash(f'Course "{course.name}" deleted.', 'success')
+    return redirect(url_for('admin_courses', school_id=school_id))
+
+
+@app.route('/admin/modules/<int:module_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_module(module_id):
+    module = Module.query.get_or_404(module_id)
+    course_id = module.course_id
+    db.session.delete(module)
+    db.session.commit()
+    flash(f'Module "{module.name}" deleted.', 'success')
+    return redirect(url_for('admin_modules', course_id=course_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/delete', methods=['POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_delete_class(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    name = klass.name
+    db.session.delete(klass)
+    db.session.commit()
+    flash(f'Class "{name}" deleted.', 'success')
+    return redirect(url_for('teacher_dashboard'))
+
+
+@app.route('/class/<int:class_id>/leave', methods=['POST'])
+@login_required
+def leave_class(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user not in klass.members:
+        flash('You are not in this class.', 'info')
+    else:
+        klass.members.remove(current_user)
+        db.session.commit()
+        flash(f'Left "{klass.name}".', 'success')
+    return redirect(url_for('me'))
+
+
 @app.route('/me')
 @login_required
 def me():

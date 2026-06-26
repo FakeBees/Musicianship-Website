@@ -17,7 +17,12 @@
       <td>{{ m.order }}</td>
       <td>{{ m.name }}</td>
       <td>{{ m.exercises.count() }}</td>
-      <td><a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="btn btn-sm btn-outline-secondary">Exercises →</a></td>
+      <td class="d-flex gap-1">
+        <a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="btn btn-sm btn-outline-secondary">Exercises →</a>
+        <form method="post" action="{{ url_for('admin_delete_module', module_id=m.id) }}" onsubmit="return confirm('Delete module \"{{ m.name }}\" and all its exercises? This cannot be undone.')">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
     </tr>
     {% else %}
     <tr><td colspan="4" class="text-muted">No modules yet.</td></tr>

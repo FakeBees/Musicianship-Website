@@ -2,9 +2,13 @@
 {% block title %}{{ cls.name }}{% endblock %}
 {% block content %}
 <div class="container py-4">
-  <div class="d-flex align-items-center gap-3 mb-1">
+  <div class="d-flex align-items-center gap-3 mb-1 flex-wrap">
     <h2>{{ cls.name }}</h2>
     <span class="badge bg-secondary fs-6">Join code: {{ cls.join_code }}</span>
+    <form method="post" action="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="ms-auto"
+          onsubmit="return confirm('Permanently delete class \"{{ cls.name }}\"? This cannot be undone.')">
+      <button class="btn btn-sm btn-outline-danger">Delete class</button>
+    </form>
   </div>
   <p class="text-muted mb-4">{{ roster | length }} student{{ 's' if roster | length != 1 }}</p>
 

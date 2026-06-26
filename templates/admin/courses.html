@@ -15,7 +15,12 @@
     <tr>
       <td>{{ c.name }}</td>
       <td>{{ c.modules.count() }}</td>
-      <td><a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary">Modules →</a></td>
+      <td class="d-flex gap-1">
+        <a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary">Modules →</a>
+        <form method="post" action="{{ url_for('admin_delete_course', course_id=c.id) }}" onsubmit="return confirm('Delete course \"{{ c.name }}\" and all its modules? This cannot be undone.')">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
     </tr>
     {% else %}
     <tr><td colspan="3" class="text-muted">No courses yet.</td></tr>

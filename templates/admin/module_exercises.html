@@ -54,7 +54,7 @@
       <td>{{ ex.exercise_id }}</td>
       <td><code>{{ ex.completion_criterion_json }}</code></td>
       <td>
-        <form method="post" action="{{ url_for('admin_delete_module_exercise', me_id=ex.id) }}" onsubmit="return confirm('Remove?')">
+        <form method="post" action="{{ url_for('admin_delete_module_exercise', me_id=ex.id) }}" onsubmit="return confirm('Remove this exercise from the module?')">
           <button class="btn btn-sm btn-outline-danger">Remove</button>
         </form>
       </td>
