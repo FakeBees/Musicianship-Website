@@ -68,6 +68,12 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
     except (ValueError, TypeError):
         return None
 
+    # Verify the user is actually a member of this class
+    is_member = current_user in klass.members
+    is_own_teacher = klass.teacher_id == current_user.id
+    if not is_member and not is_own_teacher and current_user.role != 'admin':
+        return None
+
     me_id_int  = int(me_id)  if me_id  else None
     cme_id_int = int(cme_id) if cme_id else None
 
@@ -946,6 +952,10 @@ def admin_module_exercises(module_id):
         ex_id     = int(request.form['exercise_id'])
         order     = int(request.form.get('order', 0))
         criterion = request.form.get('completion_criterion', '{"attempts":1}')
+        try:
+            json.loads(criterion)
+        except (ValueError, TypeError):
+            criterion = '{"attempts":1}'
         db.session.add(ModuleExercise(
             module_id=module_id,
             exercise_type=ex_type,
@@ -1114,6 +1124,11 @@ def teacher_add_override(class_id):
     ex_id     = request.form.get('exercise_id', type=int)
     order     = request.form.get('order', type=int)
     criterion = request.form.get('completion_criterion')
+    if criterion:
+        try:
+            json.loads(criterion)
+        except (ValueError, TypeError):
+            criterion = '{"attempts":1}'
     cme = ClassModuleExercise(
         class_id=class_id,
         action=action,
@@ -1170,7 +1185,9 @@ def join_class():
 @login_required
 def class_home(class_id):
     klass = Class.query.get_or_404(class_id)
-    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+    is_member = current_user in klass.members
+    is_own_teacher = klass.teacher_id == current_user.id
+    if not is_member and not is_own_teacher and current_user.role != 'admin':
         abort(403)
     has_course = klass.course_id is not None
     return render_template('student/mode_select.html', klass=klass, has_course=has_course)
@@ -1180,7 +1197,9 @@ def class_home(class_id):
 @login_required
 def class_modules(class_id):
     klass = Class.query.get_or_404(class_id)
-    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+    is_member = current_user in klass.members
+    is_own_teacher = klass.teacher_id == current_user.id
+    if not is_member and not is_own_teacher and current_user.role != 'admin':
         abort(403)
     if not klass.course_id:
         flash('This class has no course assigned yet.', 'info')
@@ -1193,9 +1212,13 @@ def class_modules(class_id):
 @login_required
 def class_module_detail(class_id, module_id):
     klass  = Class.query.get_or_404(class_id)
-    if current_user not in klass.members and current_user.role not in ('teacher', 'admin'):
+    is_member = current_user in klass.members
+    is_own_teacher = klass.teacher_id == current_user.id
+    if not is_member and not is_own_teacher and current_user.role != 'admin':
         abort(403)
     module = Module.query.get_or_404(module_id)
+    if klass.course_id is None or module.course_id != klass.course_id:
+        abort(404)
     exercises = cur.effective_exercises(klass, module)
     done = cur.completion_map(current_user.id, class_id)
     ex_with_status = []
