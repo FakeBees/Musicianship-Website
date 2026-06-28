@@ -386,14 +386,21 @@ def _apply_exercise_filters(query, model, params):
 # ---------------------------------------------------------------------------
 
 @app.route('/')
+@login_required
 def home():
-    user_classes = []
-    if current_user.is_authenticated:
-        if current_user.role in ('teacher', 'admin'):
-            user_classes = list(current_user.classes_taught)
-        else:
-            user_classes = list(current_user.classes)
-    return render_template('home.html', user_classes=user_classes)
+    sandbox_mode = request.args.get('sandbox') == '1'
+    user_classes = current_user.classes if current_user.role == 'student' else []
+    teacher_courses = []
+    if current_user.role == 'admin_teacher' and not sandbox_mode:
+        mem = SchoolMembership.query.filter_by(
+            user_id=current_user.id, role='admin_teacher'
+        ).first()
+        if mem:
+            teacher_courses = Course.query.filter_by(school_id=mem.school_id).all()
+    return render_template('home.html',
+                           user_classes=user_classes,
+                           teacher_courses=teacher_courses,
+                           sandbox_mode=sandbox_mode)
 
 
 @app.route('/sandbox')
@@ -1018,6 +1025,28 @@ def admin():
         holistic_count=HolisticExercise.query.count(),
         gen_prog_count=GenProgression.query.count(),
     )
+
+
+@app.route('/admin/users')
+@login_required
+@role_required('admin')
+def admin_users():
+    users = User.query.order_by(User.email).all()
+    return render_template('admin/users.html', users=users)
+
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_user(user_id):
+    if user_id == current_user.id:
+        flash('You cannot delete your own account.', 'danger')
+        return redirect(url_for('admin_users'))
+    u = User.query.get_or_404(user_id)
+    db.session.delete(u)
+    db.session.commit()
+    flash(f'User {u.email} deleted.', 'success')
+    return redirect(url_for('admin_users'))
 
 
 @app.route('/admin/schools', methods=['GET', 'POST'])
