@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}GenProgressions — Admin{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>GenProgressions <span class="text-muted fs-5">({{ progressions | length }})</span></h2>
+    <button class="btn btn-outline-success" data-bs-toggle="collapse" data-bs-target="#addForm">+ New</button>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  {# Inline create form #}
+  <div class="collapse mb-4" id="addForm">
+    <div class="card card-body">
+      <h5 class="mb-3">New GenProgression</h5>
+      <form method="post">
+        <div class="row g-2">
+          <div class="col-md-2"><label class="form-label">Number</label><input name="number" type="number" class="form-control" placeholder="auto"></div>
+          <div class="col-md-4"><label class="form-label">Name</label><input name="name" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">Length (bars)</label><input name="length_bars" type="number" class="form-control" value="4" min="1"></div>
+          <div class="col-md-2"><label class="form-label">Mode</label>
+            <select name="mode" class="form-select">
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select></div>
+          <div class="col-md-2"><label class="form-label">Difficulty</label>
+            <select name="difficulty" class="form-select">
+              {% for d in [1,2,3,4,5] %}<option>{{ d }}</option>{% endfor %}
+            </select></div>
+          <div class="col-12"><label class="form-label">Chords JSON <span class="text-danger">*</span></label>
+            <textarea name="chords_json" class="form-control font-monospace" rows="3" placeholder='[{"degree":"I","quality":"maj","inversion":0,"beats":4}]' required></textarea>
+            <div class="form-text">List of chord objects: degree, quality, inversion, beats.</div></div>
+        </div>
+        <button class="btn btn-success mt-3">Create</button>
+      </form>
+    </div>
+  </div>
+
+  {# Filter bar #}
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-4"><input name="q" class="form-control" placeholder="Search name…" value="{{ q }}"></div>
+    <div class="col-md-3">
+      <select name="mode" class="form-select">
+        <option value="">All modes</option>
+        <option value="major" {% if mode_filter == 'major' %}selected{% endif %}>Major</option>
+        <option value="minor" {% if mode_filter == 'minor' %}selected{% endif %}>Minor</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select name="difficulty" class="form-select">
+        <option value="">All difficulties</option>
+        {% for d in [1,2,3,4,5] %}
+          <option value="{{ d }}" {% if diff_filter == d %}selected{% endif %}>Difficulty {{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100">Filter</button></div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>Mode</th><th>Diff</th><th>Bars</th><th>Chord Preview</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for gp in progressions %}
+      <tr>
+        <td><code>{{ gp.number }}</code></td>
+        <td>{{ gp.name or '—' }}</td>
+        <td><span class="badge {% if gp.mode == 'major' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ gp.mode }}</span></td>
+        <td>{{ gp.difficulty }}</td>
+        <td>{{ gp.length_bars }}</td>
+        <td class="small text-muted">
+          {% set chords = gp.chords %}
+          {% if chords %}
+            {{ chords | map(attribute='degree') | join(' – ') }}
+            {% if chords | length > 6 %}&hellip;{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-end">
+          <a href="{{ url_for('admin_edit_gen_progression', gp_id=gp.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{{ url_for('admin_delete_gen_progression', gp_id=gp.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">No GenProgressions found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('admin') }}" class="btn btn-link">← Admin</a>
+</div>
+{% endblock %}

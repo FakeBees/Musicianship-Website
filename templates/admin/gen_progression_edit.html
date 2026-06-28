@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Edit GenProgression #{{ gp.number }}{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:760px">
+  <h2 class="mb-1">Edit GenProgression</h2>
+  <p class="text-muted small mb-4">#{{ gp.number }} — {{ gp.name or 'Unnamed' }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <div class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Number</label>
+        <input name="number" type="number" class="form-control" value="{{ gp.number }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Name</label>
+        <input name="name" class="form-control" value="{{ gp.name or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Length (bars)</label>
+        <input name="length_bars" type="number" class="form-control" value="{{ gp.length_bars }}" min="1" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-semibold">Difficulty</label>
+        <select name="difficulty" class="form-select">
+          {% for d in [1,2,3,4,5] %}
+            <option {% if gp.difficulty == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Mode</label>
+        <select name="mode" class="form-select">
+          <option value="major" {% if gp.mode == 'major' %}selected{% endif %}>Major</option>
+          <option value="minor" {% if gp.mode == 'minor' %}selected{% endif %}>Minor</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Chords JSON</label>
+        <textarea name="chords_json" class="form-control font-monospace" rows="8" required>{{ gp.chords_json }}</textarea>
+        <div class="form-text">
+          Each chord object: <code>{"degree":"I","quality":"maj","inversion":0,"beats":4}</code>.
+          Validated on save — must be valid JSON.
+        </div>
+      </div>
+
+      {# Chord preview #}
+      <div class="col-12">
+        <label class="form-label fw-semibold text-muted">Chord Preview</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for chord in gp.chords %}
+          <span class="badge bg-secondary fs-6 px-3 py-2">
+            {{ chord.degree }}
+            {% if chord.quality and chord.quality != 'maj' %}<sup>{{ chord.quality }}</sup>{% endif %}
+            {% if chord.inversion %}<sub>{{ chord.inversion }}</sub>{% endif %}
+            <small class="ms-1 opacity-75">{{ chord.beats }}b</small>
+          </span>
+          {% else %}
+          <span class="text-muted">No chords parsed yet.</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+      <button class="btn btn-primary">Save Changes</button>
+      <a href="{{ url_for('admin_gen_progressions') }}" class="btn btn-outline-secondary">Cancel</a>
+      <a href="{{ url_for('admin_delete_gen_progression', gp_id=gp.id) }}"
+         class="btn btn-outline-danger ms-auto">Delete</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

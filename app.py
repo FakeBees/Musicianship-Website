@@ -1635,6 +1635,89 @@ def admin_holistic_upload():
     return redirect(url_for('admin_edit_holistic', ex_id=h.id))
 
 
+# ── GenProgression CMS ───────────────────────────────────────────────────────
+
+@app.route('/admin/gen-progressions', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_gen_progressions():
+    if request.method == 'POST':
+        chords_raw = request.form.get('chords_json', '[]').strip()
+        try:
+            json.loads(chords_raw)
+        except ValueError:
+            flash('Invalid JSON in chords field.', 'danger')
+            return redirect(url_for('admin_gen_progressions'))
+        last = GenProgression.query.order_by(GenProgression.number.desc()).first()
+        next_num = (last.number + 1) if last else 1
+        gp = GenProgression(
+            number=request.form.get('number', next_num, type=int),
+            name=request.form.get('name', '').strip(),
+            length_bars=request.form.get('length_bars', 4, type=int),
+            mode=request.form.get('mode', 'major'),
+            difficulty=request.form.get('difficulty', 1, type=int),
+            chords_json=chords_raw,
+        )
+        db.session.add(gp)
+        db.session.commit()
+        flash(f'GenProgression #{gp.number} created.', 'success')
+        return redirect(url_for('admin_edit_gen_progression', gp_id=gp.id))
+
+    q = request.args.get('q', '').strip()
+    mode_filter = request.args.get('mode', '').strip()
+    diff_filter = request.args.get('difficulty', type=int)
+    query = GenProgression.query
+    if q:
+        query = query.filter(GenProgression.name.ilike(f'%{q}%'))
+    if mode_filter:
+        query = query.filter_by(mode=mode_filter)
+    if diff_filter:
+        query = query.filter_by(difficulty=diff_filter)
+    progressions = query.order_by(GenProgression.number).all()
+    return render_template('admin/gen_progressions.html', progressions=progressions,
+                           q=q, mode_filter=mode_filter, diff_filter=diff_filter)
+
+
+@app.route('/admin/gen-progressions/<int:gp_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_edit_gen_progression(gp_id):
+    gp = GenProgression.query.get_or_404(gp_id)
+    if request.method == 'POST':
+        chords_raw = request.form.get('chords_json', gp.chords_json).strip()
+        try:
+            json.loads(chords_raw)
+        except ValueError:
+            flash('Invalid JSON in chords field.', 'danger')
+            return redirect(url_for('admin_edit_gen_progression', gp_id=gp_id))
+        gp.number      = request.form.get('number', gp.number, type=int)
+        gp.name        = request.form.get('name', '').strip() or gp.name
+        gp.length_bars = request.form.get('length_bars', gp.length_bars, type=int)
+        gp.mode        = request.form.get('mode', gp.mode)
+        gp.difficulty  = request.form.get('difficulty', gp.difficulty, type=int)
+        gp.chords_json = chords_raw
+        db.session.commit()
+        flash('GenProgression updated.', 'success')
+        return redirect(url_for('admin_edit_gen_progression', gp_id=gp_id))
+    return render_template('admin/gen_progression_edit.html', gp=gp)
+
+
+@app.route('/admin/gen-progressions/<int:gp_id>/delete', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_delete_gen_progression(gp_id):
+    gp = GenProgression.query.get_or_404(gp_id)
+    if request.method == 'POST':
+        db.session.delete(gp)
+        db.session.commit()
+        flash(f'GenProgression #{gp.number} deleted.', 'success')
+        return redirect(url_for('admin_gen_progressions'))
+    return render_template('admin/confirm_delete.html',
+                           item_type='GenProgression',
+                           item_name=f'#{gp.number} {gp.name or ""}',
+                           cancel_url=url_for('admin_gen_progressions'))
+
+
 # ── Harmonic (ChordProgression) CMS ─────────────────────────────────────────
 
 @app.route('/admin/harmonics')
