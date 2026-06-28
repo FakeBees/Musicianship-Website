@@ -2021,7 +2021,7 @@ def admin_harmonic_upload():
 
 @app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_delete_class(class_id):
     klass = Class.query.get_or_404(class_id)
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2041,7 +2041,7 @@ def teacher_delete_class(class_id):
 
 @app.route('/teacher/class/<int:class_id>/kick/<int:user_id>', methods=['GET', 'POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_kick_student(class_id, user_id):
     klass = Class.query.get_or_404(class_id)
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2121,7 +2121,7 @@ def me():
 
 @app.route('/teacher')
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_dashboard():
     classes = Class.query.filter_by(teacher_id=current_user.id).all()
     return render_template('teacher/dashboard.html', classes=classes)
@@ -2129,7 +2129,7 @@ def teacher_dashboard():
 
 @app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_edit_class(class_id):
     cls = Class.query.get_or_404(class_id)
     if cls.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2163,7 +2163,7 @@ def teacher_edit_class(class_id):
 
 @app.route('/teacher/class/new', methods=['GET', 'POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_new_class():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -2186,7 +2186,7 @@ def teacher_new_class():
 
 @app.route('/teacher/class/<int:class_id>')
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_class_detail(class_id):
     cls = Class.query.get_or_404(class_id)
     if cls.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2214,7 +2214,7 @@ def teacher_class_detail(class_id):
 
 @app.route('/teacher/classes/<int:class_id>/set_course', methods=['POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_set_course(class_id):
     klass = Class.query.get_or_404(class_id)
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2228,7 +2228,7 @@ def teacher_set_course(class_id):
 
 @app.route('/teacher/classes/<int:class_id>/overrides/add', methods=['POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_add_override(class_id):
     klass = Class.query.get_or_404(class_id)
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
@@ -2263,7 +2263,7 @@ def teacher_add_override(class_id):
 
 @app.route('/teacher/classes/<int:class_id>/overrides/<int:cme_id>/delete', methods=['POST'])
 @login_required
-@role_required('teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_delete_override(class_id, cme_id):
     cme = ClassModuleExercise.query.get_or_404(cme_id)
     if cme.class_id != class_id:

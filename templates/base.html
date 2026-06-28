@@ -42,7 +42,7 @@
             {% endfor %}
             <li><hr class="dropdown-divider"></li>
             {% endif %}
-            {% if current_user.role in ('teacher', 'admin') %}
+            {% if current_user.role in ('admin_teacher', 'admin') %}
             <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
             {% endif %}
             {% if current_user.role == 'admin' %}
