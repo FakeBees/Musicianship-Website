@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Upload Rhythm MIDI{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:680px">
+  <h2 class="mb-4">Upload Rhythm from MIDI</h2>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <form method="post" enctype="multipart/form-data">
+    <div class="mb-3"><label class="form-label fw-semibold">MIDI File</label>
+      <input type="file" name="midi_file" class="form-control" accept=".mid,.midi" required></div>
+    <div class="mb-3"><label class="form-label fw-semibold">Name</label>
+      <input name="name" class="form-control" placeholder="Leave blank to use filename"></div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4"><label class="form-label fw-semibold">Time Signature</label>
+        <select name="time_signature" class="form-select">
+          {% for ts in ['4/4','3/4','2/4','6/8','5/4','7/8'] %}<option>{{ ts }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-4"><label class="form-label fw-semibold">Min Duration</label>
+        <select name="min_duration" class="form-select">
+          {% for d in ['w','h','q','8','16'] %}<option>{{ d }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-4"><label class="form-label fw-semibold">Difficulty</label>
+        <select name="difficulty" class="form-select">
+          {% for d in [1,2,3,4,5] %}<option>{{ d }}</option>{% endfor %}
+        </select></div>
+    </div>
+    <div class="mb-3"><label class="form-label fw-semibold">Tempo</label>
+      <input name="tempo" type="number" class="form-control" value="100" style="max-width:120px"></div>
+    <div class="mb-3"><label class="form-label fw-semibold">Tags</label>
+      <div class="d-flex flex-wrap gap-2">
+        {% for t in all_tags %}
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="tag_ids" value="{{ t.id }}" id="t{{ t.id }}">
+          <label class="form-check-label small" for="t{{ t.id }}">{{ t.name }}</label></div>
+        {% endfor %}
+      </div></div>
+    <div class="d-flex gap-2 mt-4">
+      <button class="btn btn-primary">Upload &amp; Parse</button>
+      <a href="{{ url_for('admin_rhythms') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

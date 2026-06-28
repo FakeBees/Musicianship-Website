@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Rhythms — Admin{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Rhythms <span class="text-muted fs-5">({{ rhythms | length }})</span></h2>
+    <a href="{{ url_for('admin_rhythm_upload') }}" class="btn btn-outline-secondary">Upload MIDI</a>
+  </div>
+  <form class="row g-2 mb-3" method="get">
+    <div class="col-md-4"><input name="q" class="form-control" placeholder="Search name or ID…" value="{{ q }}"></div>
+    <div class="col-md-3">
+      <select name="tag" class="form-select">
+        <option value="">All tags</option>
+        {% for t in all_tags %}<option value="{{ t.name }}" {% if tag_filter == t.name %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="difficulty" class="form-select">
+        <option value="">Any difficulty</option>
+        {% for d in [1,2,3,4,5] %}<option value="{{ d }}" {% if diff_filter == d %}selected{% endif %}>{{ d }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3"><button class="btn btn-outline-primary w-100">Filter</button></div>
+  </form>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+      <thead><tr><th>ID</th><th>Name</th><th>Time Sig</th><th>Min Dur</th><th>Diff</th><th>Tags</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rhythms %}
+      <tr>
+        <td><code class="small">{{ r.public_id or '—' }}</code></td>
+        <td>{{ r.name }}</td>
+        <td>{{ r.time_signature }}</td>
+        <td>{{ r.min_duration }}</td>
+        <td>{{ r.difficulty }}</td>
+        <td class="small">{{ r.tags | map(attribute='name') | join(', ') }}</td>
+        <td class="text-end">
+          <a href="{{ url_for('admin_edit_rhythm', rhythm_id=r.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{{ url_for('admin_delete_rhythm', rhythm_id=r.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">No rhythms found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('admin') }}" class="btn btn-link">← Admin</a>
+</div>
+{% endblock %}

@@ -1390,6 +1390,124 @@ def admin_melody_upload():
                 pass
 
 
+# ── Rhythm CMS ───────────────────────────────────────────────────────────────
+
+@app.route('/admin/rhythms')
+@login_required
+@role_required('admin')
+def admin_rhythms():
+    q = request.args.get('q', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
+    diff_filter = request.args.get('difficulty', type=int)
+    query = Rhythm.query
+    if q:
+        query = query.filter(db.or_(Rhythm.name.ilike(f'%{q}%'),
+                                    Rhythm.public_id.ilike(f'%{q}%')))
+    if tag_filter:
+        query = query.filter(Rhythm.tags.any(Tag.name == tag_filter))
+    if diff_filter:
+        query = query.filter_by(difficulty=diff_filter)
+    rhythms = query.order_by(Rhythm.id.desc()).all()
+    all_tags = Tag.query.order_by(Tag.name).all()
+    return render_template('admin/rhythms.html', rhythms=rhythms,
+                           all_tags=all_tags, q=q, tag_filter=tag_filter, diff_filter=diff_filter)
+
+
+@app.route('/admin/rhythms/<int:rhythm_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_edit_rhythm(rhythm_id):
+    rhythm = Rhythm.query.get_or_404(rhythm_id)
+    all_tags = Tag.query.order_by(Tag.name).all()
+    if request.method == 'POST':
+        rhythm.name          = request.form.get('name', '').strip() or rhythm.name
+        rhythm.description   = request.form.get('description', '').strip()
+        rhythm.time_signature = request.form.get('time_signature', rhythm.time_signature)
+        rhythm.min_duration  = request.form.get('min_duration', rhythm.min_duration)
+        rhythm.difficulty    = request.form.get('difficulty', rhythm.difficulty, type=int) or rhythm.difficulty
+        rhythm.tempo         = request.form.get('tempo', rhythm.tempo, type=int) or rhythm.tempo
+        rhythm.visibility    = request.form.get('visibility', rhythm.visibility)
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        rhythm.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        notes_raw = request.form.get('notes_json', '').strip()
+        if notes_raw:
+            try:
+                json.loads(notes_raw)
+                rhythm.notes_json = notes_raw
+            except ValueError:
+                flash('Invalid notes JSON — not saved.', 'warning')
+        db.session.commit()
+        flash('Rhythm updated.', 'success')
+        return redirect(url_for('admin_edit_rhythm', rhythm_id=rhythm_id))
+    return render_template('admin/rhythm_edit.html', rhythm=rhythm, all_tags=all_tags)
+
+
+@app.route('/admin/rhythms/<int:rhythm_id>/delete', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_delete_rhythm(rhythm_id):
+    rhythm = Rhythm.query.get_or_404(rhythm_id)
+    if request.method == 'POST':
+        db.session.delete(rhythm)
+        db.session.commit()
+        flash(f'Rhythm "{rhythm.name}" deleted.', 'success')
+        return redirect(url_for('admin_rhythms'))
+    return render_template('admin/confirm_delete.html', item_type='Rhythm',
+                           item_name=rhythm.name, cancel_url=url_for('admin_rhythms'))
+
+
+@app.route('/admin/rhythms/upload', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_rhythm_upload():
+    all_tags = Tag.query.order_by(Tag.name).all()
+    if request.method == 'GET':
+        return render_template('admin/rhythm_upload.html', all_tags=all_tags)
+    # POST — parse uploaded MIDI
+    f = request.files.get('midi_file')
+    if not f or not f.filename or not f.filename.endswith('.mid'):
+        flash('Please upload a .mid file.', 'danger')
+        return redirect(url_for('admin_rhythm_upload'))
+    name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
+    from midi_to_notes import extract_notes, build_json_list
+    import tempfile, re, shutil
+
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+        with os.fdopen(tmp_fd, 'wb') as tmp_f:
+            f.save(tmp_f)
+        notes     = extract_notes(tmp_path)
+        note_list = build_json_list(notes, 'C')
+        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'rhythm'
+        dest_dir  = os.path.join('static', 'rhythmic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        rhy = Rhythm(
+            name=name,
+            notes_json=json.dumps(note_list),
+            time_signature=request.form.get('time_signature', '4/4'),
+            min_duration=request.form.get('min_duration', 'q'),
+            difficulty=request.form.get('difficulty', 1, type=int),
+            tempo=request.form.get('tempo', 100, type=int),
+        )
+        rhy.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        db.session.add(rhy)
+        db.session.flush()
+        rhy.public_id = f'RHY-{rhy.id:04d}'
+        db.session.commit()
+        flash(f'Rhythm "{rhy.name}" uploaded ({rhy.public_id}).', 'success')
+        return redirect(url_for('admin_edit_rhythm', rhythm_id=rhy.id))
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
 # ── Harmonic (ChordProgression) CMS ─────────────────────────────────────────
 
 @app.route('/admin/harmonics')
