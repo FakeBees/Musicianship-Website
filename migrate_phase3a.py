@@ -91,8 +91,11 @@ def run():
                     print(f"  Added {table}.{col}")
                 else:
                     print(f"  {table}.{col} already exists")
-            except Exception as e:
-                print(f"  Error adding {table}.{col}: {e}")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" in str(e).lower():
+                    print(f"  {table}.{col} already exists (duplicate column)")
+                else:
+                    raise
 
         add_column('melody', 'public_id', 'VARCHAR(12)')
         add_column('melody', 'container_id', 'INTEGER')
@@ -104,18 +107,18 @@ def run():
         conn.close()
 
         # --- Backfill public_ids ---
-        for i, m in enumerate(Melody.query.order_by(Melody.id).all(), 1):
+        for m in Melody.query.order_by(Melody.id).all():
             if not m.public_id:
-                m.public_id = f'MEL-{i:04d}'
-        for i, c in enumerate(ChordProgression.query.order_by(ChordProgression.id).all(), 1):
+                m.public_id = f'MEL-{m.id:04d}'
+        for c in ChordProgression.query.order_by(ChordProgression.id).all():
             if not c.public_id:
-                c.public_id = f'HRM-{i:04d}'
-        for i, r in enumerate(Rhythm.query.order_by(Rhythm.id).all(), 1):
+                c.public_id = f'HRM-{c.id:04d}'
+        for r in Rhythm.query.order_by(Rhythm.id).all():
             if not r.public_id:
-                r.public_id = f'RHY-{i:04d}'
-        for i, h in enumerate(HolisticExercise.query.order_by(HolisticExercise.id).all(), 1):
+                r.public_id = f'RHY-{r.id:04d}'
+        for h in HolisticExercise.query.order_by(HolisticExercise.id).all():
             if not h.public_id:
-                h.public_id = f'HOL-{i:04d}'
+                h.public_id = f'HOL-{h.id:04d}'
         db.session.commit()
         print("  Backfilled public_ids")
 
