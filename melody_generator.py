@@ -576,7 +576,10 @@ def generate(params: dict) -> dict:
     gp_diff = params.get('gen_prog_difficulty', 1)
 
     notes_json_str = slots_to_notes_json(slots, key)
-    midi_path      = write_preview_midi(notes_json_str, tempo)
+    try:
+        midi_path = write_preview_midi(notes_json_str, tempo)
+    except OSError:
+        midi_path = None
 
     return {
         'notes_json':            notes_json_str,
