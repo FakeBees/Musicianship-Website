@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Edit {{ cls.name }}{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:660px">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-link p-0 text-decoration-none">← Roster</a>
+    <h2 class="mb-0">Edit {{ cls.name }}</h2>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <!-- Basic settings -->
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Class Settings</div>
+    <div class="card-body">
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Class Name</label>
+          <input name="name" class="form-control" value="{{ cls.name }}" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Course <span class="text-muted fw-normal">(optional)</span></label>
+          <select name="course_id" class="form-select">
+            <option value="">— No course —</option>
+            {% for c in courses %}
+            <option value="{{ c.id }}" {% if cls.course_id == c.id %}selected{% endif %}>
+              {{ c.school.name }} / {{ c.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Selecting a course gives students access to its modules.</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Override management -->
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Class-Specific Overrides</div>
+    <div class="card-body">
+      {% if not cls.course_id %}
+        <p class="text-muted mb-0">Assign a course above to manage which exercises are visible to students in this class.</p>
+      {% elif not modules_with_exercises %}
+        <p class="text-muted mb-0">This course has no modules yet. Add modules and exercises in the admin panel.</p>
+      {% else %}
+        <p class="text-muted small mb-3">By default students see all exercises from the course. Hide individual exercises to customize what this class sees.</p>
+        {% for item in modules_with_exercises %}
+        <h6 class="fw-semibold mt-3 mb-2">{{ item.module.name }}</h6>
+        {% if item.exercises %}
+        <ul class="list-group mb-2">
+          {% for ex in item.exercises %}
+          {% set is_hidden = ex.id in hidden_ids %}
+          <li class="list-group-item d-flex justify-content-between align-items-center
+                      {% if is_hidden %}list-group-item-secondary{% endif %}">
+            <div>
+              <span {% if is_hidden %}class="text-muted text-decoration-line-through"{% endif %}>
+                {{ ex.name or ex.exercise_type }}
+              </span>
+              <span class="badge bg-secondary ms-2">{{ ex.exercise_type }}</span>
+              {% if is_hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
+            </div>
+            {% if is_hidden %}
+              {% set cme = overrides | selectattr('module_exercise_id', 'equalto', ex.id) | selectattr('action', 'equalto', 'hide') | first %}
+              {% if cme %}
+              <form method="post" action="{{ url_for('teacher_delete_override', class_id=cls.id, cme_id=cme.id) }}">
+                <button class="btn btn-sm btn-outline-success">Restore</button>
+              </form>
+              {% endif %}
+            {% else %}
+              <form method="post" action="{{ url_for('teacher_add_override', class_id=cls.id) }}">
+                <input type="hidden" name="action" value="hide">
+                <input type="hidden" name="module_exercise_id" value="{{ ex.id }}">
+                <input type="hidden" name="module_id" value="{{ item.module.id }}">
+                <button class="btn btn-sm btn-outline-warning">Hide</button>
+              </form>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">No exercises in this module.</p>
+        {% endif %}
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-outline-secondary">Back to Roster</a>
+    <a href="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="btn btn-outline-danger ms-auto">Delete Class</a>
+  </div>
+</div>
+{% endblock %}

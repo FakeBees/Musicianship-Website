@@ -12,7 +12,11 @@
   <div class="col">
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
+        {% if request.args.get('class_id') and request.args.get('module_id') %}
+        <li class="breadcrumb-item"><a href="{{ url_for('class_module_detail', class_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}">Module</a></li>
+        {% else %}
         <li class="breadcrumb-item"><a href="{{ url_for('rhythm_index') }}">Rhythmic Dictation</a></li>
+        {% endif %}
         <li class="breadcrumb-item active">Exercise</li>
       </ol>
     </nav>
@@ -97,9 +101,15 @@
 
 <!-- Submit -->
 <div class="d-flex justify-content-between align-items-center">
+  {% if request.args.get('class_id') and request.args.get('module_id') %}
+  <a href="{{ url_for('class_module_detail', class_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Module
+  </a>
+  {% else %}
   <a href="{{ url_for('rhythm_index') }}" class="btn btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Back to Rhythms
   </a>
+  {% endif %}
   <button id="btn-submit" class="btn btn-primary btn-lg px-5">
     <i class="bi bi-check2-circle me-1"></i>Submit
   </button>

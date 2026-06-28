@@ -19,8 +19,10 @@
           <p class="text-muted small mb-1">Join code: <code>{{ cls.join_code }}</code></p>
           <p class="text-muted small">{{ cls.members | length }} student{{ 's' if cls.members | length != 1 }}</p>
         </div>
-        <div class="card-footer">
+        <div class="card-footer d-flex gap-2">
           <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-sm btn-outline-primary">View roster</a>
+          <a href="{{ url_for('teacher_edit_class', class_id=cls.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
         </div>
       </div>
     </div>

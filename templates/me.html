@@ -4,8 +4,19 @@
 <div class="container py-4">
   <h2 class="mb-4">My Progress — {{ current_user.display_name or current_user.email }}</h2>
 
+  <!-- Time filter -->
+  <div class="mb-4 d-flex flex-wrap gap-2 align-items-center">
+    <span class="text-muted small me-1">Show:</span>
+    {% for label, val in [('Today', 1), ('7 days', 7), ('30 days', 30), ('60 days', 60), ('1 year', 365), ('All time', 0)] %}
+    <a href="{{ url_for('me', days=val) }}"
+       class="btn btn-sm {% if days == val %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
   <!-- Summary cards -->
-  <div class="row g-3 mb-4">
+  <div class="row g-3 mb-5">
     {% for mode, s in stats.items() %}
     <div class="col-6 col-md-3">
       <div class="card text-center h-100">
@@ -19,112 +30,13 @@
     {% endfor %}
   </div>
 
-  <!-- Melodic history -->
-  {% if melody_attempts %}
-  <h5>Melodic dictation</h5>
-  <table class="table table-sm table-striped mb-4">
-    <thead><tr><th>Date</th><th>Exercise</th><th>Pitch</th><th>Duration</th><th>Overall</th></tr></thead>
-    <tbody>
-    {% for a in melody_attempts %}
-      <tr>
-        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
-        <td>{{ a.melody.name }}</td>
-        <td>{{ ((a.pitch_accuracy or 0) ) | round | int }}%</td>
-        <td>{{ ((a.duration_accuracy or 0) ) | round | int }}%</td>
-        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  <!-- Harmonic history -->
-  {% if harmonic_attempts %}
-  <h5>Harmonic dictation</h5>
-  <table class="table table-sm table-striped mb-4">
-    <thead><tr><th>Date</th><th>Exercise</th><th>Overall</th></tr></thead>
-    <tbody>
-    {% for a in harmonic_attempts %}
-      <tr>
-        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
-        <td>{{ a.progression.name if a.progression else a.progression_id }}</td>
-        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  <!-- Rhythmic history -->
-  {% if rhythm_attempts %}
-  <h5>Rhythmic dictation</h5>
-  <table class="table table-sm table-striped mb-4">
-    <thead><tr><th>Date</th><th>Exercise</th><th>Duration acc.</th></tr></thead>
-    <tbody>
-    {% for a in rhythm_attempts %}
-      <tr>
-        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
-        <td>{{ a.rhythm.name }}</td>
-        <td>{{ ((a.duration_accuracy or 0) ) | round | int }}%</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  <!-- Holistic history -->
-  {% if holistic_attempts %}
-  <h5>Holistic dictation</h5>
-  <table class="table table-sm table-striped mb-4">
-    <thead><tr><th>Date</th><th>Exercise</th><th>Overall</th></tr></thead>
-    <tbody>
-    {% for a in holistic_attempts %}
-      <tr>
-        <td>{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</td>
-        <td>{{ a.exercise.name if a.exercise else a.exercise_id }}</td>
-        <td>{{ ((a.overall_score or 0) ) | round | int }}%</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
-
-  {% if not (melody_attempts or harmonic_attempts or rhythm_attempts or holistic_attempts) %}
-  <p class="text-muted">No attempts yet. Complete some exercises to see your history here.</p>
-  {% endif %}
-
-  <!-- Join a class -->
-  <hr>
-  <h5>Join a class</h5>
-  <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2" style="max-width:360px">
-    <input type="text" name="join_code" class="form-control" placeholder="Enter join code" required>
-    <button type="submit" class="btn btn-outline-primary">Join</button>
-  </form>
-  {% if current_user.classes %}
-  <div class="mt-3">
-    <strong>Your classes:</strong>
-    <ul class="list-unstyled mt-1">
-    {% for klass in current_user.classes %}
-      <li class="d-flex align-items-center gap-2 mb-1">
-        <a href="{{ url_for('class_home', class_id=klass.id) }}">{{ klass.name }}</a>
-        {% if klass.course_id and klass.course %}<span class="text-muted small">({{ klass.course.name }})</span>{% endif %}
-        <form method="post" action="{{ url_for('leave_class', class_id=klass.id) }}"
-              onsubmit="return confirm('Leave class \"{{ klass.name }}\"?')">
-          <button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.75rem">Leave</button>
-        </form>
-      </li>
-    {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
+  <!-- Module progress by class -->
   {% if module_progress_by_class %}
-  <hr>
   <h5>Module Progress</h5>
   {% for item in module_progress_by_class %}
   <h6 class="mt-3">{{ item.class.name }}</h6>
   <div class="list-group mb-3">
-  {% for m in item.modules %}
+    {% for m in item.modules %}
     {% set pct = (m.completed / m.total * 100) | int if m.total else 0 %}
     <div class="list-group-item">
       <div class="d-flex justify-content-between">
@@ -140,9 +52,34 @@
       </div>
       {% endif %}
     </div>
-  {% endfor %}
+    {% endfor %}
   </div>
   {% endfor %}
   {% endif %}
+
+  <!-- Join a class -->
+  <hr>
+  <h5>Join a class</h5>
+  <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2 mb-3" style="max-width:360px">
+    <input type="text" name="join_code" class="form-control" placeholder="Enter join code" required>
+    <button type="submit" class="btn btn-outline-primary">Join</button>
+  </form>
+
+  {% if current_user.classes %}
+  <strong>Your classes:</strong>
+  <ul class="list-unstyled mt-2">
+    {% for klass in current_user.classes %}
+    <li class="d-flex align-items-center gap-2 mb-1">
+      <a href="{{ url_for('class_modules', class_id=klass.id) }}">{{ klass.name }}</a>
+      {% if klass.course_id and klass.course %}<span class="text-muted small">({{ klass.course.name }})</span>{% endif %}
+      <form method="post" action="{{ url_for('leave_class', class_id=klass.id) }}"
+            onsubmit="return confirm('Leave class \"{{ klass.name }}\"?')">
+        <button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.75rem">Leave</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
 </div>
 {% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Remove Student{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width:500px">
+  <div class="card border-warning">
+    <div class="card-header bg-warning text-dark">
+      <h5 class="mb-0">Remove Student from Class</h5>
+    </div>
+    <div class="card-body">
+      <p>Remove <strong>{{ student.display_name or student.email }}</strong> from <strong>{{ cls.name }}</strong>?</p>
+      <p class="text-muted small">The student can rejoin using the class join code if needed. Their attempt history will not be deleted.</p>
+    </div>
+    <div class="card-footer d-flex gap-2 justify-content-end">
+      <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-outline-secondary">Cancel</a>
+      <form method="post">
+        <button type="submit" class="btn btn-warning">Remove Student</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

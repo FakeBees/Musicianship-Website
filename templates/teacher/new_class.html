@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}New Class{% endblock %}
+{% block title %}{% if cls %}Edit Class{% else %}New Class{% endif %}{% endblock %}
 {% block content %}
 <div class="container py-4" style="max-width:500px">
-  <h2 class="mb-4">Create a New Class</h2>
+  <h2 class="mb-4">{% if cls %}Edit Class{% else %}Create a New Class{% endif %}</h2>
   <form method="post">
     <div class="mb-3">
       <label class="form-label fw-semibold">Class Name</label>
-      <input name="name" class="form-control" placeholder="e.g. TEST101-001" required>
+      <input name="name" class="form-control" placeholder="e.g. TEST101-001"
+             value="{{ cls.name if cls else '' }}" required>
       <div class="form-text">Name your class like a section number, e.g. MUS201-002.</div>
     </div>
     <div class="mb-3">
@@ -14,12 +15,14 @@
       <select name="course_id" class="form-select">
         <option value="">— No course —</option>
         {% for c in courses %}
-        <option value="{{ c.id }}">{{ c.school.name }} / {{ c.name }}</option>
+        <option value="{{ c.id }}" {% if cls and cls.course_id == c.id %}selected{% endif %}>
+          {{ c.school.name }} / {{ c.name }}
+        </option>
         {% endfor %}
       </select>
       <div class="form-text">Selecting a course gives students access to its modules.</div>
     </div>
-    <button type="submit" class="btn btn-primary">Create Class</button>
+    <button type="submit" class="btn btn-primary">{% if cls %}Save Changes{% else %}Create Class{% endif %}</button>
     <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
   </form>
 </div>

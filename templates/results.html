@@ -83,6 +83,10 @@
 </div>
 
 <!-- Actions -->
+{% if module_ctx %}
+{% set next_url_label %}Next Melody{% endset %}
+{% include '_module_actions.html' %}
+{% else %}
 <div class="d-flex gap-2">
   <a href="{{ next_url }}" class="btn btn-primary btn-lg">
     <i class="bi bi-skip-forward-fill me-1"></i>Next Melody
@@ -90,43 +94,6 @@
   <a href="{{ url_for('melodic_index') }}" class="btn btn-outline-secondary btn-lg">
     <i class="bi bi-arrow-left me-1"></i>Back to Melodies
   </a>
-</div>
-
-{% if module_ctx %}
-<div class="alert {% if module_ctx.complete %}alert-success{% else %}alert-info{% endif %} mt-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      {% set prog = module_ctx.progress %}
-      {% if module_ctx.module_done %}
-        <strong>Module complete!</strong> All exercises in this module are done.
-      {% elif module_ctx.complete %}
-        <strong>Exercise complete!</strong> Ready for the next one.
-        {% if prog.required > 1 %}
-        <span class="text-muted small ms-2">({{ prog.count }}/{{ prog.required }} done)</span>
-        {% endif %}
-      {% else %}
-        Keep going —
-        {% if prog.required > 1 %}
-        <strong>{{ prog.count }}/{{ prog.required }}</strong> done toward completion.
-        {% else %}
-        almost there!
-        {% endif %}
-      {% endif %}
-    </div>
-    <a href="{{ module_ctx.next_url }}" class="btn btn-sm {% if module_ctx.complete %}btn-success{% else %}btn-primary{% endif %}">
-      {% if module_ctx.module_done %}Back to Module
-      {% elif module_ctx.complete %}Next Exercise →
-      {% else %}Next →
-      {% endif %}
-    </a>
-  </div>
-  {% if module_ctx.progress.required > 1 and not module_ctx.module_done %}
-  <div class="progress mt-2" style="height:4px">
-    {% set pct = [module_ctx.progress.count / module_ctx.progress.required * 100, 100] | min | int %}
-    <div class="progress-bar {% if module_ctx.complete %}bg-success{% endif %}"
-         style="width:{{ pct }}%"></div>
-  </div>
-  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

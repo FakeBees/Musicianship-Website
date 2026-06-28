@@ -6,9 +6,60 @@
 <div class="row justify-content-center mt-4">
   <div class="col-lg-8">
 
+{% if user_classes and not sandbox_mode %}
+{# ── CLASS SELECTOR VIEW ─────────────────────────────────────────────────── #}
     <div class="text-center mb-5">
       <h1 class="fw-bold display-5">Musicianship Trainer</h1>
+      <p class="text-muted lead">Select a class to practice assigned exercises, or go to Sandbox for free practice.</p>
+    </div>
+
+    <div class="row g-4 mb-4">
+      {% for klass in user_classes %}
+      <div class="col-md-6">
+        <a href="{{ url_for('class_modules', class_id=klass.id) }}" class="text-decoration-none">
+          <div class="card shadow-sm h-100 border-0 home-card">
+            <div class="card-body p-4 text-center">
+              <h2 class="h4 fw-bold mb-2">{{ klass.name }}</h2>
+              {% if klass.course %}
+              <p class="text-muted mb-0">{{ klass.course.name }}</p>
+              {% else %}
+              <p class="text-muted mb-0">No course assigned</p>
+              {% endif %}
+            </div>
+            <div class="card-footer bg-primary text-white text-center fw-semibold py-2">
+              Open Class &rarr;
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <hr class="my-4">
+
+    <div class="text-center">
+      <a href="{{ url_for('sandbox') }}" class="text-decoration-none">
+        <div class="card shadow-sm border-0 home-card d-inline-block" style="max-width:360px;width:100%">
+          <div class="card-body p-4 text-center">
+            <h2 class="h4 fw-bold mb-2">Sandbox</h2>
+            <p class="text-muted mb-0">Free practice — choose any exercise type and settings on your own.</p>
+          </div>
+          <div class="card-footer bg-secondary text-white text-center fw-semibold py-2">
+            Open Sandbox &rarr;
+          </div>
+        </div>
+      </a>
+    </div>
+
+{% else %}
+{# ── SANDBOX / DEFAULT DRILL MODE CARDS ─────────────────────────────────── #}
+    <div class="text-center mb-5">
+      <h1 class="fw-bold display-5">Musicianship Trainer</h1>
+      {% if sandbox_mode %}
+      <p class="text-muted lead">Choose a practice mode to get started. <a href="{{ url_for('home') }}" class="ms-2">← Back to classes</a></p>
+      {% else %}
       <p class="text-muted lead">Choose a practice mode to get started.</p>
+      {% endif %}
     </div>
 
     <!-- Row 1: Melodic + Rhythmic -->
@@ -88,6 +139,7 @@
       </div>
 
     </div><!-- /row 2 -->
+{% endif %}
 
   </div>
 </div>
