@@ -2,6 +2,7 @@ import json
 import os
 import random
 import secrets
+import string as _string
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
@@ -11,6 +12,11 @@ from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ClassModuleExercise, ModuleCompletion, SchoolMembership
 from chord_utils import grade_harmonic_attempt, format_chord_name
 import curriculum as cur
+
+_ALPHA = _string.ascii_uppercase + _string.digits
+
+def _random_school_code():
+    return ''.join(secrets.choice(_ALPHA) for _ in range(8))
 
 app = Flask(__name__)
 
@@ -1229,6 +1235,101 @@ def admin_delete_school(school_id):
     db.session.commit()
     flash(f'School "{name}" deleted.', 'success')
     return redirect(url_for('admin_schools'))
+
+
+@app.route('/admin/schools/<int:school_id>/detail', methods=['GET'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_school_detail(school_id):
+    school = School.query.get_or_404(school_id)
+    if current_user.role == 'admin_teacher':
+        mem = SchoolMembership.query.filter_by(
+            school_id=school_id, user_id=current_user.id, role='admin_teacher'
+        ).first()
+        if not mem:
+            abort(403)
+    memberships = SchoolMembership.query.filter_by(school_id=school_id).all()
+    return render_template('admin/school_detail.html',
+                           school=school,
+                           memberships=memberships,
+                           is_full_admin=(current_user.role == 'admin'))
+
+
+@app.route('/admin/schools/<int:school_id>/set-member-role', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_set_member_role(school_id):
+    school = School.query.get_or_404(school_id)
+    user_id  = request.form.get('user_id', type=int)
+    new_role = request.form.get('role', '').strip()
+    if new_role not in ('student', 'admin_teacher', 'class_teacher'):
+        flash('Invalid role.', 'danger')
+        return redirect(url_for('admin_school_detail', school_id=school_id))
+    if current_user.role == 'admin_teacher':
+        mem = SchoolMembership.query.filter_by(
+            school_id=school_id, user_id=user_id
+        ).first_or_404()
+    else:
+        mem = SchoolMembership.query.filter_by(
+            school_id=school_id, user_id=user_id
+        ).first()
+        if not mem:
+            flash('User is not a member of this school.', 'danger')
+            return redirect(url_for('admin_school_detail', school_id=school_id))
+    mem.role = new_role
+    if new_role in ('admin_teacher', 'class_teacher'):
+        from models import User as _User
+        target = _User.query.get(user_id)
+        if target and target.role == 'student':
+            target.role = new_role
+    db.session.commit()
+    flash('Role updated.', 'success')
+    return redirect(url_for('admin_school_detail', school_id=school_id))
+
+
+@app.route('/admin/schools/<int:school_id>/add-member', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_add_school_member(school_id):
+    school = School.query.get_or_404(school_id)
+    email  = request.form.get('email', '').strip()
+    role   = request.form.get('role', 'student')
+    if role not in ('student', 'admin_teacher', 'class_teacher'):
+        role = 'student'
+    from models import User as _User
+    user = _User.query.filter_by(email=email).first()
+    if not user:
+        flash(f'No user with email "{email}".', 'danger')
+        return redirect(url_for('admin_school_detail', school_id=school_id))
+    exists = SchoolMembership.query.filter_by(
+        school_id=school_id, user_id=user.id
+    ).first()
+    if exists:
+        flash(f'{email} is already a member.', 'info')
+        return redirect(url_for('admin_school_detail', school_id=school_id))
+    db.session.add(SchoolMembership(school_id=school_id, user_id=user.id, role=role))
+    if role in ('admin_teacher', 'class_teacher') and user.role == 'student':
+        user.role = role
+    db.session.commit()
+    flash(f'Added {email} as {role}.', 'success')
+    return redirect(url_for('admin_school_detail', school_id=school_id))
+
+
+@app.route('/admin/schools/<int:school_id>/regen-join-code', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_regen_join_code(school_id):
+    school = School.query.get_or_404(school_id)
+    if current_user.role == 'admin_teacher':
+        mem = SchoolMembership.query.filter_by(
+            school_id=school_id, user_id=current_user.id, role='admin_teacher'
+        ).first()
+        if not mem:
+            abort(403)
+    school.join_code = _random_school_code()
+    db.session.commit()
+    flash(f'Join code regenerated: {school.join_code}', 'success')
+    return redirect(url_for('admin_school_detail', school_id=school_id))
 
 
 @app.route('/admin/courses/<int:course_id>/delete', methods=['POST'])
