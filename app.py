@@ -1260,6 +1260,12 @@ def admin_school_detail(school_id):
 @role_required('admin_teacher', 'admin')
 def admin_set_member_role(school_id):
     school = School.query.get_or_404(school_id)
+    if current_user.role == 'admin_teacher':
+        own_mem = SchoolMembership.query.filter_by(
+            school_id=school_id, user_id=current_user.id, role='admin_teacher'
+        ).first()
+        if not own_mem:
+            abort(403)
     user_id  = request.form.get('user_id', type=int)
     new_role = request.form.get('role', '').strip()
     if new_role not in ('student', 'admin_teacher', 'class_teacher'):
@@ -1280,7 +1286,7 @@ def admin_set_member_role(school_id):
     if new_role in ('admin_teacher', 'class_teacher'):
         from models import User as _User
         target = _User.query.get(user_id)
-        if target and target.role == 'student':
+        if target and new_role in ('admin_teacher', 'class_teacher') and target.role not in ('admin_teacher', 'class_teacher', 'admin'):
             target.role = new_role
     db.session.commit()
     flash('Role updated.', 'success')
