@@ -24,6 +24,16 @@
       </select>
     </div>
     <div class="col-auto">
+      <select name="difficulty" class="form-select form-select-sm">
+        <option value="">— All difficulties —</option>
+        <option value="1" {% if diff_filter == 1 %}selected{% endif %}>1</option>
+        <option value="2" {% if diff_filter == 2 %}selected{% endif %}>2</option>
+        <option value="3" {% if diff_filter == 3 %}selected{% endif %}>3</option>
+        <option value="4" {% if diff_filter == 4 %}selected{% endif %}>4</option>
+        <option value="5" {% if diff_filter == 5 %}selected{% endif %}>5</option>
+      </select>
+    </div>
+    <div class="col-auto">
       <button class="btn btn-outline-secondary btn-sm">Filter</button>
       <a href="{{ url_for('admin_harmonics') }}" class="btn btn-link btn-sm">Clear</a>
     </div>

@@ -1398,16 +1398,19 @@ def admin_melody_upload():
 def admin_harmonics():
     q = request.args.get('q', '').strip()
     tag_filter = request.args.get('tag', '').strip()
+    diff_filter = request.args.get('difficulty', type=int)
     query = ChordProgression.query
     if q:
         query = query.filter(db.or_(ChordProgression.name.ilike(f'%{q}%'),
                                     ChordProgression.public_id.ilike(f'%{q}%')))
     if tag_filter:
         query = query.filter(ChordProgression.tags.any(Tag.name == tag_filter))
+    if diff_filter:
+        query = query.filter_by(difficulty=diff_filter)
     progressions = query.order_by(ChordProgression.id.desc()).all()
     all_tags = Tag.query.order_by(Tag.name).all()
     return render_template('admin/harmonics.html', progressions=progressions,
-                           all_tags=all_tags, q=q, tag_filter=tag_filter)
+                           all_tags=all_tags, q=q, tag_filter=tag_filter, diff_filter=diff_filter)
 
 
 @app.route('/admin/harmonics/<int:prog_id>/edit', methods=['GET', 'POST'])
@@ -1492,7 +1495,7 @@ def admin_harmonic_upload():
         prog.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
         db.session.add(prog)
         db.session.flush()
-        prog.public_id = f'HAR-{prog.id:04d}'
+        prog.public_id = f'HRM-{prog.id:04d}'
         db.session.commit()
         flash(f'Progression "{prog.name}" uploaded ({prog.public_id}).', 'success')
         return redirect(url_for('admin_edit_harmonic', prog_id=prog.id))
