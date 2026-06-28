@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, \
-                   GenProgression, \
+                   GenProgression, Container, \
                    User, Class, School, Course, Module, ModuleExercise, \
                    ClassModuleExercise, ModuleCompletion
 from chord_utils import grade_harmonic_attempt, format_chord_name
@@ -1388,6 +1388,159 @@ def admin_melody_upload():
                 os.unlink(tmp_path)
             except OSError:
                 pass
+
+
+# ── Melody Generator ─────────────────────────────────────────────────────────
+
+@app.route('/admin/melodies/generate', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_melody_generator():
+    import melody_generator as mg
+    gen_progressions = GenProgression.query.order_by(GenProgression.number).all()
+    all_tags   = Tag.query.order_by(Tag.name).all()
+    containers = Container.query.order_by(Container.name).all()
+
+    if request.method == 'GET':
+        last_params = session.get('generator_params', {})
+        return render_template('admin/melody_generator.html',
+                               gen_progressions=gen_progressions,
+                               all_tags=all_tags, containers=containers,
+                               last_params=last_params, preview=None)
+
+    # POST: generate
+    gp_id = request.form.get('gen_progression_id', type=int)
+    gp    = GenProgression.query.get(gp_id) if gp_id else None
+    if not gp:
+        flash('Please select a GenProgression.', 'danger')
+        return redirect(url_for('admin_melody_generator'))
+
+    key          = request.form.get('key', 'C')
+    mode         = request.form.get('mode', 'major')
+    time_sig     = request.form.get('time_sig', '4/4')
+    num_measures = request.form.get('num_measures', 4, type=int)
+    min_duration = request.form.get('min_duration', 'q')
+    clef         = request.form.get('clef', 'treble')
+    tempo        = request.form.get('tempo', 100, type=int)
+    complexity   = request.form.get('rhythm_complexity', 1, type=int)
+    syncopation  = request.form.get('syncopation') == 'on'
+    techniques   = request.form.getlist('techniques')
+    seed_raw     = request.form.get('seed', '').strip()
+    seed         = int(seed_raw) if seed_raw.isdigit() else None
+
+    start_midi = request.form.get('start_midi', type=int) or 64
+    high_midi  = request.form.get('high_midi',  type=int) or 72
+    low_midi   = request.form.get('low_midi',   type=int) or 60
+
+    params = {
+        'key': key, 'mode': mode,
+        'gen_progression_chords': gp.chords,
+        'gen_prog_difficulty': gp.difficulty,
+        'time_sig': time_sig, 'num_measures': num_measures,
+        'min_duration': min_duration, 'clef': clef, 'tempo': tempo,
+        'start_midi': start_midi, 'high_midi': high_midi, 'low_midi': low_midi,
+        'techniques': techniques, 'rhythm_complexity': complexity,
+        'syncopation': syncopation, 'seed': seed,
+    }
+
+    try:
+        result = mg.generate(params)
+    except Exception as e:
+        flash(f'Generation error: {e}', 'danger')
+        return redirect(url_for('admin_melody_generator'))
+
+    session['pending_melody'] = {
+        'notes_json':            result['notes_json'],
+        'midi_path':             result['midi_path'],
+        'difficulty_suggestion': result['difficulty_suggestion'],
+        'auto_tags':             result['auto_tags'],
+        'generation_params':     result['generation_params'],
+        'gp_id': gp_id,
+    }
+    session['generator_params'] = request.form.to_dict(flat=False)
+
+    preview = {
+        'notes_json':            result['notes_json'],
+        'midi_url':              url_for('static', filename=result['midi_path']),
+        'difficulty_suggestion': result['difficulty_suggestion'],
+        'auto_tags':             result['auto_tags'],
+    }
+    return render_template('admin/melody_generator.html',
+                           gen_progressions=gen_progressions,
+                           all_tags=all_tags, containers=containers,
+                           last_params=request.form.to_dict(flat=False),
+                           preview=preview)
+
+
+@app.route('/admin/melodies/approve', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_melody_approve():
+    pending = session.pop('pending_melody', None)
+    if not pending:
+        flash('No pending melody to approve.', 'warning')
+        return redirect(url_for('admin_melody_generator'))
+
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Name is required.', 'danger')
+        session['pending_melody'] = pending
+        return redirect(url_for('admin_melody_generator'))
+
+    last     = Melody.query.order_by(Melody.id.desc()).first()
+    next_num = (last.id + 1) if last else 1
+    public_id = f'MEL-{next_num:04d}'
+
+    slug      = f'mel_{public_id.lower().replace("-", "_")}'
+    src_path  = os.path.join(app.static_folder, pending['midi_path'].replace('/', os.sep))
+    dest_dir  = os.path.join(app.static_folder, 'melodic', slug)
+    dest_name = f'{slug}.mid'
+    os.makedirs(dest_dir, exist_ok=True)
+    import shutil
+    shutil.copy2(src_path, os.path.join(dest_dir, dest_name))
+    midi_filename = f'melodic/{slug}/{dest_name}'
+
+    difficulty   = request.form.get('difficulty', pending['difficulty_suggestion'], type=int)
+    container_id = request.form.get('container_id', type=int) or None
+
+    tag_ids      = request.form.getlist('tag_ids', type=int)
+    manual_tags  = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+
+    mel = Melody(
+        name=name,
+        description=request.form.get('description', '').strip(),
+        midi_filename=midi_filename,
+        notes_json=pending['notes_json'],
+        key_signature=pending['generation_params']['key'],
+        time_signature=pending['generation_params']['time_sig'],
+        clef=pending['generation_params']['clef'],
+        min_duration=pending['generation_params']['min_duration'],
+        tempo=pending['generation_params'].get('tempo', 100),
+        difficulty=difficulty,
+        public_id=public_id,
+        container_id=container_id,
+        generation_params=json.dumps(pending['generation_params']),
+    )
+    mel.tags = manual_tags
+
+    for tag_name in pending['auto_tags']:
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if tag and tag not in mel.tags:
+            mel.tags.append(tag)
+
+    db.session.add(mel)
+    db.session.commit()
+    flash(f'Melody "{name}" saved ({public_id}).', 'success')
+    return redirect(url_for('admin_edit_melody', mel_id=mel.id))
+
+
+@app.route('/admin/melodies/reject', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_melody_reject():
+    session.pop('pending_melody', None)
+    flash('Melody discarded. Generate another.', 'info')
+    return redirect(url_for('admin_melody_generator'))
 
 
 # ── Rhythm CMS ───────────────────────────────────────────────────────────────
