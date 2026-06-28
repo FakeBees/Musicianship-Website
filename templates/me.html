@@ -57,29 +57,6 @@
   {% endfor %}
   {% endif %}
 
-  <!-- Join a class -->
-  <hr>
-  <h5>Join a class</h5>
-  <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2 mb-3" style="max-width:360px">
-    <input type="text" name="join_code" class="form-control" placeholder="Enter join code" required>
-    <button type="submit" class="btn btn-outline-primary">Join</button>
-  </form>
-
-  {% if current_user.classes %}
-  <strong>Your classes:</strong>
-  <ul class="list-unstyled mt-2">
-    {% for klass in current_user.classes %}
-    <li class="d-flex align-items-center gap-2 mb-1">
-      <a href="{{ url_for('class_modules', class_id=klass.id) }}">{{ klass.name }}</a>
-      {% if klass.course_id and klass.course %}<span class="text-muted small">({{ klass.course.name }})</span>{% endif %}
-      <form method="post" action="{{ url_for('leave_class', class_id=klass.id) }}"
-            onsubmit="return confirm('Leave class \"{{ klass.name }}\"?')">
-        <button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.75rem">Leave</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
 
 </div>
 {% endblock %}

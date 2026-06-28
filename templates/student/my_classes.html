@@ -1,6 +1,41 @@
 {% extends 'base.html' %}
 {% block title %}My Classes{% endblock %}
 {% block content %}
-<h2>My Classes</h2>
-<p class="text-muted">Coming soon — full implementation in UI-T2.</p>
+<div class="container py-4" style="max-width:700px">
+  <h2 class="mb-4">My Classes</h2>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Join a class</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2" style="max-width:360px">
+        <input type="text" name="join_code" class="form-control" placeholder="Enter class join code" required>
+        <button type="submit" class="btn btn-outline-primary">Join</button>
+      </form>
+    </div>
+  </div>
+
+  {% if classes %}
+  <h5 class="mb-3">Your classes</h5>
+  <div class="list-group">
+    {% for klass in classes %}
+    <div class="list-group-item d-flex justify-content-between align-items-center">
+      <div>
+        <strong>{{ klass.name }}</strong>
+        {% if klass.course %}<span class="text-muted small ms-2">{{ klass.course.name }}</span>{% endif %}
+      </div>
+      <form method="post" action="{{ url_for('leave_class', class_id=klass.id) }}"
+            onsubmit="return confirm('Leave class &quot;{{ klass.name }}&quot;? You will lose access to its modules.')">
+        <button class="btn btn-sm btn-outline-danger">Leave</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted">You are not enrolled in any classes yet.</p>
+  {% endif %}
+</div>
 {% endblock %}

@@ -2066,7 +2066,7 @@ def leave_class(class_id):
         klass.members.remove(current_user)
         db.session.commit()
         flash(f'Left "{klass.name}".', 'success')
-    return redirect(url_for('me'))
+    return redirect(url_for('my_classes'))
 
 
 @app.route('/me')
