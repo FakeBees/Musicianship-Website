@@ -119,6 +119,7 @@
         {% else %}
         <p class="text-muted small">No exercises in this module.</p>
         {% endif %}
+        {% if current_user.role != 'class_teacher' %}
         <details class="mt-2 mb-3">
           <summary class="text-muted small" style="cursor:pointer">+ Add exercise to this module</summary>
           <form method="post" action="{{ url_for('teacher_add_module_exercise', class_id=cls.id) }}" class="mt-2 p-3 border rounded bg-light">
@@ -145,6 +146,7 @@
             </div>
           </form>
         </details>
+        {% endif %}
         {% endfor %}
       {% endif %}
     </div>

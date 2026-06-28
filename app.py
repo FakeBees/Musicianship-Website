@@ -2478,9 +2478,14 @@ def teacher_set_course(class_id):
 @role_required('admin_teacher', 'admin')
 def teacher_assign_class_teacher(class_id):
     klass = Class.query.get_or_404(class_id)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
+        abort(403)
     user_id = request.form.get('user_id', type=int)
     if user_id:
         user = User.query.get_or_404(user_id)
+        if user.role != 'class_teacher':
+            flash('That user is not a class teacher.', 'warning')
+            return redirect(url_for('teacher_edit_class', class_id=class_id))
         klass.assigned_teacher_id = user.id
     else:
         klass.assigned_teacher_id = None
@@ -2589,11 +2594,9 @@ def teacher_restore_module(class_id, module_id):
 
 @app.route('/teacher/classes/<int:class_id>/module_exercises/add', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'class_teacher', 'admin')
+@role_required('admin_teacher', 'admin')
 def teacher_add_module_exercise(class_id):
     klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
-        abort(403)
     if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
         abort(403)
     module_id = request.form.get('module_id', type=int)
