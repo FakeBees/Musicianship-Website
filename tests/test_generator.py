@@ -140,3 +140,55 @@ def test_build_rhythm_min_duration_respected():
         dur_key = s['dur'].rstrip('r')
         val = BEAT_VALUES[dur_key] * (1.5 if s['dotted'] else 1.0)
         assert val >= BEAT_VALUES['8'] * 0.99  # nothing shorter than min_duration
+
+
+# ── Skeleton placement tests ──────────────────────────────────────────────────
+
+from melody_generator import place_skeleton, active_window
+
+
+def test_active_window_finds_correct_chord():
+    windows = realize_harmony([
+        {"degree": "I",  "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "V",  "quality": "maj", "inversion": 0, "beats": 4},
+    ], 'C', 'major')
+    w = active_window(2.0, windows)
+    assert 0 in w['chord_pcs']  # still on I at beat 2
+
+    w2 = active_window(4.0, windows)
+    assert 7 in w2['chord_pcs']  # V starts at beat 4 (G)
+
+
+def test_place_skeleton_strong_beats_are_chord_tones():
+    rng = random.Random(42)
+    chords = [
+        {"degree": "I",  "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "V",  "quality": "maj", "inversion": 0, "beats": 4},
+    ]
+    windows = realize_harmony(chords, 'C', 'major')
+    slots = build_rhythm('4/4', 2, 'q', complexity=1, syncopation=False, rng=rng)
+    contour = {"start_midi": 64, "high_midi": 72, "low_midi": 60}
+    result = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
+
+    for s in result:
+        if s['is_strong'] and s['midi'] is not None:
+            win = active_window(s['beat'], windows)
+            assert s['midi'] % 12 in win['chord_pcs'], (
+                f"Note {s['midi']} (pc={s['midi']%12}) not in chord pcs {win['chord_pcs']}"
+            )
+
+
+def test_place_skeleton_notes_in_clef_range():
+    rng = random.Random(7)
+    chords = [{"degree": "I", "quality": "maj", "inversion": 0, "beats": 4}]
+    windows = realize_harmony(chords, 'C', 'major')
+    slots = build_rhythm('4/4', 1, 'q', complexity=1, syncopation=False, rng=rng)
+    contour = {"start_midi": 64, "high_midi": 72, "low_midi": 60}
+    result = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
+    low, high = CLEF_RANGE['treble']
+    for s in result:
+        if s['midi'] is not None:
+            assert low <= s['midi'] <= high
+
+
+from melody_generator import CLEF_RANGE

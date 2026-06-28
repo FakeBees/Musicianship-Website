@@ -208,3 +208,79 @@ def build_rhythm(time_sig: str, num_measures: int, min_duration: str,
                 is_strong = False  # only first note in a cell is on the beat
 
     return slots
+
+
+# ── Skeleton placement ────────────────────────────────────────────────────────
+
+def active_window(beat: float, windows: list) -> dict:
+    """Return the harmonic window that is active at the given beat position."""
+    best = windows[0]
+    for w in windows:
+        if w['start_beat'] <= beat + 0.001:
+            best = w
+    return best
+
+
+def _closest_chord_tone(target_midi: int, chord_tone_list: list) -> int:
+    """Return the chord tone MIDI closest in pitch to target_midi."""
+    if not chord_tone_list:
+        return target_midi
+    return min(chord_tone_list, key=lambda m: abs(m - target_midi))
+
+
+def _toward_waypoint(current: int, waypoint: int, chord_tones: list) -> int:
+    """
+    Pick the chord tone that moves toward the waypoint.
+    If above waypoint: prefer lower; if below: prefer higher.
+    Among candidates, prefer the smallest step.
+    """
+    if not chord_tones:
+        return current
+
+    def score(m):
+        distance_to_wp = abs(m - waypoint)
+        step_size = abs(m - current)
+        wrong_direction = 5 if (waypoint > current and m < current) or \
+                              (waypoint < current and m > current) else 0
+        leap_penalty = max(0, step_size - 7) * 3
+        return distance_to_wp + step_size * 0.3 + wrong_direction + leap_penalty
+
+    return min(chord_tones, key=score)
+
+
+def place_skeleton(slots: list, windows: list, contour: dict,
+                   clef: str, key: str, rng: random.Random) -> list:
+    """
+    Fill strong-beat slots with chord tones, leave weak-beat slots as None.
+
+    Modifies slots in-place (adds 'midi' key) and returns the list.
+    Contour: {"start_midi": int, "high_midi": int, "low_midi": int}
+    """
+    low_midi, high_midi = CLEF_RANGE.get(clef, (60, 79))
+
+    prev_midi = contour['start_midi']
+    strong_count = sum(1 for s in slots if s['is_strong'])
+    strong_idx   = 0
+
+    for s in slots:
+        s['midi'] = None
+        if not s['is_strong']:
+            continue
+
+        win = active_window(s['beat'], windows)
+        ct  = chord_tone_midis(win['root_pc'], win['quality'], low_midi, high_midi)
+
+        progress = strong_idx / max(strong_count - 1, 1)
+        if progress < 0.6:
+            waypoint = contour['high_midi']
+        else:
+            waypoint = contour['start_midi']
+
+        reachable = [m for m in ct if abs(m - prev_midi) <= 9] or ct
+
+        midi = _toward_waypoint(prev_midi, waypoint, reachable)
+        s['midi'] = midi
+        prev_midi  = midi
+        strong_idx += 1
+
+    return slots
