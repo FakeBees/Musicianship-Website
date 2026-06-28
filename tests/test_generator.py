@@ -88,3 +88,55 @@ def test_chord_tone_midis_in_treble_range():
     assert 72 in midis  # c/5
     assert 64 in midis  # e/4
     assert 67 in midis  # g/4
+
+
+# ── Rhythm tests ─────────────────────────────────────────────────────────────
+
+import random
+from melody_generator import build_rhythm, strong_beats, BEAT_VALUES
+
+
+def test_strong_beats_4_4():
+    sb = strong_beats('4/4', 2)
+    assert 0.0 in sb   # beat 1 of measure 1
+    assert 2.0 in sb   # beat 3 of measure 1 (half-bar accent)
+    assert 4.0 in sb   # beat 1 of measure 2
+
+
+def test_strong_beats_3_4():
+    sb = strong_beats('3/4', 2)
+    assert 0.0 in sb
+    assert 3.0 in sb
+    assert 1.0 not in sb  # beats 2 and 3 are weak
+
+
+def test_build_rhythm_fills_exact_duration_4_4():
+    rng = random.Random(42)
+    slots = build_rhythm('4/4', 2, 'q', complexity=1, syncopation=False, rng=rng)
+    total = sum(BEAT_VALUES[s['dur']] * (1.5 if s['dotted'] else 1.0) for s in slots)
+    assert abs(total - 8.0) < 0.001  # 2 measures × 4 beats
+
+
+def test_build_rhythm_fills_exact_duration_3_4():
+    rng = random.Random(7)
+    slots = build_rhythm('3/4', 4, 'q', complexity=1, syncopation=False, rng=rng)
+    total = sum(BEAT_VALUES[s['dur']] * (1.5 if s['dotted'] else 1.0) for s in slots)
+    assert abs(total - 12.0) < 0.001  # 4 measures × 3 beats
+
+
+def test_build_rhythm_strong_slots_on_strong_beats():
+    rng = random.Random(1)
+    slots = build_rhythm('4/4', 2, 'q', complexity=1, syncopation=False, rng=rng)
+    sb = strong_beats('4/4', 2)
+    for s in slots:
+        if s['beat'] in sb:
+            assert s['is_strong']
+
+
+def test_build_rhythm_min_duration_respected():
+    rng = random.Random(99)
+    slots = build_rhythm('4/4', 2, '8', complexity=2, syncopation=False, rng=rng)
+    for s in slots:
+        dur_key = s['dur'].rstrip('r')
+        val = BEAT_VALUES[dur_key] * (1.5 if s['dotted'] else 1.0)
+        assert val >= BEAT_VALUES['8'] * 0.99  # nothing shorter than min_duration

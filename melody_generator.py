@@ -101,3 +101,110 @@ def chord_tone_midis(root_pc: int, quality: str, low_midi: int, high_midi: int) 
         if midi % 12 in {(root_pc + i) % 12 for i in intervals}:
             result.append(midi)
     return result
+
+
+# ── Rhythm skeleton ───────────────────────────────────────────────────────────
+
+def beats_per_measure(time_sig: str) -> float:
+    """Quarter-note beat count per measure."""
+    num, den = (int(x) for x in time_sig.split('/'))
+    return num * (4.0 / den)
+
+
+def strong_beats(time_sig: str, num_measures: int) -> set:
+    """
+    Return the set of beat positions (in quarter-note units) that are metrically strong.
+    For simple meters: beats 1 and (for 4/4) 3.
+    For compound meters (6/8, 9/8, 12/8): dotted-quarter downbeats.
+    """
+    num, den = (int(x) for x in time_sig.split('/'))
+    bpm = beats_per_measure(time_sig)
+    result = set()
+    for m in range(num_measures):
+        bar_start = m * bpm
+        if den == 8:
+            # Compound: strong on each dotted-quarter group (every 1.5 beats)
+            groups = num // 3
+            for g in range(groups):
+                result.add(bar_start + g * 1.5)
+        else:
+            # Simple: beat 1 always strong; beat 3 strong in 4/4
+            result.add(bar_start)
+            if num == 4:
+                result.add(bar_start + 2.0)
+    return result
+
+
+def _beat_cells(min_dur: str, complexity: int, syncopation: bool, rng: random.Random) -> list:
+    """
+    Return a list of (dur, dotted) tuples that fill exactly 1 quarter-note beat.
+    """
+    if min_dur == 'q' or complexity == 1:
+        return [('q', False)]
+
+    cells_q = [
+        [('q', False)],
+        [('8', False), ('8', False)],
+    ]
+    if complexity >= 2 and min_dur == '16':
+        cells_q.append([('8', True), ('16', False)])  # dotted-8 + 16th (contains 16th)
+    if syncopation and complexity >= 2:
+        cells_q.append([('8', False), ('8', False)])  # placeholder for tie-syncopation
+
+    if min_dur == '16' and complexity >= 3:
+        cells_q.append([('16', False)] * 4)
+
+    return rng.choice(cells_q)
+
+
+def build_rhythm(time_sig: str, num_measures: int, min_duration: str,
+                 complexity: int, syncopation: bool, rng: random.Random) -> list:
+    """
+    Build a rhythmic skeleton as a list of note slots.
+
+    Each slot: {"beat": float, "dur": str, "dotted": bool, "is_strong": bool}
+
+    All slots together consume exactly num_measures * beats_per_measure(time_sig) beats.
+    """
+    num, den = (int(x) for x in time_sig.split('/'))
+    bpm = beats_per_measure(time_sig)
+    sb = strong_beats(time_sig, num_measures)
+    total_beats = num_measures * bpm
+    slots = []
+    beat = 0.0
+
+    if den == 8:
+        # Compound meter: work in dotted-quarter units (1.5 beats each)
+        dotted_q_count = int(round(total_beats / 1.5))
+        for i in range(dotted_q_count):
+            is_strong = any(abs(beat - s) < 0.01 for s in sb)
+            if complexity <= 1 or (is_strong and rng.random() < 0.5):
+                slots.append({'beat': beat, 'dur': 'q', 'dotted': True, 'is_strong': is_strong})
+                beat += 1.5
+            else:
+                for j in range(3):
+                    slots.append({'beat': beat, 'dur': '8', 'dotted': False,
+                                  'is_strong': is_strong and j == 0})
+                    beat += 0.5
+    else:
+        # Simple meter: work beat by beat
+        while beat < total_beats - 0.001:
+            is_strong = any(abs(beat - s) < 0.01 for s in sb)
+            remaining = total_beats - beat
+
+            # For the last beat, force a quarter if possible
+            if remaining <= 1.0 + 0.001 and min_duration in ('q', 'h', 'w'):
+                dur_str = 'q' if abs(remaining - 1.0) < 0.01 else '8'
+                slots.append({'beat': beat, 'dur': dur_str, 'dotted': False, 'is_strong': is_strong})
+                beat += BEAT_VALUES.get(dur_str, 1.0)
+                continue
+
+            cell = _beat_cells(min_duration, complexity, syncopation, rng)
+            for dur, dotted in cell:
+                val = BEAT_VALUES.get(dur, 1.0) * (1.5 if dotted else 1.0)
+                slots.append({'beat': beat, 'dur': dur, 'dotted': dotted,
+                              'is_strong': is_strong})
+                beat += val
+                is_strong = False  # only first note in a cell is on the beat
+
+    return slots
