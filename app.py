@@ -2307,8 +2307,36 @@ def admin_my_school():
 @app.route('/my-classes')
 @login_required
 def my_classes():
+    school_memberships = SchoolMembership.query.filter_by(
+        user_id=current_user.id
+    ).all()
     return render_template('student/my_classes.html',
-                           classes=current_user.classes)
+                           classes=current_user.classes,
+                           school_memberships=school_memberships)
+
+
+@app.route('/join-school', methods=['POST'])
+@login_required
+def join_school():
+    code = request.form.get('school_code', '').strip()
+    school = School.query.filter_by(join_code=code).first()
+    if not school:
+        flash('Invalid school join code.', 'danger')
+        return redirect(url_for('my_classes'))
+    exists = SchoolMembership.query.filter_by(
+        school_id=school.id, user_id=current_user.id
+    ).first()
+    if exists:
+        flash(f'You are already a member of "{school.name}".', 'info')
+        return redirect(url_for('my_classes'))
+    db.session.add(SchoolMembership(
+        school_id=school.id,
+        user_id=current_user.id,
+        role='student',
+    ))
+    db.session.commit()
+    flash(f'Joined school "{school.name}"! Now you can join classes at that school.', 'success')
+    return redirect(url_for('my_classes'))
 
 
 @app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])
@@ -2555,6 +2583,19 @@ def join_class():
     elif current_user in cls.members:
         flash('You are already in this class.', 'info')
     else:
+        if cls.course and cls.course.school_id:
+            mem = SchoolMembership.query.filter_by(
+                school_id=cls.course.school_id,
+                user_id=current_user.id,
+            ).first()
+            if not mem:
+                school = School.query.get(cls.course.school_id)
+                flash(
+                    f'You must join school "{school.name}" first. '
+                    f'Ask your teacher for the school join code.',
+                    'warning'
+                )
+                return redirect(url_for('me'))
         cls.members.append(current_user)
         db.session.commit()
         flash(f'Joined "{cls.name}".', 'success')

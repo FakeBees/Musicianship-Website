@@ -8,6 +8,22 @@
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
   {% endwith %}
 
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Join a school</div>
+    <div class="card-body">
+      <p class="text-muted small mb-2">You need to join a school before you can join its classes.</p>
+      <form method="post" action="{{ url_for('join_school') }}" class="d-flex gap-2" style="max-width:360px">
+        <input type="text" name="school_code" class="form-control" placeholder="School join code" required>
+        <button type="submit" class="btn btn-outline-secondary">Join School</button>
+      </form>
+      {% if school_memberships %}
+      <p class="text-muted small mt-2 mb-0">
+        Your schools: {% for m in school_memberships %}<strong>{{ m.school.name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
   <div class="card mb-4">
     <div class="card-header fw-semibold">Join a class</div>
     <div class="card-body">
