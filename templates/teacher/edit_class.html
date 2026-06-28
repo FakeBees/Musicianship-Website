@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container py-4" style="max-width:660px">
   <div class="d-flex align-items-center gap-3 mb-4">
-    <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-link p-0 text-decoration-none">← Roster</a>
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link p-0 text-decoration-none">← Classes</a>
     <h2 class="mb-0">Edit {{ cls.name }}</h2>
   </div>
 
@@ -48,7 +48,19 @@
       {% else %}
         <p class="text-muted small mb-3">By default students see all exercises from the course. Hide individual exercises to customize what this class sees.</p>
         {% for item in modules_with_exercises %}
-        <h6 class="fw-semibold mt-3 mb-2">{{ item.module.name }}</h6>
+        <div class="d-flex align-items-center justify-content-between mt-3 mb-2">
+          <h6 class="fw-semibold mb-0">{{ item.module.name }}</h6>
+          {% set all_hidden = item.exercises | length > 0 and item.exercises | selectattr('id', 'in', hidden_ids) | list | length == item.exercises | length %}
+          {% if all_hidden %}
+          <form method="post" action="{{ url_for('teacher_restore_module', class_id=cls.id, module_id=item.module.id) }}">
+            <button class="btn btn-sm btn-outline-success">Restore module</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('teacher_hide_module', class_id=cls.id, module_id=item.module.id) }}">
+            <button class="btn btn-sm btn-outline-warning">Hide module</button>
+          </form>
+          {% endif %}
+        </div>
         {% if item.exercises %}
         <ul class="list-group mb-2">
           {% for ex in item.exercises %}
@@ -83,13 +95,39 @@
         {% else %}
         <p class="text-muted small">No exercises in this module.</p>
         {% endif %}
+        <details class="mt-2 mb-3">
+          <summary class="text-muted small" style="cursor:pointer">+ Add exercise to this module</summary>
+          <form method="post" action="{{ url_for('teacher_add_module_exercise', class_id=cls.id) }}" class="mt-2 p-3 border rounded bg-light">
+            <input type="hidden" name="module_id" value="{{ item.module.id }}">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <select name="exercise_type" class="form-select form-select-sm" required>
+                  <option value="">Type</option>
+                  <option value="melody">Melody</option>
+                  <option value="rhythm">Rhythm</option>
+                  <option value="harmonic">Harmonic</option>
+                  <option value="holistic">Holistic</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <input type="number" name="exercise_id" class="form-control form-control-sm" placeholder="Exercise ID" required>
+              </div>
+              <div class="col-md-4">
+                <input type="text" name="name" class="form-control form-control-sm" placeholder="Display name (optional)">
+              </div>
+              <div class="col-md-2">
+                <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
+              </div>
+            </div>
+          </form>
+        </details>
         {% endfor %}
       {% endif %}
     </div>
   </div>
 
   <div class="d-flex gap-2">
-    <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-outline-secondary">Back to Roster</a>
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-secondary">Back to Classes</a>
     <a href="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="btn btn-outline-danger ms-auto">Delete Class</a>
   </div>
 </div>

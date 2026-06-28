@@ -2295,6 +2295,65 @@ def teacher_delete_override(class_id, cme_id):
     return redirect(url_for('teacher_edit_class', class_id=class_id))
 
 
+@app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/hide', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def teacher_hide_module(class_id, module_id):
+    klass = Class.query.get_or_404(class_id)
+    module = Module.query.get_or_404(module_id)
+    for ex in module.exercises:
+        exists = ClassModuleExercise.query.filter_by(
+            class_id=class_id, module_exercise_id=ex.id, action='hide'
+        ).first()
+        if not exists:
+            db.session.add(ClassModuleExercise(
+                class_id=class_id,
+                module_id=module_id,
+                module_exercise_id=ex.id,
+                action='hide'
+            ))
+    db.session.commit()
+    flash(f'Module "{module.name}" hidden for this class.', 'success')
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/restore', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def teacher_restore_module(class_id, module_id):
+    ClassModuleExercise.query.filter_by(
+        class_id=class_id, module_id=module_id, action='hide'
+    ).delete()
+    db.session.commit()
+    flash('Module restored.', 'success')
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/module_exercises/add', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def teacher_add_module_exercise(class_id):
+    module_id = request.form.get('module_id', type=int)
+    exercise_type = request.form.get('exercise_type', '').strip()
+    exercise_id = request.form.get('exercise_id', type=int)
+    name = request.form.get('name', '').strip()
+    order = request.form.get('order', type=int) or 0
+    if not all([module_id, exercise_type, exercise_id]):
+        flash('All fields required.', 'danger')
+        return redirect(url_for('teacher_edit_class', class_id=class_id))
+    me = ModuleExercise(
+        module_id=module_id,
+        exercise_type=exercise_type,
+        exercise_id=exercise_id,
+        name=name or exercise_type,
+        order=order,
+    )
+    db.session.add(me)
+    db.session.commit()
+    flash(f'Exercise "{me.name}" added to module.', 'success')
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
+
+
 @app.route('/teacher/join', methods=['POST'])
 @login_required
 def join_class():
