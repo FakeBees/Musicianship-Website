@@ -215,3 +215,47 @@ def test_place_skeleton_consecutive_strong_notes_within_9_semitones():
                       if abs(strong_midis[i] - strong_midis[i-1]) > 9)
     # Allow at most 1 large leap (fallback case), not systemic violations
     assert large_leaps <= 1, f"Too many large leaps: {large_leaps} in {strong_midis}"
+
+
+# ── Ornamentation technique tests ────────────────────────────────────────────
+
+from melody_generator import key_pcs, apply_techniques
+
+
+def test_key_pcs_c_major():
+    pcs = key_pcs('C', 'major')
+    assert pcs == {0, 2, 4, 5, 7, 9, 11}
+
+
+def test_key_pcs_am_minor():
+    pcs = key_pcs('Am', 'minor')
+    # A natural minor = A B C D E F G = pcs 9,11,0,2,4,5,7
+    assert pcs == {9, 11, 0, 2, 4, 5, 7}
+
+
+def test_apply_techniques_passing_tone_fills_weak_slots():
+    """After apply_techniques, no midi=None slots should remain (all filled or silenced)."""
+    rng = random.Random(42)
+    chords = [
+        {"degree": "I", "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "V", "quality": "maj", "inversion": 0, "beats": 4},
+    ]
+    windows = realize_harmony(chords, 'C', 'major')
+    slots = build_rhythm('4/4', 2, '8', complexity=2, syncopation=False, rng=rng)
+    contour = {"start_midi": 64, "high_midi": 72, "low_midi": 60}
+    slots = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
+    slots, used = apply_techniques(slots, windows, ['passing_tone', 'neighbor_tone'], 'C', 'major', rng)
+    # All slots should now have a midi value (or be a rest)
+    for s in slots:
+        assert s['midi'] is not None or s['dur'].endswith('r'), f"Unfilled slot: {s}"
+
+
+def test_apply_techniques_returns_used_list():
+    rng = random.Random(1)
+    chords = [{"degree": "I", "quality": "maj", "inversion": 0, "beats": 4}]
+    windows = realize_harmony(chords, 'C', 'major')
+    slots = build_rhythm('4/4', 1, '8', complexity=2, syncopation=False, rng=rng)
+    contour = {"start_midi": 64, "high_midi": 72, "low_midi": 60}
+    slots = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
+    slots, used = apply_techniques(slots, windows, ['passing_tone'], 'C', 'major', rng)
+    assert isinstance(used, list)

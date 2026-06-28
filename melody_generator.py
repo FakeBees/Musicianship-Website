@@ -284,3 +284,131 @@ def place_skeleton(slots: list, windows: list, contour: dict,
         strong_idx += 1
 
     return slots
+
+
+# ── Ornamentation ─────────────────────────────────────────────────────────────
+
+MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11]
+MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10]   # natural minor
+
+
+def key_pcs(key: str, mode: str) -> set:
+    """Return the set of pitch classes in the key's diatonic scale."""
+    tonic = KEY_PC.get(key, 0)
+    intervals = MAJOR_SCALE_INTERVALS if mode == 'major' else MINOR_SCALE_INTERVALS
+    return {(tonic + i) % 12 for i in intervals}
+
+
+def _step_between(midi_a: int, midi_b: int, diatonic_pcs: set):
+    """
+    Return a diatonic note that fills the interval between midi_a and midi_b by step.
+    Works if the interval is a third (3-4 semitones); returns None otherwise.
+    """
+    diff = midi_b - midi_a
+    if abs(diff) not in (3, 4):
+        return None
+    direction = 1 if diff > 0 else -1
+    for semis in [direction, direction * 2]:
+        candidate_pc = (midi_a + semis) % 12
+        if candidate_pc in diatonic_pcs:
+            return midi_a + semis
+    return None
+
+
+def _neighbor(midi: int, diatonic_pcs: set, direction: int = 1) -> int:
+    """Return the nearest diatonic neighbor in the given direction (+1 or -1 semitone steps)."""
+    for delta in [direction, -direction, 2 * direction, -2 * direction]:
+        candidate = midi + delta
+        if candidate % 12 in diatonic_pcs and candidate != midi:
+            return candidate
+    return midi
+
+
+def apply_techniques(slots: list, windows: list, enabled: list,
+                     key: str, mode: str, rng: random.Random) -> tuple:
+    """
+    Fill weak-beat slots (midi=None) using the enabled ornamentation techniques.
+
+    Priority order (for each weak slot):
+      1. passing_tone  - if the surrounding strong notes form a third
+      2. neighbor_tone - step away then back
+      3. anticipation  - early arrival on next strong tone
+      4. escape_tone   - step in wrong direction then leap
+      5. appoggiatura  - non-chord tone resolving down to next chord tone
+      6. suspension    - hold the previous strong tone (tie)
+      fallback         - repeat the previous note
+
+    Returns (updated_slots, list_of_technique_names_actually_inserted).
+    """
+    diatonic = key_pcs(key, mode)
+    used_techniques = set()
+    n = len(slots)
+
+    for i, s in enumerate(slots):
+        if s['midi'] is not None or s['dur'].endswith('r'):
+            continue
+
+        # Find surrounding strong-beat notes
+        prev_midi = next((slots[j]['midi'] for j in range(i - 1, -1, -1)
+                         if slots[j]['midi'] is not None), None)
+        next_midi = next((slots[j]['midi'] for j in range(i + 1, n)
+                         if slots[j]['midi'] is not None), None)
+
+        win = active_window(s['beat'], windows)
+        chosen = None
+
+        # 1. Passing tone
+        if 'passing_tone' in enabled and prev_midi and next_midi:
+            pt = _step_between(prev_midi, next_midi, diatonic)
+            if pt is not None:
+                chosen = pt
+                used_techniques.add('passing_tone')
+
+        # 2. Neighbor tone
+        if chosen is None and 'neighbor_tone' in enabled and prev_midi:
+            nb_dir = rng.choice([1, -1])
+            nb = _neighbor(prev_midi, diatonic, nb_dir)
+            if nb != prev_midi:
+                chosen = nb
+                used_techniques.add('neighbor_tone')
+
+        # 3. Anticipation (early arrival on next strong tone)
+        if chosen is None and 'anticipation' in enabled and next_midi:
+            if rng.random() < 0.4:
+                chosen = next_midi
+                used_techniques.add('anticipation')
+
+        # 4. Escape tone (step opposite direction to next note, then leap resolves)
+        if chosen is None and 'escape_tone' in enabled and prev_midi and next_midi:
+            diff = next_midi - prev_midi
+            escape_dir = -1 if diff > 0 else 1
+            esc = _neighbor(prev_midi, diatonic, escape_dir)
+            if esc != prev_midi and abs(esc - next_midi) <= 9:
+                chosen = esc
+                used_techniques.add('escape_tone')
+
+        # 5. Appoggiatura (accented non-chord tone resolving to chord tone)
+        if chosen is None and 'appoggiatura' in enabled and next_midi:
+            ct = {(win['root_pc'] + interval) % 12
+                  for interval in CHORD_INTERVALS.get(win['quality'], [0, 4, 7])}
+            if next_midi % 12 in ct:
+                for delta in [1, 2, -1, -2]:
+                    candidate = next_midi + delta
+                    if candidate % 12 not in ct and candidate % 12 in diatonic:
+                        chosen = candidate
+                        used_techniques.add('appoggiatura')
+                        break
+
+        # 6. Suspension (repeat previous strong tone)
+        if chosen is None and 'suspension' in enabled and prev_midi:
+            if rng.random() < 0.3:
+                chosen = prev_midi
+                used_techniques.add('suspension')
+
+        # Fallback: repeat previous note
+        if chosen is None:
+            chosen = prev_midi if prev_midi is not None else (next_midi or 60)
+
+        s['midi'] = chosen
+
+    return slots, list(used_techniques)
