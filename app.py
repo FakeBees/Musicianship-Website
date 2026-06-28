@@ -2297,6 +2297,11 @@ def teacher_add_override(class_id):
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_delete_override(class_id, cme_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
+        abort(403)
     cme = ClassModuleExercise.query.get_or_404(cme_id)
     if cme.class_id != class_id:
         abort(403)
@@ -2311,6 +2316,10 @@ def teacher_delete_override(class_id, cme_id):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_hide_module(class_id, module_id):
     klass = Class.query.get_or_404(class_id)
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
+        abort(403)
     module = Module.query.get_or_404(module_id)
     for ex in module.exercises:
         exists = ClassModuleExercise.query.filter_by(
@@ -2332,6 +2341,11 @@ def teacher_hide_module(class_id, module_id):
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_restore_module(class_id, module_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
+        abort(403)
     ClassModuleExercise.query.filter_by(
         class_id=class_id, module_id=module_id, action='hide'
     ).delete()
@@ -2344,6 +2358,11 @@ def teacher_restore_module(class_id, module_id):
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_add_module_exercise(class_id):
+    klass = Class.query.get_or_404(class_id)
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
+        abort(403)
     module_id = request.form.get('module_id', type=int)
     exercise_type = request.form.get('exercise_type', '').strip()
     exercise_id = request.form.get('exercise_id', type=int)
