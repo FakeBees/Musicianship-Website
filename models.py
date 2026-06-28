@@ -365,6 +365,7 @@ class User(UserMixin, db.Model):
     email         = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     display_name  = db.Column(db.String(100))
+    # role values: 'student' | 'admin_teacher' | 'class_teacher' | 'admin'
     role          = db.Column(db.String(20), nullable=False, default='student')
     created_at    = db.Column(db.DateTime, server_default=db.func.now())
 
@@ -381,16 +382,20 @@ class_members = db.Table(
 
 class Class(db.Model):
     __tablename__ = 'class'
-    id         = db.Column(db.Integer, primary_key=True)
-    name       = db.Column(db.String(120), nullable=False)
-    join_code  = db.Column(db.String(12), unique=True, nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    id                   = db.Column(db.Integer, primary_key=True)
+    name                 = db.Column(db.String(120), nullable=False)
+    join_code            = db.Column(db.String(12), unique=True, nullable=False)
+    teacher_id           = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    assigned_teacher_id  = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at           = db.Column(db.DateTime, server_default=db.func.now())
 
     course_id  = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=True)
     course     = db.relationship('Course', backref='classes')
 
-    teacher = db.relationship('User', backref='classes_taught')
+    teacher          = db.relationship('User', foreign_keys=[teacher_id],
+                                       backref='classes_taught')
+    assigned_teacher = db.relationship('User', foreign_keys=[assigned_teacher_id],
+                                       backref='classes_assigned')
     members = db.relationship('User', secondary=class_members, backref='classes')
 
     def __repr__(self):
@@ -401,12 +406,31 @@ class School(db.Model):
     __tablename__ = 'school'
     id         = db.Column(db.Integer, primary_key=True)
     name       = db.Column(db.String(120), nullable=False, unique=True)
+    join_code  = db.Column(db.String(12), unique=True, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
-    courses = db.relationship('Course', backref='school', lazy='dynamic')
+    courses     = db.relationship('Course', backref='school', lazy='dynamic')
+    memberships = db.relationship('SchoolMembership', backref='school', lazy='dynamic')
 
     def __repr__(self):
         return f'<School {self.name}>'
+
+
+class SchoolMembership(db.Model):
+    __tablename__ = 'school_membership'
+    id        = db.Column(db.Integer, primary_key=True)
+    school_id = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=False)
+    user_id   = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    # role values: 'student' | 'admin_teacher' | 'class_teacher'
+    role      = db.Column(db.String(20), nullable=False, default='student')
+    joined_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    user = db.relationship('User', backref='school_memberships')
+
+    __table_args__ = (db.UniqueConstraint('school_id', 'user_id'),)
+
+    def __repr__(self):
+        return f'<SchoolMembership school={self.school_id} user={self.user_id} role={self.role}>'
 
 
 class Course(db.Model):
