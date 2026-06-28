@@ -192,3 +192,26 @@ def test_place_skeleton_notes_in_clef_range():
 
 
 from melody_generator import CLEF_RANGE
+
+
+def test_place_skeleton_consecutive_strong_notes_within_9_semitones():
+    """Strong-beat notes should prefer moves ≤ 9 semitones (reachable filter)."""
+    rng = random.Random(42)
+    chords = [
+        {"degree": "I", "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "V", "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "I", "quality": "maj", "inversion": 0, "beats": 4},
+        {"degree": "V", "quality": "maj", "inversion": 0, "beats": 4},
+    ]
+    windows = realize_harmony(chords, 'C', 'major')
+    slots = build_rhythm('4/4', 4, 'q', complexity=1, syncopation=False, rng=rng)
+    contour = {"start_midi": 64, "high_midi": 72, "low_midi": 60}
+    result = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
+
+    strong_midis = [s['midi'] for s in result if s['is_strong'] and s['midi'] is not None]
+    # Check that most consecutive leaps are within 9 semitones
+    # (fallback may rarely exceed, but in normal conditions should hold)
+    large_leaps = sum(1 for i in range(1, len(strong_midis))
+                      if abs(strong_midis[i] - strong_midis[i-1]) > 9)
+    # Allow at most 1 large leap (fallback case), not systemic violations
+    assert large_leaps <= 1, f"Too many large leaps: {large_leaps} in {strong_midis}"
