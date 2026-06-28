@@ -259,3 +259,91 @@ def test_apply_techniques_returns_used_list():
     slots = place_skeleton(slots, windows, contour, 'treble', 'C', rng)
     slots, used = apply_techniques(slots, windows, ['passing_tone'], 'C', 'major', rng)
     assert isinstance(used, list)
+
+
+# ── Auto-tag, difficulty, emit, and generate tests ────────────────────────────
+
+import json
+from melody_generator import (
+    auto_tags, suggest_difficulty, slots_to_notes_json, generate,
+    realize_harmony,
+)
+
+
+def test_auto_tags_includes_time_signature():
+    params = {'time_sig': '3/4', 'min_duration': 'q', 'clef': 'treble', 'key': 'C', 'mode': 'major'}
+    tags = auto_tags(params, [])
+    assert 'waltz' in tags or '3/4' in ' '.join(tags)
+
+
+def test_auto_tags_includes_technique_tags():
+    params = {'time_sig': '4/4', 'min_duration': '8', 'clef': 'treble', 'key': 'C', 'mode': 'major'}
+    tags = auto_tags(params, ['passing_tone', 'neighbor_tone'])
+    assert 'passing-tone' in tags or 'passing_tone' in tags or any('passing' in t for t in tags)
+
+
+def test_suggest_difficulty_higher_for_more_techniques():
+    d_few  = suggest_difficulty([], [], 1)
+    d_many = suggest_difficulty([], ['passing_tone', 'neighbor_tone', 'appoggiatura', 'suspension'], 1)
+    assert d_many >= d_few
+
+
+def test_slots_to_notes_json_valid_json():
+    slots = [{'beat': 0.0, 'dur': 'q', 'dotted': False, 'is_strong': True, 'midi': 60}]
+    result = slots_to_notes_json(slots, 'C')
+    notes = json.loads(result)
+    assert len(notes) == 1
+    assert notes[0]['duration'] == 'q'
+    assert 'key' in notes[0]
+
+
+def test_slots_to_notes_json_rest():
+    slots = [{'beat': 0.0, 'dur': 'q', 'dotted': False, 'is_strong': False, 'midi': None}]
+    result = slots_to_notes_json(slots, 'C')
+    notes = json.loads(result)
+    assert notes[0]['duration'].endswith('r')
+
+
+def test_generate_is_deterministic():
+    params = {
+        'key': 'C', 'mode': 'major',
+        'gen_progression_chords': [
+            {"degree": "I",  "quality": "maj", "inversion": 0, "beats": 4},
+            {"degree": "V",  "quality": "maj", "inversion": 0, "beats": 4},
+        ],
+        'time_sig': '4/4', 'num_measures': 2,
+        'min_duration': 'q', 'clef': 'treble',
+        'start_midi': 64, 'high_midi': 72, 'low_midi': 60,
+        'techniques': ['passing_tone'],
+        'rhythm_complexity': 1, 'syncopation': False,
+        'seed': 42, 'tempo': 100,
+    }
+    r1 = generate(params)
+    r2 = generate(params)
+    assert r1['notes_json'] == r2['notes_json']
+
+
+def test_generate_strong_beats_are_chord_tones():
+    params = {
+        'key': 'C', 'mode': 'major',
+        'gen_progression_chords': [
+            {"degree": "I", "quality": "maj", "inversion": 0, "beats": 4},
+        ],
+        'time_sig': '4/4', 'num_measures': 1,
+        'min_duration': 'q', 'clef': 'treble',
+        'start_midi': 64, 'high_midi': 72, 'low_midi': 60,
+        'techniques': [], 'rhythm_complexity': 1, 'syncopation': False,
+        'seed': 1, 'tempo': 100,
+    }
+    result = generate(params)
+    notes = json.loads(result['notes_json'])
+    windows = realize_harmony(params['gen_progression_chords'], 'C', 'major')
+    i_chord_pcs = windows[0]['chord_pcs']
+    # With complexity=1 and 4/4, all notes are quarter notes on strong beats
+    for n in notes:
+        if not n['duration'].endswith('r'):
+            note_name = n['key'].split('/')[0]
+            name_to_pc = {'c':0,'c#':1,'db':1,'d':2,'d#':3,'eb':3,'e':4,'f':5,
+                          'f#':6,'gb':6,'g':7,'g#':8,'ab':8,'a':9,'a#':10,'bb':10,'b':11}
+            pc = name_to_pc.get(note_name.lower(), -1)
+            assert pc in i_chord_pcs, f"Note {n['key']} (pc={pc}) not in I chord {i_chord_pcs}"

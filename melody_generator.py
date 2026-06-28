@@ -412,3 +412,176 @@ def apply_techniques(slots: list, windows: list, enabled: list,
         s['midi'] = chosen
 
     return slots, list(used_techniques)
+
+
+# ── Auto-tagging and difficulty ───────────────────────────────────────────────
+
+TECHNIQUE_TAGS = {
+    'passing_tone':  'passing-tone',
+    'neighbor_tone': 'neighbor-tone',
+    'appoggiatura':  'appoggiatura',
+    'suspension':    'suspension',
+    'anticipation':  'anticipation',
+    'escape_tone':   'escape-tone',
+}
+
+TECHNIQUE_DIFFICULTY = {
+    'passing_tone':  0.5, 'neighbor_tone': 0.5,
+    'appoggiatura':  1.5, 'suspension':    1.5,
+    'anticipation':  1.0, 'escape_tone':   1.0,
+}
+
+TIME_SIG_TAGS = {
+    '3/4': ['waltz'], '2/4': ['march'],
+    '6/8': ['compound-meter'], '9/8': ['compound-meter'], '12/8': ['compound-meter'],
+}
+
+MIN_DUR_TAGS = {
+    '8':  ['eighth-notes'], '16': ['sixteenth-notes'],
+}
+
+
+def auto_tags(params: dict, techniques_used: list) -> list:
+    tags = []
+    tags += TIME_SIG_TAGS.get(params.get('time_sig', '4/4'), [])
+    tags += MIN_DUR_TAGS.get(params.get('min_duration', 'q'), [])
+    if params.get('clef') == 'bass':
+        tags.append('bass-clef')
+    elif params.get('clef') == 'tenor':
+        tags.append('tenor-clef')
+    if params.get('mode') == 'minor':
+        tags.append('minor-scale')
+    else:
+        tags.append('major-scale')
+    for t in techniques_used:
+        tag = TECHNIQUE_TAGS.get(t)
+        if tag:
+            tags.append(tag)
+    return list(dict.fromkeys(tags))   # deduplicate, preserve order
+
+
+def suggest_difficulty(slots: list, techniques_used: list, gen_prog_difficulty: int = 1) -> int:
+    score = gen_prog_difficulty * 0.5
+    for t in techniques_used:
+        score += TECHNIQUE_DIFFICULTY.get(t, 0.5)
+    # Count leaps > 4 semitones
+    midis = [s['midi'] for s in slots if s.get('midi') is not None]
+    for i in range(1, len(midis)):
+        if abs(midis[i] - midis[i - 1]) > 4:
+            score += 0.3
+    return max(1, min(5, round(score)))
+
+
+# ── Emit ─────────────────────────────────────────────────────────────────────
+
+def slots_to_notes_json(slots: list, key: str) -> str:
+    """Convert filled slots to VexFlow note JSON string."""
+    from midi_to_notes import note_to_vex
+    notes = []
+    for s in slots:
+        dur = s['dur']
+        dotted = s.get('dotted', False)
+        midi = s.get('midi')
+
+        if dur.endswith('r') or midi is None:
+            entry = {'key': 'b/4', 'duration': (dur.rstrip('r') + 'r') if not dur.endswith('r') else dur}
+        else:
+            vex_key = note_to_vex(midi, None, key)
+            entry = {'key': vex_key, 'duration': dur}
+
+        if dotted:
+            entry['dotted'] = True
+        notes.append(entry)
+    return json.dumps(notes)
+
+
+def write_preview_midi(notes_json_str: str, tempo: int) -> str:
+    """
+    Write a preview MIDI to static/melodic/_preview/_preview.mid.
+    Returns the relative path 'melodic/_preview/_preview.mid'.
+    """
+    from generate_midi import DURATION_BEATS
+    from midiutil import MIDIFile
+    notes = json.loads(notes_json_str)
+    dest_dir = os.path.join(STATIC_DIR, 'melodic', '_preview')
+    os.makedirs(dest_dir, exist_ok=True)
+    dest_path = os.path.join(dest_dir, '_preview.mid')
+
+    midi = MIDIFile(1)
+    midi.addTempo(0, 0, tempo)
+    time = 0.0
+    for n in notes:
+        dur_str = n['duration']
+        dotted  = n.get('dotted', False)
+        base    = dur_str.rstrip('r')
+        beats   = DURATION_BEATS.get(base, 1) * (1.5 if dotted else 1)
+        if not dur_str.endswith('r'):
+            # Parse VexFlow key to MIDI
+            key_str = n['key']
+            name, octave = key_str.split('/')
+            pc_map = {'c':0,'c#':1,'db':1,'d':2,'d#':3,'eb':3,'e':4,'f':5,
+                      'f#':6,'gb':6,'g':7,'g#':8,'ab':8,'a':9,'a#':10,'bb':10,'b':11}
+            pc = pc_map.get(name.lower(), 0)
+            midi_num = (int(octave) + 1) * 12 + pc
+            midi.addNote(0, 0, midi_num, time, beats * 0.9, 90)
+        time += beats
+
+    with open(dest_path, 'wb') as f:
+        midi.writeFile(f)
+    return 'melodic/_preview/_preview.mid'
+
+
+# ── Top-level generate() ──────────────────────────────────────────────────────
+
+def generate(params: dict) -> dict:
+    """
+    Generate a melody from params dict.
+
+    Required params keys:
+      key (str), mode (str), gen_progression_chords (list[dict]),
+      time_sig (str), num_measures (int), min_duration (str), clef (str),
+      start_midi (int), high_midi (int), low_midi (int),
+      techniques (list[str]), rhythm_complexity (int, 1-3),
+      syncopation (bool), seed (int|None), tempo (int)
+
+    Returns:
+      notes_json (str), midi_path (str), difficulty_suggestion (int),
+      auto_tags (list[str]), generation_params (dict)
+    """
+    seed = params.get('seed')
+    rng  = random.Random(seed)
+
+    chords  = params['gen_progression_chords']
+    key     = params['key']
+    mode    = params['mode']
+    clef    = params['clef']
+    tempo   = params.get('tempo', 100)
+
+    windows = realize_harmony(chords, key, mode)
+    slots   = build_rhythm(
+        params['time_sig'], params['num_measures'],
+        params['min_duration'], params['rhythm_complexity'],
+        params['syncopation'], rng,
+    )
+    contour = {
+        'start_midi': params['start_midi'],
+        'high_midi':  params['high_midi'],
+        'low_midi':   params['low_midi'],
+    }
+    slots = place_skeleton(slots, windows, contour, clef, key, rng)
+    slots, techniques_used = apply_techniques(
+        slots, windows, params.get('techniques', []), key, mode, rng
+    )
+
+    gp_diff = params.get('gen_prog_difficulty', 1)
+
+    notes_json_str = slots_to_notes_json(slots, key)
+    midi_path      = write_preview_midi(notes_json_str, tempo)
+
+    return {
+        'notes_json':            notes_json_str,
+        'midi_path':             midi_path,
+        'difficulty_suggestion': suggest_difficulty(slots, techniques_used, gp_diff),
+        'auto_tags':             auto_tags(params, techniques_used),
+        'generation_params':     params,
+    }
