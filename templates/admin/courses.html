@@ -8,18 +8,39 @@
     <input name="name" class="form-control" placeholder="New course name" required>
     <button class="btn btn-primary">Add</button>
   </form>
-  <table class="table table-sm">
+  <table class="table table-sm align-middle">
     <thead><tr><th>Name</th><th>Modules</th><th>Classes</th><th></th></tr></thead>
     <tbody>
     {% for c in courses %}
     <tr>
       <td>{{ c.name }}</td>
-      <td>{{ c.modules.count() }}</td>
-      <td>{{ c.classes | length }}</td>
-      <td class="d-flex gap-1">
-        <a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary">Modules →</a>
-        <form method="post" action="{{ url_for('admin_delete_course', course_id=c.id) }}" onsubmit="return confirm('Delete course \"{{ c.name }}\" and all its modules? This cannot be undone.')">
+      <td>
+        {{ c.modules.count() }}
+        <a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
+      </td>
+      <td>
+        {{ c.classes | length }}
+        <a href="{{ url_for('admin_course_classes', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
+      </td>
+      <td class="d-flex gap-1 flex-wrap">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+                data-bs-target="#rename-{{ c.id }}">Rename</button>
+        <form method="post" action="{{ url_for('admin_duplicate_course', course_id=c.id) }}"
+              onsubmit="return confirm('Duplicate course &quot;{{ c.name }}&quot;?')">
+          <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
+        </form>
+        <form method="post" action="{{ url_for('admin_delete_course', course_id=c.id) }}"
+              onsubmit="return confirm('Delete course &quot;{{ c.name }}&quot; and all its modules?')">
           <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    <tr class="collapse" id="rename-{{ c.id }}">
+      <td colspan="4">
+        <form method="post" action="{{ url_for('admin_rename_course', course_id=c.id) }}"
+              class="d-flex gap-2" style="max-width:360px">
+          <input name="name" class="form-control form-control-sm" value="{{ c.name }}" required>
+          <button class="btn btn-sm btn-primary">Save</button>
         </form>
       </td>
     </tr>

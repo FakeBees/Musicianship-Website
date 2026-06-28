@@ -1252,6 +1252,57 @@ def admin_delete_course(course_id):
     return redirect(url_for('admin_courses', school_id=school_id))
 
 
+@app.route('/admin/courses/<int:course_id>/rename', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_rename_course(course_id):
+    course = Course.query.get_or_404(course_id)
+    name = request.form.get('name', '').strip()
+    if name:
+        course.name = name
+        db.session.commit()
+        flash(f'Course renamed to "{name}".', 'success')
+    return redirect(url_for('admin_courses', school_id=course.school_id))
+
+
+@app.route('/admin/courses/<int:course_id>/duplicate', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_duplicate_course(course_id):
+    src = Course.query.get_or_404(course_id)
+    new_course = Course(name=f'{src.name} (copy)', school_id=src.school_id)
+    db.session.add(new_course)
+    db.session.flush()
+    for mod in src.modules.order_by(Module.order):
+        new_mod = Module(name=mod.name, course_id=new_course.id, order=mod.order)
+        db.session.add(new_mod)
+        db.session.flush()
+        for ex in mod.exercises:
+            new_ex = ModuleExercise(
+                module_id=new_mod.id,
+                exercise_type=ex.exercise_type,
+                exercise_id=ex.exercise_id,
+                name=ex.name,
+                params_json=ex.params_json,
+                order=ex.order,
+                completion_criterion_json=ex.completion_criterion_json,
+            )
+            db.session.add(new_ex)
+    db.session.commit()
+    flash(f'Duplicated "{src.name}".', 'success')
+    return redirect(url_for('admin_courses', school_id=src.school_id))
+
+
+@app.route('/admin/courses/<int:course_id>/classes')
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_course_classes(course_id):
+    course = Course.query.get_or_404(course_id)
+    classes = Class.query.filter_by(course_id=course_id).all()
+    return render_template('admin/course_classes.html',
+                           course=course, classes=classes)
+
+
 @app.route('/admin/modules/<int:module_id>/delete', methods=['POST'])
 @login_required
 @role_required('admin')

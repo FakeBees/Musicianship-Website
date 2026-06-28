@@ -14,9 +14,11 @@
     {% for s in schools %}
     <tr>
       <td>{{ s.name }}</td>
-      <td>{{ s.courses.count() }}</td>
+      <td>
+        {{ s.courses.count() }}
+        <a href="{{ url_for('admin_courses', school_id=s.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
+      </td>
       <td class="d-flex gap-1">
-        <a href="{{ url_for('admin_courses', school_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Courses →</a>
         <form method="post" action="{{ url_for('admin_delete_school', school_id=s.id) }}" onsubmit="return confirm('Delete school "{{ s.name }}" and all its courses and modules? This cannot be undone.')">
           <button class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
