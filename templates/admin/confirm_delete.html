@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Delete {{ item_type }}{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width:500px">
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0">Delete {{ item_type }}</h5>
+    </div>
+    <div class="card-body">
+      <p>Permanently delete <strong>{{ item_name }}</strong>?</p>
+      <p class="text-muted small">This cannot be undone. Existing student attempt records referencing this exercise will remain but the exercise will no longer be playable.</p>
+    </div>
+    <div class="card-footer d-flex gap-2 justify-content-end">
+      <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+      <form method="post"><button class="btn btn-danger">Yes, delete</button></form>
+    </div>
+  </div>
+</div>
+{% endblock %}

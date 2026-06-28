@@ -1350,36 +1350,44 @@ def admin_melody_upload():
         return render_template('admin/melody_upload.html')
     # POST — parse uploaded MIDI
     f = request.files.get('midi_file')
-    if not f or not f.filename.endswith('.mid'):
+    if not f or not f.filename or not f.filename.endswith('.mid'):
         flash('Please upload a .mid file.', 'danger')
-        return render_template('admin/melody_upload.html')
+        return redirect(url_for('admin_melody_upload'))
     name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
     key  = request.form.get('key_signature', 'C').strip()
     from midi_to_notes import extract_notes, build_json_list
-    import tempfile, re
-    with tempfile.NamedTemporaryFile(suffix='.mid', delete=False) as tmp:
-        f.save(tmp.name)
-        tmp_path = tmp.name
-    notes     = extract_notes(tmp_path)
-    note_list = build_json_list(notes, key)
-    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'melody'
-    dest_dir  = os.path.join('static', 'melodic', slug)
-    os.makedirs(dest_dir, exist_ok=True)
-    midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-    import shutil
-    shutil.copy(tmp_path, midi_dest)
-    mel = Melody(
-        name=name,
-        midi_filename=f'{slug}.mid',
-        notes_json=json.dumps(note_list),
-        key_signature=key,
-    )
-    db.session.add(mel)
-    db.session.flush()
-    mel.public_id = f'MEL-{mel.id:04d}'
-    db.session.commit()
-    flash(f'Melody "{mel.name}" uploaded ({mel.public_id}).', 'success')
-    return redirect(url_for('admin_edit_melody', mel_id=mel.id))
+    import tempfile, re, shutil
+
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+        with os.fdopen(tmp_fd, 'wb') as tmp_f:
+            f.save(tmp_f)
+        notes     = extract_notes(tmp_path)
+        note_list = build_json_list(notes, key)
+        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'melody'
+        dest_dir  = os.path.join('static', 'melodic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
+        mel = Melody(
+            name=name,
+            midi_filename=f'{slug}.mid',
+            notes_json=json.dumps(note_list),
+            key_signature=key,
+        )
+        db.session.add(mel)
+        db.session.flush()
+        mel.public_id = f'MEL-{mel.id:04d}'
+        db.session.commit()
+        flash(f'Melody "{mel.name}" uploaded ({mel.public_id}).', 'success')
+        return redirect(url_for('admin_edit_melody', mel_id=mel.id))
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 @app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
