@@ -2369,10 +2369,12 @@ def teacher_edit_class(class_id):
             exercises = list(mod.exercises.order_by(ModuleExercise.order).all())
             modules_with_exercises.append({'module': mod, 'exercises': exercises})
 
+    class_teachers = User.query.filter_by(role='class_teacher').all()
     return render_template('teacher/edit_class.html', cls=cls, courses=courses,
                            modules_with_exercises=modules_with_exercises,
                            hidden_ids=hidden_ids,
-                           overrides=cls.module_overrides)
+                           overrides=cls.module_overrides,
+                           class_teachers=class_teachers)
 
 
 @app.route('/teacher/class/new', methods=['GET', 'POST'])
@@ -2440,6 +2442,22 @@ def teacher_set_course(class_id):
     db.session.commit()
     flash('Course assignment updated.', 'success')
     return redirect(url_for('teacher_class_detail', class_id=class_id))
+
+
+@app.route('/teacher/classes/<int:class_id>/assign-teacher', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def teacher_assign_class_teacher(class_id):
+    klass = Class.query.get_or_404(class_id)
+    user_id = request.form.get('user_id', type=int)
+    if user_id:
+        user = User.query.get_or_404(user_id)
+        klass.assigned_teacher_id = user.id
+    else:
+        klass.assigned_teacher_id = None
+    db.session.commit()
+    flash('Class teacher updated.', 'success')
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
 
 
 @app.route('/teacher/classes/<int:class_id>/overrides/add', methods=['POST'])

@@ -37,6 +37,30 @@
     </div>
   </div>
 
+  <!-- Assign Class Teacher -->
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Assign Class Teacher</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('teacher_assign_class_teacher', class_id=cls.id) }}"
+            class="d-flex gap-2 align-items-center">
+        <select name="user_id" class="form-select" style="max-width:280px">
+          <option value="">— No assigned teacher —</option>
+          {% for t in class_teachers %}
+          <option value="{{ t.id }}" {% if cls.assigned_teacher_id == t.id %}selected{% endif %}>
+            {{ t.display_name or t.email }}
+          </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-primary">Assign</button>
+      </form>
+      {% if cls.assigned_teacher %}
+      <p class="text-muted small mt-2">
+        Currently assigned: <strong>{{ cls.assigned_teacher.display_name or cls.assigned_teacher.email }}</strong>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Override management -->
   <div class="card mb-4">
     <div class="card-header fw-semibold">Class-Specific Overrides</div>
