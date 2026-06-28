@@ -4,7 +4,9 @@
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>My Classes</h2>
+    {% if current_user.role != 'class_teacher' %}
     <a href="{{ url_for('teacher_new_class') }}" class="btn btn-primary">+ New class</a>
+    {% endif %}
   </div>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
@@ -22,7 +24,9 @@
         <div class="card-footer d-flex gap-2">
           <a href="{{ url_for('teacher_class_detail', class_id=cls.id) }}" class="btn btn-sm btn-outline-primary">View roster</a>
           <a href="{{ url_for('teacher_edit_class', class_id=cls.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          {% if current_user.role != 'class_teacher' %}
           <a href="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
+          {% endif %}
         </div>
       </div>
     </div>

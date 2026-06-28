@@ -2041,10 +2041,12 @@ def teacher_delete_class(class_id):
 
 @app.route('/teacher/class/<int:class_id>/kick/<int:user_id>', methods=['GET', 'POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_kick_student(class_id, user_id):
     klass = Class.query.get_or_404(class_id)
-    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
         abort(403)
     student = User.query.get_or_404(user_id)
     if request.method == 'GET':
@@ -2121,9 +2123,12 @@ def me():
 
 @app.route('/teacher')
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_dashboard():
-    classes = Class.query.filter_by(teacher_id=current_user.id).all()
+    if current_user.role == 'class_teacher':
+        classes = Class.query.filter_by(assigned_teacher_id=current_user.id).all()
+    else:
+        classes = Class.query.filter_by(teacher_id=current_user.id).all()
     return render_template('teacher/dashboard.html', classes=classes)
 
 
@@ -2150,10 +2155,12 @@ def my_classes():
 
 @app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_edit_class(class_id):
     cls = Class.query.get_or_404(class_id)
-    if cls.teacher_id != current_user.id and current_user.role != 'admin':
+    if current_user.role == 'class_teacher' and cls.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and cls.teacher_id != current_user.id:
         abort(403)
     courses = Course.query.order_by(Course.name).all()
     if request.method == 'POST':
@@ -2207,10 +2214,12 @@ def teacher_new_class():
 
 @app.route('/teacher/class/<int:class_id>')
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_class_detail(class_id):
     cls = Class.query.get_or_404(class_id)
-    if cls.teacher_id != current_user.id and current_user.role != 'admin':
+    if current_user.role == 'class_teacher' and cls.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and cls.teacher_id != current_user.id:
         abort(403)
 
     roster = []
@@ -2249,10 +2258,12 @@ def teacher_set_course(class_id):
 
 @app.route('/teacher/classes/<int:class_id>/overrides/add', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_add_override(class_id):
     klass = Class.query.get_or_404(class_id)
-    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+        abort(403)
+    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
         abort(403)
     action    = request.form['action']
     module_id = request.form.get('module_id', type=int)
@@ -2284,7 +2295,7 @@ def teacher_add_override(class_id):
 
 @app.route('/teacher/classes/<int:class_id>/overrides/<int:cme_id>/delete', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_delete_override(class_id, cme_id):
     cme = ClassModuleExercise.query.get_or_404(cme_id)
     if cme.class_id != class_id:
@@ -2297,7 +2308,7 @@ def teacher_delete_override(class_id, cme_id):
 
 @app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/hide', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_hide_module(class_id, module_id):
     klass = Class.query.get_or_404(class_id)
     module = Module.query.get_or_404(module_id)
@@ -2319,7 +2330,7 @@ def teacher_hide_module(class_id, module_id):
 
 @app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/restore', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_restore_module(class_id, module_id):
     ClassModuleExercise.query.filter_by(
         class_id=class_id, module_id=module_id, action='hide'
@@ -2331,7 +2342,7 @@ def teacher_restore_module(class_id, module_id):
 
 @app.route('/teacher/classes/<int:class_id>/module_exercises/add', methods=['POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_add_module_exercise(class_id):
     module_id = request.form.get('module_id', type=int)
     exercise_type = request.form.get('exercise_type', '').strip()
