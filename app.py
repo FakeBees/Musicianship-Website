@@ -8,7 +8,7 @@ from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, \
                    GenProgression, Container, \
                    User, Class, School, Course, Module, ModuleExercise, \
-                   ClassModuleExercise, ModuleCompletion
+                   ClassModuleExercise, ModuleCompletion, SchoolMembership
 from chord_utils import grade_harmonic_attempt, format_chord_name
 import curriculum as cur
 
@@ -2125,6 +2125,27 @@ def me():
 def teacher_dashboard():
     classes = Class.query.filter_by(teacher_id=current_user.id).all()
     return render_template('teacher/dashboard.html', classes=classes)
+
+
+@app.route('/admin/my-school')
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_my_school():
+    # find school where current user is an admin_teacher member
+    mem = SchoolMembership.query.filter_by(
+        user_id=current_user.id, role='admin_teacher'
+    ).first()
+    if mem:
+        return redirect(url_for('admin_courses', school_id=mem.school_id))
+    # full admins: redirect to schools list
+    return redirect(url_for('admin_schools'))
+
+
+@app.route('/my-classes')
+@login_required
+def my_classes():
+    return render_template('student/my_classes.html',
+                           classes=current_user.classes)
 
 
 @app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])

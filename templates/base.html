@@ -32,22 +32,22 @@
             {{ current_user.display_name or current_user.email }}
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
-            {% if current_user.classes %}
-            <li><hr class="dropdown-divider"></li>
-            {% for klass in current_user.classes %}
-            <li><a class="dropdown-item" href="{{ url_for('class_home', class_id=klass.id) }}">
-              <i class="bi bi-people me-1"></i>{{ klass.name }}
-            </a></li>
-            {% endfor %}
-            <li><hr class="dropdown-divider"></li>
-            {% endif %}
-            {% if current_user.role in ('admin_teacher', 'admin') %}
-            <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
-            {% endif %}
-            {% if current_user.role == 'admin' %}
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
+            {% if current_user.role == 'student' %}
+              <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('my_classes') }}">My Classes</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
+            {% elif current_user.role in ('admin_teacher', 'class_teacher') %}
+              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
+              {% if current_user.role == 'admin_teacher' %}
+              <li><a class="dropdown-item" href="{{ url_for('admin_my_school') }}">Admin</a></li>
+              {% endif %}
+              <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
+            {% elif current_user.role == 'admin' %}
+              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('logout') }}">Log out</a></li>
