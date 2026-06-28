@@ -45,6 +45,9 @@ class Melody(db.Model):
     visibility = db.Column(db.String(20), nullable=False, default='public')
     school_id  = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=True)
     tempo = db.Column(db.Integer, default=120)
+    public_id         = db.Column(db.String(12), unique=True, nullable=True, index=True)
+    container_id      = db.Column(db.Integer, db.ForeignKey('container.id'), nullable=True)
+    generation_params = db.Column(db.Text, nullable=True)
     tags = db.relationship('Tag', secondary=melody_tags, backref='melodies', lazy='subquery')
 
     @property
@@ -107,6 +110,7 @@ class Rhythm(db.Model):
     school_id  = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=True)
     tempo = db.Column(db.Integer, default=100)
     tags = db.relationship('Tag', secondary=rhythm_tags, backref='rhythms', lazy='subquery')
+    public_id = db.Column(db.String(12), unique=True, nullable=True, index=True)
 
     @property
     def notes(self):
@@ -173,6 +177,7 @@ class ChordProgression(db.Model):
     chords_json   = db.Column(db.Text, nullable=False)
     tags          = db.relationship('Tag', secondary=progression_tags,
                                     backref='progressions', lazy='subquery')
+    public_id = db.Column(db.String(12), unique=True, nullable=True, index=True)
 
     @property
     def chords(self):
@@ -233,6 +238,7 @@ class HolisticExercise(db.Model):
 
     tags = db.relationship('Tag', secondary=holistic_tags,
                            backref='holistic_exercises', lazy='subquery')
+    public_id = db.Column(db.String(12), unique=True, nullable=True, index=True)
 
     @property
     def melody_notes(self):
@@ -321,6 +327,36 @@ class HarmonicAttempt(db.Model):
 
     def __repr__(self):
         return f'<HarmonicAttempt prog={self.progression_id} score={self.overall_score:.1f}>'
+
+
+class Container(db.Model):
+    __tablename__ = 'container'
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(120), nullable=False, unique=True)
+    description = db.Column(db.String(300))
+    created_at  = db.Column(db.DateTime, server_default=db.func.now())
+    melodies    = db.relationship('Melody', backref='container', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<Container {self.name}>'
+
+
+class GenProgression(db.Model):
+    __tablename__ = 'gen_progression'
+    id          = db.Column(db.Integer, primary_key=True)
+    number      = db.Column(db.Integer, unique=True, nullable=False)
+    name        = db.Column(db.String(120))
+    length_bars = db.Column(db.Integer, nullable=False, default=4)
+    mode        = db.Column(db.String(10), nullable=False, default='major')
+    chords_json = db.Column(db.Text, nullable=False)
+    difficulty  = db.Column(db.Integer, nullable=False, default=1)
+
+    @property
+    def chords(self):
+        return json.loads(self.chords_json)
+
+    def __repr__(self):
+        return f'<GenProgression #{self.number} {self.name}>'
 
 
 class User(UserMixin, db.Model):
