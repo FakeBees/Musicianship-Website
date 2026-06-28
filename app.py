@@ -1487,18 +1487,7 @@ def admin_melody_approve():
         session['pending_melody'] = pending
         return redirect(url_for('admin_melody_generator'))
 
-    last     = Melody.query.order_by(Melody.id.desc()).first()
-    next_num = (last.id + 1) if last else 1
-    public_id = f'MEL-{next_num:04d}'
-
-    slug      = f'mel_{public_id.lower().replace("-", "_")}'
     src_path  = os.path.join(app.static_folder, pending['midi_path'].replace('/', os.sep))
-    dest_dir  = os.path.join(app.static_folder, 'melodic', slug)
-    dest_name = f'{slug}.mid'
-    os.makedirs(dest_dir, exist_ok=True)
-    import shutil
-    shutil.copy2(src_path, os.path.join(dest_dir, dest_name))
-    midi_filename = f'melodic/{slug}/{dest_name}'
 
     difficulty   = request.form.get('difficulty', pending['difficulty_suggestion'], type=int)
     container_id = request.form.get('container_id', type=int) or None
@@ -1506,10 +1495,11 @@ def admin_melody_approve():
     tag_ids      = request.form.getlist('tag_ids', type=int)
     manual_tags  = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
+    # Create Melody WITHOUT public_id; we'll set it after flush to get the auto-assigned ID
     mel = Melody(
         name=name,
         description=request.form.get('description', '').strip(),
-        midi_filename=midi_filename,
+        # midi_filename will be set after we know the slug
         notes_json=pending['notes_json'],
         key_signature=pending['generation_params']['key'],
         time_signature=pending['generation_params']['time_sig'],
@@ -1517,7 +1507,6 @@ def admin_melody_approve():
         min_duration=pending['generation_params']['min_duration'],
         tempo=pending['generation_params'].get('tempo', 100),
         difficulty=difficulty,
-        public_id=public_id,
         container_id=container_id,
         generation_params=json.dumps(pending['generation_params']),
     )
@@ -1529,6 +1518,22 @@ def admin_melody_approve():
             mel.tags.append(tag)
 
     db.session.add(mel)
+    db.session.flush()  # Get the auto-assigned mel.id
+
+    # Now set public_id and slug based on the actual ID
+    public_id = f'MEL-{mel.id:04d}'
+    slug      = f'mel_{public_id.lower().replace("-", "_")}'
+    dest_dir  = os.path.join(app.static_folder, 'melodic', slug)
+    dest_name = f'{slug}.mid'
+    os.makedirs(dest_dir, exist_ok=True)
+    import shutil
+    shutil.copy2(src_path, os.path.join(dest_dir, dest_name))
+    midi_filename = f'melodic/{slug}/{dest_name}'
+
+    # Update the Melody object with the correct public_id and midi_filename
+    mel.public_id = public_id
+    mel.midi_filename = midi_filename
+
     db.session.commit()
     flash(f'Melody "{name}" saved ({public_id}).', 'success')
     return redirect(url_for('admin_edit_melody', mel_id=mel.id))
