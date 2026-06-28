@@ -1271,6 +1271,117 @@ def admin_delete_module(module_id):
     return redirect(url_for('admin_modules', course_id=course_id))
 
 
+# ── Melody CMS ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/melodies')
+@login_required
+@role_required('admin')
+def admin_melodies():
+    q = request.args.get('q', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
+    container_filter = request.args.get('container', type=int)
+    query = Melody.query
+    if q:
+        query = query.filter(db.or_(Melody.name.ilike(f'%{q}%'), Melody.public_id.ilike(f'%{q}%')))
+    if tag_filter:
+        query = query.filter(Melody.tags.any(Tag.name == tag_filter))
+    if container_filter:
+        query = query.filter_by(container_id=container_filter)
+    melodies = query.order_by(Melody.id.desc()).all()
+    all_tags = Tag.query.order_by(Tag.name).all()
+    containers = Container.query.order_by(Container.name).all()
+    return render_template('admin/melodies.html', melodies=melodies, all_tags=all_tags,
+                           containers=containers, q=q, tag_filter=tag_filter,
+                           container_filter=container_filter)
+
+
+@app.route('/admin/melodies/<int:mel_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_edit_melody(mel_id):
+    mel = Melody.query.get_or_404(mel_id)
+    all_tags = Tag.query.order_by(Tag.name).all()
+    containers = Container.query.order_by(Container.name).all()
+    if request.method == 'POST':
+        mel.name          = request.form.get('name', '').strip() or mel.name
+        mel.description   = request.form.get('description', '').strip()
+        mel.key_signature = request.form.get('key_signature', mel.key_signature)
+        mel.time_signature = request.form.get('time_signature', mel.time_signature)
+        mel.clef          = request.form.get('clef', mel.clef)
+        mel.min_duration  = request.form.get('min_duration', mel.min_duration)
+        mel.tempo         = request.form.get('tempo', mel.tempo, type=int) or mel.tempo
+        mel.difficulty    = request.form.get('difficulty', mel.difficulty, type=int) or mel.difficulty
+        mel.visibility    = request.form.get('visibility', mel.visibility)
+        mel.container_id  = request.form.get('container_id', type=int) or None
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        mel.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        notes_raw = request.form.get('notes_json', '').strip()
+        if notes_raw:
+            try:
+                json.loads(notes_raw)
+                mel.notes_json = notes_raw
+            except ValueError:
+                flash('Invalid notes JSON — not saved.', 'warning')
+        db.session.commit()
+        flash('Melody updated.', 'success')
+        return redirect(url_for('admin_edit_melody', mel_id=mel_id))
+    return render_template('admin/melody_edit.html', mel=mel, all_tags=all_tags, containers=containers)
+
+
+@app.route('/admin/melodies/<int:mel_id>/delete', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_delete_melody(mel_id):
+    mel = Melody.query.get_or_404(mel_id)
+    if request.method == 'POST':
+        db.session.delete(mel)
+        db.session.commit()
+        flash(f'Melody "{mel.name}" deleted.', 'success')
+        return redirect(url_for('admin_melodies'))
+    return render_template('admin/confirm_delete.html', item_type='Melody', item_name=mel.name,
+                           cancel_url=url_for('admin_melodies'))
+
+
+@app.route('/admin/melodies/upload', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_melody_upload():
+    if request.method == 'GET':
+        return render_template('admin/melody_upload.html')
+    # POST — parse uploaded MIDI
+    f = request.files.get('midi_file')
+    if not f or not f.filename.endswith('.mid'):
+        flash('Please upload a .mid file.', 'danger')
+        return render_template('admin/melody_upload.html')
+    name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
+    key  = request.form.get('key_signature', 'C').strip()
+    from midi_to_notes import extract_notes, build_json_list
+    import tempfile, re
+    with tempfile.NamedTemporaryFile(suffix='.mid', delete=False) as tmp:
+        f.save(tmp.name)
+        tmp_path = tmp.name
+    notes     = extract_notes(tmp_path)
+    note_list = build_json_list(notes, key)
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'melody'
+    dest_dir  = os.path.join('static', 'melodic', slug)
+    os.makedirs(dest_dir, exist_ok=True)
+    midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+    import shutil
+    shutil.copy(tmp_path, midi_dest)
+    mel = Melody(
+        name=name,
+        midi_filename=f'{slug}.mid',
+        notes_json=json.dumps(note_list),
+        key_signature=key,
+    )
+    db.session.add(mel)
+    db.session.flush()
+    mel.public_id = f'MEL-{mel.id:04d}'
+    db.session.commit()
+    flash(f'Melody "{mel.name}" uploaded ({mel.public_id}).', 'success')
+    return redirect(url_for('admin_edit_melody', mel_id=mel.id))
+
+
 @app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('teacher', 'admin')
