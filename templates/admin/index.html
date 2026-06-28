@@ -2,8 +2,10 @@
 {% block title %}Admin{% endblock %}
 {% block content %}
 <div class="container py-4">
-  <h2>Admin</h2>
-  <div class="row g-3 mt-2">
+  <h2 class="mb-4">Admin</h2>
+
+  <h5 class="text-muted mb-2">Site Overview</h5>
+  <div class="row g-3 mb-4">
     <div class="col-md-3">
       <div class="card text-center p-3">
         <div class="fs-2 fw-bold">{{ user_count }}</div>
@@ -21,6 +23,45 @@
       <div class="card text-center p-3">
         <div class="fs-2 fw-bold">{{ class_count }}</div>
         <div class="text-muted">Classes</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ gen_prog_count }}</div>
+        <div class="text-muted">Gen Progressions</div>
+        <a href="/admin/gen_progressions" class="btn btn-sm btn-outline-secondary mt-2">Manage →</a>
+      </div>
+    </div>
+  </div>
+
+  <h5 class="text-muted mb-2">Exercise Library</h5>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ melody_count }}</div>
+        <div class="text-muted">Melodies</div>
+        <a href="/admin/melodies" class="btn btn-sm btn-outline-primary mt-2">Manage →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ harmonic_count }}</div>
+        <div class="text-muted">Harmonics</div>
+        <a href="/admin/harmonics" class="btn btn-sm btn-outline-primary mt-2">Manage →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ rhythm_count }}</div>
+        <div class="text-muted">Rhythms</div>
+        <a href="/admin/rhythms" class="btn btn-sm btn-outline-primary mt-2">Manage →</a>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center p-3">
+        <div class="fs-2 fw-bold">{{ holistic_count }}</div>
+        <div class="text-muted">Holistic</div>
+        <a href="/admin/holistic" class="btn btn-sm btn-outline-primary mt-2">Manage →</a>
       </div>
     </div>
   </div>

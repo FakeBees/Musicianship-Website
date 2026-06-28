@@ -2,9 +2,11 @@ import json
 import os
 import random
 import secrets
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, \
+                   GenProgression, \
                    User, Class, School, Course, Module, ModuleExercise, \
                    ClassModuleExercise, ModuleCompletion
 from chord_utils import grade_harmonic_attempt, format_chord_name
@@ -53,7 +55,7 @@ def role_required(*roles):
 # Module-completion helper
 # ---------------------------------------------------------------------------
 
-def _handle_module_completion(class_id, me_id, cme_id, score):
+def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=False):
     """
     Called after a drill submission when the student came from a module.
     Records the attempt, checks criterion, returns nav context dict or None.
@@ -97,9 +99,22 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
         if cme and cme.class_id == class_id_int:
             module = Module.query.get(cme.module_id)
 
+    module_url = url_for('class_module_detail', class_id=class_id_int,
+                         module_id=module.id) if module else url_for('class_home', class_id=class_id_int)
+    module_name  = module.name if module else None
+    exercise_name = me.name if me else None
+    keep_practicing_url = url_for('start_module_exercise',
+                                  class_id=class_id_int, me_id=me_id_int,
+                                  kp='1') if me_id_int else None
+
     if not module:
         return {
             'next_url': url_for('class_home', class_id=class_id_int),
+            'module_url': url_for('class_home', class_id=class_id_int),
+            'module_name': None,
+            'exercise_name': exercise_name,
+            'keep_practicing_url': None,
+            'keep_practicing': keep_practicing,
             'module_done': False,
             'complete': mc.is_complete,
             'progress': progress,
@@ -107,7 +122,6 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
         }
 
     if mc.is_complete:
-        # Find next incomplete exercise using effective_exercises (includes class overrides)
         next_ex = cur.next_incomplete(current_user.id, class_id_int, klass, module)
         if next_ex:
             if next_ex['module_exercise_id']:
@@ -115,11 +129,14 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
                                    class_id=class_id_int,
                                    me_id=next_ex['module_exercise_id'])
             else:
-                # Class-level add override — link to module detail (no /start for CME-only)
-                next_url = url_for('class_module_detail',
-                                   class_id=class_id_int, module_id=module.id)
+                next_url = module_url
             return {
                 'next_url': next_url,
+                'module_url': module_url,
+                'module_name': module_name,
+                'exercise_name': exercise_name,
+                'keep_practicing_url': keep_practicing_url,
+                'keep_practicing': keep_practicing,
                 'module_done': False,
                 'complete': True,
                 'progress': progress,
@@ -128,8 +145,12 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
             }
         else:
             return {
-                'next_url': url_for('class_module_detail',
-                                    class_id=class_id_int, module_id=module.id),
+                'next_url': module_url,
+                'module_url': module_url,
+                'module_name': module_name,
+                'exercise_name': exercise_name,
+                'keep_practicing_url': keep_practicing_url,
+                'keep_practicing': keep_practicing,
                 'module_done': True,
                 'complete': True,
                 'progress': progress,
@@ -137,15 +158,18 @@ def _handle_module_completion(class_id, me_id, cme_id, score):
                 'module_id': module.id,
             }
     else:
-        # Not yet complete — go back to /start to get another exercise
         if me_id_int:
             start_url = url_for('start_module_exercise',
                                 class_id=class_id_int, me_id=me_id_int)
         else:
-            start_url = url_for('class_module_detail',
-                                class_id=class_id_int, module_id=module.id)
+            start_url = module_url
         return {
             'next_url': start_url,
+            'module_url': module_url,
+            'module_name': module_name,
+            'exercise_name': exercise_name,
+            'keep_practicing_url': keep_practicing_url,
+            'keep_practicing': keep_practicing,
             'module_done': False,
             'complete': False,
             'progress': progress,
@@ -357,7 +381,18 @@ def _apply_exercise_filters(query, model, params):
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    user_classes = []
+    if current_user.is_authenticated:
+        if current_user.role in ('teacher', 'admin'):
+            user_classes = list(current_user.classes_taught)
+        else:
+            user_classes = list(current_user.classes)
+    return render_template('home.html', user_classes=user_classes)
+
+
+@app.route('/sandbox')
+def sandbox():
+    return render_template('home.html', user_classes=[], sandbox_mode=True)
 
 
 @app.route('/melodic')
@@ -485,9 +520,11 @@ def results(attempt_id):
     class_id = request.args.get('class_id')
     me_id    = request.args.get('me_id')
     cme_id   = request.args.get('cme_id')
+    kp       = request.args.get('kp', '') == '1'
     module_ctx = None
     if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+                                               keep_practicing=kp)
 
     return render_template('results.html', attempt=attempt, melody=melody,
                            comparison=comparison, next_url=next_url, module_ctx=module_ctx)
@@ -605,9 +642,11 @@ def rhythm_results(attempt_id):
     class_id = request.args.get('class_id')
     me_id    = request.args.get('me_id')
     cme_id   = request.args.get('cme_id')
+    kp       = request.args.get('kp', '') == '1'
     module_ctx = None
     if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.duration_accuracy)
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.duration_accuracy,
+                                               keep_practicing=kp)
 
     return render_template('rhythm_results.html', attempt=attempt, rhythm=rhythm,
                            comparison=comparison, next_url=next_url, module_ctx=module_ctx)
@@ -777,9 +816,11 @@ def harmonic_results(attempt_id):
     class_id = request.args.get('class_id')
     me_id    = request.args.get('me_id')
     cme_id   = request.args.get('cme_id')
+    kp       = request.args.get('kp', '') == '1'
     module_ctx = None
     if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+                                               keep_practicing=kp)
 
     return render_template('harmonic_results.html',
                            attempt=attempt,
@@ -876,9 +917,11 @@ def holistic_results(attempt_id):
     class_id = request.args.get('class_id')
     me_id    = request.args.get('me_id')
     cme_id   = request.args.get('cme_id')
+    kp       = request.args.get('kp', '') == '1'
     module_ctx = None
     if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score)
+        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+                                               keep_practicing=kp)
 
     return render_template('holistic_results.html',
                            attempt=attempt,
@@ -959,13 +1002,16 @@ def logout():
 @login_required
 @role_required('admin')
 def admin():
-    user_count   = User.query.count()
-    school_count = School.query.count()
-    class_count  = Class.query.count()
     return render_template('admin/index.html',
-                           user_count=user_count,
-                           school_count=school_count,
-                           class_count=class_count)
+        user_count=User.query.count(),
+        school_count=School.query.count(),
+        class_count=Class.query.count(),
+        melody_count=Melody.query.count(),
+        harmonic_count=ChordProgression.query.count(),
+        rhythm_count=Rhythm.query.count(),
+        holistic_count=HolisticExercise.query.count(),
+        gen_prog_count=GenProgression.query.count(),
+    )
 
 
 @app.route('/admin/schools', methods=['GET', 'POST'])
@@ -1025,11 +1071,14 @@ def admin_module_exercises(module_id):
         ex_type   = request.form['exercise_type']
         name      = request.form.get('name', '').strip() or ex_type.capitalize()
         order     = int(request.form.get('order', 0))
-        criterion = request.form.get('completion_criterion', '{"attempts":1}')
-        try:
-            json.loads(criterion)
-        except (ValueError, TypeError):
-            criterion = '{"attempts":1}'
+        criterion_type = request.form.get('criterion_type', 'attempts')
+        if criterion_type == 'passing':
+            passing   = int(request.form.get('completion_passing', 1))
+            min_score = int(request.form.get('completion_min_score', 70))
+            criterion = json.dumps({'passing': passing, 'min_score': min_score})
+        else:
+            attempts  = int(request.form.get('completion_attempts', 1))
+            criterion = json.dumps({'attempts': attempts})
 
         if ex_type == 'holistic':
             ex_id      = int(request.form['exercise_id'])
@@ -1037,14 +1086,14 @@ def admin_module_exercises(module_id):
         else:
             ex_id = 0  # sentinel — not used for filter-based exercises
             difficulties = request.form.getlist('difficulty')
-            tags_raw     = request.form.get('tags', '').strip()
+            tags_list    = request.form.getlist('tag')
             time_sig     = request.form.get('time_signature', '').strip()
             key_sig      = request.form.get('key_signature', '').strip()
             params_dict  = {}
             if difficulties:
                 params_dict['difficulty'] = [int(d) for d in difficulties]
-            if tags_raw:
-                params_dict['tags'] = [t.strip() for t in tags_raw.split(',') if t.strip()]
+            if tags_list:
+                params_dict['tags'] = [t for t in tags_list if t]
             if time_sig:
                 params_dict['time_signature'] = time_sig
             if key_sig and ex_type == 'harmonic':
@@ -1069,14 +1118,28 @@ def admin_module_exercises(module_id):
     progressions = ChordProgression.query.order_by(ChordProgression.name).all()
     holistics    = HolisticExercise.query.order_by(HolisticExercise.name).all()
     all_tags = [t.name for t in Tag.query.order_by(Tag.name).all()]
+    melody_tags_list  = sorted({t.name for m in melodies     for t in m.tags})
+    rhythm_tags_list  = sorted({t.name for r in rhythms      for t in r.tags})
+    harmonic_tags_list = sorted({t.name for p in progressions for t in p.tags})
+    harmonic_categories = sorted({p.category for p in progressions if p.category})
+    melodies_data = [{'time_signature': m.time_signature, 'min_duration': m.min_duration,
+                      'clef': m.clef, 'tags': [t.name for t in m.tags]} for m in melodies]
+    rhythms_data  = [{'time_signature': r.time_signature, 'min_duration': r.min_duration,
+                      'tags': [t.name for t in r.tags]} for r in rhythms]
+    progressions_data = [{'category': p.category, 'difficulty': p.difficulty,
+                          'tags': [t.name for t in p.tags]} for p in progressions]
     return render_template('admin/module_exercises.html',
                            module=module,
                            exercises=exercises,
-                           melodies=melodies,
-                           rhythms=rhythms,
-                           progressions=progressions,
                            holistics=holistics,
-                           all_tags=all_tags)
+                           all_tags=all_tags,
+                           melody_tags_list=melody_tags_list,
+                           rhythm_tags_list=rhythm_tags_list,
+                           harmonic_tags_list=harmonic_tags_list,
+                           harmonic_categories=harmonic_categories,
+                           melodies_data=melodies_data,
+                           rhythms_data=rhythms_data,
+                           progressions_data=progressions_data)
 
 
 @app.route('/admin/module_exercises/<int:me_id>/delete', methods=['POST'])
@@ -1089,6 +1152,61 @@ def admin_delete_module_exercise(me_id):
     db.session.commit()
     flash('Exercise removed.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=module_id))
+
+
+@app.route('/admin/module_exercises/<int:me_id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_edit_module_exercise(me_id):
+    me = ModuleExercise.query.get_or_404(me_id)
+    me.name  = request.form.get('name', me.name).strip() or me.name
+    me.order = int(request.form.get('order', me.order))
+    criterion_type = request.form.get('criterion_type', 'attempts')
+    if criterion_type == 'passing':
+        passing   = int(request.form.get('completion_passing', 1))
+        min_score = int(request.form.get('completion_min_score', 70))
+        me.completion_criterion_json = json.dumps({'passing': passing, 'min_score': min_score})
+    else:
+        attempts = int(request.form.get('completion_attempts', 1))
+        me.completion_criterion_json = json.dumps({'attempts': attempts})
+    if me.exercise_type != 'holistic':
+        difficulties = request.form.getlist('difficulty')
+        tags_list    = request.form.getlist('tag')
+        time_sig     = request.form.get('time_signature', '').strip()
+        key_sig      = request.form.get('key_signature', '').strip()
+        params_dict  = {}
+        if difficulties:
+            params_dict['difficulty'] = [int(d) for d in difficulties]
+        if tags_list:
+            params_dict['tags'] = [t for t in tags_list if t]
+        if time_sig:
+            params_dict['time_signature'] = time_sig
+        if key_sig and me.exercise_type == 'harmonic':
+            params_dict['key_signature'] = key_sig
+        me.params_json = json.dumps(params_dict) if params_dict else None
+    db.session.commit()
+    flash('Exercise updated.', 'success')
+    return redirect(url_for('admin_module_exercises', module_id=me.module_id))
+
+
+@app.route('/admin/module_exercises/<int:me_id>/duplicate', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_duplicate_module_exercise(me_id):
+    src = ModuleExercise.query.get_or_404(me_id)
+    copy = ModuleExercise(
+        module_id=src.module_id,
+        name=src.name + ' (copy)',
+        exercise_type=src.exercise_type,
+        exercise_id=src.exercise_id,
+        order=src.order + 1,
+        completion_criterion_json=src.completion_criterion_json,
+        params_json=src.params_json,
+    )
+    db.session.add(copy)
+    db.session.commit()
+    flash('Exercise duplicated.', 'success')
+    return redirect(url_for('admin_module_exercises', module_id=src.module_id))
 
 
 @app.route('/admin/schools/<int:school_id>/delete', methods=['POST'])
@@ -1153,15 +1271,16 @@ def admin_delete_module(module_id):
     return redirect(url_for('admin_modules', course_id=course_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/delete', methods=['POST'])
+@app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('teacher', 'admin')
 def teacher_delete_class(class_id):
     klass = Class.query.get_or_404(class_id)
     if klass.teacher_id != current_user.id and current_user.role != 'admin':
         abort(403)
+    if request.method == 'GET':
+        return render_template('teacher/confirm_delete_class.html', cls=klass)
     name = klass.name
-    # Clear dependent records before deleting
     ModuleCompletion.query.filter_by(class_id=class_id).delete()
     ClassModuleExercise.query.filter_by(class_id=class_id).delete()
     klass.members.clear()
@@ -1170,6 +1289,23 @@ def teacher_delete_class(class_id):
     db.session.commit()
     flash(f'Class "{name}" deleted.', 'success')
     return redirect(url_for('teacher_dashboard'))
+
+
+@app.route('/teacher/class/<int:class_id>/kick/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_kick_student(class_id, user_id):
+    klass = Class.query.get_or_404(class_id)
+    if klass.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    student = User.query.get_or_404(user_id)
+    if request.method == 'GET':
+        return render_template('teacher/confirm_kick_student.html', cls=klass, student=student)
+    if student in klass.members:
+        klass.members.remove(student)
+        db.session.commit()
+        flash(f'{student.display_name or student.email} removed from {klass.name}.', 'success')
+    return redirect(url_for('teacher_class_detail', class_id=class_id))
 
 
 @app.route('/class/<int:class_id>/leave', methods=['POST'])
@@ -1188,12 +1324,29 @@ def leave_class(class_id):
 @app.route('/me')
 @login_required
 def me():
-    uid = current_user.id
+    uid  = current_user.id
+    days = request.args.get('days', '30')
+    try:
+        days_int = int(days)
+    except (ValueError, TypeError):
+        days_int = 30
 
-    melody_attempts   = UserAttempt.query.filter_by(user_id=uid).order_by(UserAttempt.created_at.desc()).limit(50).all()
-    rhythm_attempts   = RhythmAttempt.query.filter_by(user_id=uid).order_by(RhythmAttempt.created_at.desc()).limit(50).all()
-    harmonic_attempts = HarmonicAttempt.query.filter_by(user_id=uid).order_by(HarmonicAttempt.created_at.desc()).limit(50).all()
-    holistic_attempts = HolisticAttempt.query.filter_by(user_id=uid).order_by(HolisticAttempt.created_at.desc()).limit(50).all()
+    if days_int > 0:
+        cutoff = datetime.utcnow() - timedelta(days=days_int)
+        mel_q  = UserAttempt.query.filter(UserAttempt.user_id == uid, UserAttempt.created_at >= cutoff)
+        rhy_q  = RhythmAttempt.query.filter(RhythmAttempt.user_id == uid, RhythmAttempt.created_at >= cutoff)
+        har_q  = HarmonicAttempt.query.filter(HarmonicAttempt.user_id == uid, HarmonicAttempt.created_at >= cutoff)
+        hol_q  = HolisticAttempt.query.filter(HolisticAttempt.user_id == uid, HolisticAttempt.created_at >= cutoff)
+    else:
+        mel_q  = UserAttempt.query.filter_by(user_id=uid)
+        rhy_q  = RhythmAttempt.query.filter_by(user_id=uid)
+        har_q  = HarmonicAttempt.query.filter_by(user_id=uid)
+        hol_q  = HolisticAttempt.query.filter_by(user_id=uid)
+
+    melody_attempts   = mel_q.order_by(UserAttempt.created_at.desc()).all()
+    rhythm_attempts   = rhy_q.order_by(RhythmAttempt.created_at.desc()).all()
+    harmonic_attempts = har_q.order_by(HarmonicAttempt.created_at.desc()).all()
+    holistic_attempts = hol_q.order_by(HolisticAttempt.created_at.desc()).all()
 
     def avg(attempts, field='overall_score'):
         vals = [getattr(a, field) for a in attempts if getattr(a, field) is not None]
@@ -1214,10 +1367,7 @@ def me():
 
     return render_template('me.html',
                            stats=stats,
-                           melody_attempts=melody_attempts,
-                           rhythm_attempts=rhythm_attempts,
-                           harmonic_attempts=harmonic_attempts,
-                           holistic_attempts=holistic_attempts,
+                           days=days_int,
                            module_progress_by_class=module_progress_by_class)
 
 
@@ -1227,6 +1377,40 @@ def me():
 def teacher_dashboard():
     classes = Class.query.filter_by(teacher_id=current_user.id).all()
     return render_template('teacher/dashboard.html', classes=classes)
+
+
+@app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('teacher', 'admin')
+def teacher_edit_class(class_id):
+    cls = Class.query.get_or_404(class_id)
+    if cls.teacher_id != current_user.id and current_user.role != 'admin':
+        abort(403)
+    courses = Course.query.order_by(Course.name).all()
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        course_id = request.form.get('course_id', type=int)
+        if not name:
+            flash('Class name is required.', 'danger')
+        else:
+            cls.name = name
+            cls.course_id = course_id or None
+            db.session.commit()
+            flash('Class updated.', 'success')
+        return redirect(url_for('teacher_edit_class', class_id=class_id))
+
+    # Build module/exercise data for override management
+    modules_with_exercises = []
+    hidden_ids = {cme.module_exercise_id for cme in cls.module_overrides if cme.action == 'hide' and cme.module_exercise_id}
+    if cls.course_id and cls.course:
+        for mod in cls.course.modules.order_by(Module.order).all():
+            exercises = list(mod.exercises.order_by(ModuleExercise.order).all())
+            modules_with_exercises.append({'module': mod, 'exercises': exercises})
+
+    return render_template('teacher/edit_class.html', cls=cls, courses=courses,
+                           modules_with_exercises=modules_with_exercises,
+                           hidden_ids=hidden_ids,
+                           overrides=cls.module_overrides)
 
 
 @app.route('/teacher/class/new', methods=['GET', 'POST'])
@@ -1277,21 +1461,7 @@ def teacher_class_detail(class_id):
             'holistic': mode_avg(HolisticAttempt,'overall_score'),
         })
 
-    all_courses = Course.query.order_by(Course.name).all()
-    overrides = ClassModuleExercise.query.filter_by(class_id=cls.id).all()
-    modules_progress = []
-    if cls.course_id:
-        for mod in cls.course.modules.order_by(Module.order).all():
-            student_completions = {}
-            for member in cls.members:
-                exs = cur.effective_exercises(cls, mod)
-                done = cur.completion_map(member.id, cls.id)
-                completed = sum(1 for ex in exs if (ex['module_exercise_id'], ex['class_exercise_id']) in done)
-                student_completions[member.id] = {'completed': completed, 'total': len(exs)}
-            modules_progress.append({'module': mod, 'student_completions': student_completions})
-
-    return render_template('teacher/class_detail.html', cls=cls, roster=roster,
-                           all_courses=all_courses, modules_progress=modules_progress, overrides=overrides)
+    return render_template('teacher/class_detail.html', cls=cls, roster=roster)
 
 
 @app.route('/teacher/classes/<int:class_id>/set_course', methods=['POST'])
@@ -1340,7 +1510,7 @@ def teacher_add_override(class_id):
     db.session.add(cme)
     db.session.commit()
     flash('Override added.', 'success')
-    return redirect(url_for('teacher_class_detail', class_id=class_id))
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
 
 
 @app.route('/teacher/classes/<int:class_id>/overrides/<int:cme_id>/delete', methods=['POST'])
@@ -1353,7 +1523,7 @@ def teacher_delete_override(class_id, cme_id):
     db.session.delete(cme)
     db.session.commit()
     flash('Override removed.', 'success')
-    return redirect(url_for('teacher_class_detail', class_id=class_id))
+    return redirect(url_for('teacher_edit_class', class_id=class_id))
 
 
 @app.route('/teacher/join', methods=['POST'])
@@ -1501,10 +1671,14 @@ def start_module_exercise(class_id, me_id):
         'harmonic': (ChordProgression, 'harmonic_exercise', 'progression_id'),
     }
 
+    kp        = request.args.get('kp', '')  # keep_practicing flag — passed through to results
+    module_id = me.module_id
+
     if me.exercise_type == 'holistic':
         return redirect(url_for('holistic_exercise',
                                 exercise_id=me.exercise_id,
-                                class_id=class_id, me_id=me_id, cme_id=''))
+                                class_id=class_id, me_id=me_id, cme_id='',
+                                module_id=module_id, kp=kp))
 
     model_class, route_name, param_name = type_map[me.exercise_type]
     q = model_class.query.filter(_visible_exercise_filter(model_class))
@@ -1514,12 +1688,13 @@ def start_module_exercise(class_id, me_id):
     if not candidates:
         flash('No exercises match the filters for this module exercise. Ask your teacher to adjust the filters.', 'warning')
         return redirect(url_for('class_module_detail',
-                                class_id=class_id, module_id=me.module_id))
+                                class_id=class_id, module_id=module_id))
 
     chosen = random.choice(candidates)
     return redirect(url_for(route_name,
                             **{param_name: chosen.id},
-                            class_id=class_id, me_id=me_id, cme_id=''))
+                            class_id=class_id, me_id=me_id, cme_id='',
+                            module_id=module_id, kp=kp))
 
 
 # ---------------------------------------------------------------------------
