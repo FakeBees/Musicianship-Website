@@ -1508,6 +1508,133 @@ def admin_rhythm_upload():
                 pass
 
 
+# ── Holistic Exercise CMS ────────────────────────────────────────────────────
+
+@app.route('/admin/holistic')
+@login_required
+@role_required('admin')
+def admin_holistic():
+    q = request.args.get('q', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
+    diff_filter = request.args.get('difficulty', type=int)
+    query = HolisticExercise.query
+    if q:
+        query = query.filter(db.or_(HolisticExercise.name.ilike(f'%{q}%'), HolisticExercise.public_id.ilike(f'%{q}%')))
+    if tag_filter:
+        query = query.filter(HolisticExercise.tags.any(Tag.name == tag_filter))
+    if diff_filter:
+        query = query.filter_by(difficulty=diff_filter)
+    exercises = query.order_by(HolisticExercise.id.desc()).all()
+    all_tags = Tag.query.order_by(Tag.name).all()
+    return render_template('admin/holistic_list.html', exercises=exercises, all_tags=all_tags,
+                           q=q, tag_filter=tag_filter, diff_filter=diff_filter)
+
+
+@app.route('/admin/holistic/<int:ex_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_edit_holistic(ex_id):
+    h = HolisticExercise.query.get_or_404(ex_id)
+    all_tags = Tag.query.order_by(Tag.name).all()
+    if request.method == 'POST':
+        h.name           = request.form.get('name', '').strip() or h.name
+        h.description    = request.form.get('description', '').strip()
+        h.key_signature  = request.form.get('key_signature', h.key_signature)
+        h.time_signature = request.form.get('time_signature', h.time_signature)
+        h.melody_clef    = request.form.get('melody_clef', h.melody_clef)
+        h.difficulty     = request.form.get('difficulty', h.difficulty, type=int) or h.difficulty
+        h.visibility     = request.form.get('visibility', h.visibility)
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        h.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        for field in ('melody_notes_json', 'harmony_chords_json', 'extra_lines_json'):
+            raw = request.form.get(field, '').strip()
+            if raw:
+                try:
+                    json.loads(raw)
+                    setattr(h, field, raw)
+                except ValueError:
+                    flash(f'Invalid JSON in {field} — not saved.', 'warning')
+        db.session.commit()
+        flash('Exercise updated.', 'success')
+        return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+    return render_template('admin/holistic_edit.html', h=h, all_tags=all_tags)
+
+
+@app.route('/admin/holistic/<int:ex_id>/delete', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_delete_holistic(ex_id):
+    h = HolisticExercise.query.get_or_404(ex_id)
+    if request.method == 'POST':
+        db.session.delete(h)
+        db.session.commit()
+        flash(f'Exercise "{h.name}" deleted.', 'success')
+        return redirect(url_for('admin_holistic'))
+    return render_template('admin/confirm_delete.html', item_type='Holistic Exercise',
+                           item_name=h.name, cancel_url=url_for('admin_holistic'))
+
+
+@app.route('/admin/holistic/upload', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_holistic_upload():
+    if request.method == 'GET':
+        return render_template('admin/holistic_upload.html')
+    # POST — accept WAV (required) + MIDI (optional)
+    wav_file = request.files.get('wav_file')
+    if not wav_file or not wav_file.filename or not wav_file.filename.lower().endswith('.wav'):
+        flash('Please upload a .wav file.', 'danger')
+        return redirect(url_for('admin_holistic_upload'))
+    midi_file = request.files.get('midi_file')
+    if midi_file and midi_file.filename and not midi_file.filename.lower().endswith('.mid'):
+        flash('MIDI file must have a .mid extension.', 'danger')
+        return redirect(url_for('admin_holistic_upload'))
+
+    import re, shutil, tempfile
+    name = request.form.get('name', '').strip() or wav_file.filename.rsplit('.', 1)[0]
+    key  = request.form.get('key_signature', 'C').strip()
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'holistic'
+    dest_dir = os.path.join('static', 'holistic', slug)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    wav_dest = os.path.join(dest_dir, f'{slug}.wav')
+    wav_file.save(wav_dest)
+
+    melody_notes_json = '[]'
+    if midi_file and midi_file.filename:
+        from midi_to_notes import extract_notes, build_json_list
+        tmp_path = None
+        try:
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+            with os.fdopen(tmp_fd, 'wb') as tmp_f:
+                midi_file.save(tmp_f)
+            notes = extract_notes(tmp_path)
+            note_list = build_json_list(notes, key)
+            melody_notes_json = json.dumps(note_list)
+            midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+            shutil.copy(tmp_path, midi_dest)
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    h = HolisticExercise(
+        name=name,
+        folder=f'holistic/{slug}/',
+        wav_filename=f'{slug}.wav',
+        key_signature=key,
+        melody_notes_json=melody_notes_json,
+    )
+    db.session.add(h)
+    db.session.flush()
+    h.public_id = f'HOL-{h.id:04d}'
+    db.session.commit()
+    flash(f'Exercise "{h.name}" uploaded ({h.public_id}).', 'success')
+    return redirect(url_for('admin_edit_holistic', ex_id=h.id))
+
+
 # ── Harmonic (ChordProgression) CMS ─────────────────────────────────────────
 
 @app.route('/admin/harmonics')

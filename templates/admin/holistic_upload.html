@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Upload Holistic Exercise{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:560px">
+  <h2 class="mb-4">Upload Holistic Exercise</h2>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <form method="post" enctype="multipart/form-data">
+    <div class="row g-3">
+      <div class="col-12"><label class="form-label fw-semibold">Name <span class="text-muted small">(optional — defaults to filename)</span></label>
+        <input name="name" class="form-control" placeholder="e.g. Waltz in C Major"></div>
+      <div class="col-md-6"><label class="form-label fw-semibold">Key Signature</label>
+        <input name="key_signature" class="form-control" value="C" placeholder="C"></div>
+      <div class="col-12"><label class="form-label fw-semibold">WAV File <span class="text-danger">*</span></label>
+        <input type="file" name="wav_file" class="form-control" accept=".wav" required></div>
+      <div class="col-12"><label class="form-label fw-semibold">MIDI File <span class="text-muted small">(optional — parses melody notes)</span></label>
+        <input type="file" name="midi_file" class="form-control" accept=".mid"></div>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+      <button class="btn btn-primary">Upload</button>
+      <a href="{{ url_for('admin_holistic') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

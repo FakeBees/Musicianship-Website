@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Edit Exercise — {{ h.name }}{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:720px">
+  <h2 class="mb-1">Edit Holistic Exercise</h2>
+  <p class="text-muted small mb-4">{{ h.public_id }}</p>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <form method="post">
+    <div class="row g-3">
+      <div class="col-12"><label class="form-label fw-semibold">Name</label>
+        <input name="name" class="form-control" value="{{ h.name }}" required></div>
+      <div class="col-12"><label class="form-label fw-semibold">Description</label>
+        <textarea name="description" class="form-control" rows="2">{{ h.description or '' }}</textarea></div>
+      <div class="col-md-3"><label class="form-label fw-semibold">Key Signature</label>
+        <input name="key_signature" class="form-control" value="{{ h.key_signature }}"></div>
+      <div class="col-md-3"><label class="form-label fw-semibold">Time Signature</label>
+        <input name="time_signature" class="form-control" value="{{ h.time_signature }}"></div>
+      <div class="col-md-3"><label class="form-label fw-semibold">Melody Clef</label>
+        <select name="melody_clef" class="form-select">
+          {% for c in ['treble','bass','alto','tenor'] %}<option {% if h.melody_clef == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-3"><label class="form-label fw-semibold">Difficulty</label>
+        <select name="difficulty" class="form-select">
+          {% for d in [1,2,3,4,5] %}<option {% if h.difficulty == d %}selected{% endif %}>{{ d }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-4"><label class="form-label fw-semibold">Visibility</label>
+        <select name="visibility" class="form-select">
+          <option {% if h.visibility == 'public' %}selected{% endif %}>public</option>
+          <option {% if h.visibility == 'private' %}selected{% endif %}>private</option>
+        </select></div>
+      <div class="col-12"><label class="form-label fw-semibold">Tags</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for t in all_tags %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="tag_ids" value="{{ t.id }}" id="t{{ t.id }}" {% if t in h.tags %}checked{% endif %}>
+            <label class="form-check-label small" for="t{{ t.id }}">{{ t.name }}</label>
+          </div>
+          {% endfor %}
+        </div></div>
+      <div class="col-12"><label class="form-label fw-semibold">Melody Notes JSON</label>
+        <textarea name="melody_notes_json" class="form-control font-monospace small" rows="6">{{ h.melody_notes_json }}</textarea></div>
+      <div class="col-12"><label class="form-label fw-semibold">Harmony Chords JSON</label>
+        <textarea name="harmony_chords_json" class="form-control font-monospace small" rows="4">{{ h.harmony_chords_json }}</textarea></div>
+      <div class="col-12"><label class="form-label fw-semibold">Extra Lines JSON</label>
+        <textarea name="extra_lines_json" class="form-control font-monospace small" rows="4">{{ h.extra_lines_json }}</textarea></div>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+      <button class="btn btn-primary">Save Changes</button>
+      <a href="{{ url_for('admin_holistic') }}" class="btn btn-outline-secondary">Cancel</a>
+      <a href="{{ url_for('admin_delete_holistic', ex_id=h.id) }}" class="btn btn-outline-danger ms-auto">Delete</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
