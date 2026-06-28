@@ -228,7 +228,7 @@
 
       <script>
       (function(){
-        const notes = {{ preview.notes_json | safe }};
+        const notes = {{ preview.notes_json | tojson }};
         const midiUrl = "{{ preview.midi_url }}";
         if (window.renderNotation) {
           window.renderNotation('notation-container', notes, {

@@ -1365,20 +1365,22 @@ def admin_melody_upload():
             f.save(tmp_f)
         notes     = extract_notes(tmp_path)
         note_list = build_json_list(notes, key)
-        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'melody'
-        dest_dir  = os.path.join('static', 'melodic', slug)
-        os.makedirs(dest_dir, exist_ok=True)
-        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-        shutil.copy(tmp_path, midi_dest)
+        base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'melody'
         mel = Melody(
             name=name,
-            midi_filename=f'{slug}.mid',
+            midi_filename='',  # set after flush
             notes_json=json.dumps(note_list),
             key_signature=key,
         )
         db.session.add(mel)
         db.session.flush()
         mel.public_id = f'MEL-{mel.id:04d}'
+        slug = f'{base_slug}-{mel.id}'
+        dest_dir  = os.path.join(app.static_folder, 'melodic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
+        mel.midi_filename = f'melodic/{slug}/{slug}.mid'
         db.session.commit()
         flash(f'Melody "{mel.name}" uploaded ({mel.public_id}).', 'success')
         return redirect(url_for('admin_edit_melody', mel_id=mel.id))
@@ -1637,11 +1639,7 @@ def admin_rhythm_upload():
             f.save(tmp_f)
         notes     = extract_notes(tmp_path)
         note_list = build_json_list(notes, 'C')
-        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'rhythm'
-        dest_dir  = os.path.join('static', 'rhythmic', slug)
-        os.makedirs(dest_dir, exist_ok=True)
-        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-        shutil.copy(tmp_path, midi_dest)
+        base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'rhythm'
         tag_ids = request.form.getlist('tag_ids', type=int)
         rhy = Rhythm(
             name=name,
@@ -1655,6 +1653,11 @@ def admin_rhythm_upload():
         db.session.add(rhy)
         db.session.flush()
         rhy.public_id = f'RHY-{rhy.id:04d}'
+        slug = f'{base_slug}-{rhy.id}'
+        dest_dir  = os.path.join(app.static_folder, 'rhythmic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
         db.session.commit()
         flash(f'Rhythm "{rhy.name}" uploaded ({rhy.public_id}).', 'success')
         return redirect(url_for('admin_edit_rhythm', rhythm_id=rhy.id))
@@ -1751,43 +1754,64 @@ def admin_holistic_upload():
     import re, shutil, tempfile
     name = request.form.get('name', '').strip() or wav_file.filename.rsplit('.', 1)[0]
     key  = request.form.get('key_signature', 'C').strip()
-    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'holistic'
-    dest_dir = os.path.join('static', 'holistic', slug)
-    os.makedirs(dest_dir, exist_ok=True)
+    base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'holistic'
 
-    wav_dest = os.path.join(dest_dir, f'{slug}.wav')
-    wav_file.save(wav_dest)
+    # Save WAV to a temp location first; move to final slug dir after flush gives us the ID
+    wav_tmp_fd, wav_tmp_path = tempfile.mkstemp(suffix='.wav')
+    with os.fdopen(wav_tmp_fd, 'wb') as _wf:
+        wav_file.save(_wf)
 
     melody_notes_json = '[]'
+    midi_tmp_path = None
     if midi_file and midi_file.filename:
         from midi_to_notes import extract_notes, build_json_list
-        tmp_path = None
         try:
-            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+            tmp_fd, midi_tmp_path = tempfile.mkstemp(suffix='.mid')
             with os.fdopen(tmp_fd, 'wb') as tmp_f:
                 midi_file.save(tmp_f)
-            notes = extract_notes(tmp_path)
+            notes = extract_notes(midi_tmp_path)
             note_list = build_json_list(notes, key)
             melody_notes_json = json.dumps(note_list)
-            midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-            shutil.copy(tmp_path, midi_dest)
-        finally:
-            if tmp_path:
+        except Exception:
+            if midi_tmp_path:
                 try:
-                    os.unlink(tmp_path)
+                    os.unlink(midi_tmp_path)
                 except OSError:
                     pass
+            midi_tmp_path = None
+            raise
 
     h = HolisticExercise(
         name=name,
-        folder=f'holistic/{slug}/',
-        wav_filename=f'{slug}.wav',
+        folder='',  # set after flush
+        wav_filename='',  # set after flush
         key_signature=key,
         melody_notes_json=melody_notes_json,
     )
     db.session.add(h)
     db.session.flush()
     h.public_id = f'HOL-{h.id:04d}'
+    slug = f'{base_slug}-{h.id}'
+    dest_dir = os.path.join(app.static_folder, 'holistic', slug)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    wav_dest = os.path.join(dest_dir, f'{slug}.wav')
+    shutil.copy(wav_tmp_path, wav_dest)
+    try:
+        os.unlink(wav_tmp_path)
+    except OSError:
+        pass
+
+    if midi_tmp_path:
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(midi_tmp_path, midi_dest)
+        try:
+            os.unlink(midi_tmp_path)
+        except OSError:
+            pass
+
+    h.folder = f'holistic/{slug}/'
+    h.wav_filename = f'{slug}.wav'
     db.session.commit()
     flash(f'Exercise "{h.name}" uploaded ({h.public_id}).', 'success')
     return redirect(url_for('admin_edit_holistic', ex_id=h.id))
@@ -1964,15 +1988,11 @@ def admin_harmonic_upload():
         with os.fdopen(tmp_fd, 'wb') as tmp_f:
             f.save(tmp_f)
         chords_list = infer_chords_from_midi(tmp_path, key)
-        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'progression'
-        dest_dir  = os.path.join('static', 'harmonic', slug)
-        os.makedirs(dest_dir, exist_ok=True)
-        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-        shutil.copy(tmp_path, midi_dest)
+        base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'progression'
         tag_ids = request.form.getlist('tag_ids', type=int)
         prog = ChordProgression(
             name=name,
-            midi_filename=f'harmonic/{slug}/{slug}.mid',
+            midi_filename='',  # set after flush
             chords_json=json.dumps(chords_list),
             key_signature=key,
             difficulty=request.form.get('difficulty', 1, type=int),
@@ -1982,6 +2002,12 @@ def admin_harmonic_upload():
         db.session.add(prog)
         db.session.flush()
         prog.public_id = f'HRM-{prog.id:04d}'
+        slug = f'{base_slug}-{prog.id}'
+        dest_dir  = os.path.join(app.static_folder, 'harmonic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
+        prog.midi_filename = f'harmonic/{slug}/{slug}.mid'
         db.session.commit()
         flash(f'Progression "{prog.name}" uploaded ({prog.public_id}).', 'success')
         return redirect(url_for('admin_edit_harmonic', prog_id=prog.id))

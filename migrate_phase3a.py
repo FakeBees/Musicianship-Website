@@ -82,7 +82,12 @@ def run():
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
+        ALLOWED_TABLES = {'melody', 'chord_progression', 'rhythm', 'holistic_exercise'}
+        ALLOWED_COLS_RE = __import__('re').compile(r'^[a-z_]+$')
+
         def add_column(table, col, col_type):
+            assert table in ALLOWED_TABLES, f"Unexpected table: {table}"
+            assert ALLOWED_COLS_RE.match(col), f"Unexpected column: {col}"
             try:
                 cur.execute(f"PRAGMA table_info({table})")
                 cols = [r[1] for r in cur.fetchall()]
