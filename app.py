@@ -1390,6 +1390,120 @@ def admin_melody_upload():
                 pass
 
 
+# ── Harmonic (ChordProgression) CMS ─────────────────────────────────────────
+
+@app.route('/admin/harmonics')
+@login_required
+@role_required('admin')
+def admin_harmonics():
+    q = request.args.get('q', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
+    query = ChordProgression.query
+    if q:
+        query = query.filter(db.or_(ChordProgression.name.ilike(f'%{q}%'),
+                                    ChordProgression.public_id.ilike(f'%{q}%')))
+    if tag_filter:
+        query = query.filter(ChordProgression.tags.any(Tag.name == tag_filter))
+    progressions = query.order_by(ChordProgression.id.desc()).all()
+    all_tags = Tag.query.order_by(Tag.name).all()
+    return render_template('admin/harmonics.html', progressions=progressions,
+                           all_tags=all_tags, q=q, tag_filter=tag_filter)
+
+
+@app.route('/admin/harmonics/<int:prog_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_edit_harmonic(prog_id):
+    prog = ChordProgression.query.get_or_404(prog_id)
+    all_tags = Tag.query.order_by(Tag.name).all()
+    if request.method == 'POST':
+        prog.name          = request.form.get('name', '').strip() or prog.name
+        prog.description   = request.form.get('description', '').strip()
+        prog.key_signature = request.form.get('key_signature', prog.key_signature)
+        prog.difficulty    = request.form.get('difficulty', prog.difficulty, type=int) or prog.difficulty
+        prog.visibility    = request.form.get('visibility', prog.visibility)
+        prog.category      = request.form.get('category', prog.category)
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        prog.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        chords_raw = request.form.get('chords_json', '').strip()
+        if chords_raw:
+            try:
+                json.loads(chords_raw)
+                prog.chords_json = chords_raw
+            except ValueError:
+                flash('Invalid chords JSON — not saved.', 'warning')
+        db.session.commit()
+        flash('Progression updated.', 'success')
+        return redirect(url_for('admin_edit_harmonic', prog_id=prog_id))
+    return render_template('admin/harmonic_edit.html', prog=prog, all_tags=all_tags)
+
+
+@app.route('/admin/harmonics/<int:prog_id>/delete', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_delete_harmonic(prog_id):
+    prog = ChordProgression.query.get_or_404(prog_id)
+    if request.method == 'POST':
+        db.session.delete(prog)
+        db.session.commit()
+        flash(f'Progression "{prog.name}" deleted.', 'success')
+        return redirect(url_for('admin_harmonics'))
+    return render_template('admin/confirm_delete.html', item_type='Chord Progression',
+                           item_name=prog.name, cancel_url=url_for('admin_harmonics'))
+
+
+@app.route('/admin/harmonics/upload', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def admin_harmonic_upload():
+    all_tags = Tag.query.order_by(Tag.name).all()
+    if request.method == 'GET':
+        return render_template('admin/harmonic_upload.html', all_tags=all_tags)
+    # POST — parse uploaded MIDI
+    f = request.files.get('midi_file')
+    if not f or not f.filename or not f.filename.endswith('.mid'):
+        flash('Please upload a .mid file.', 'danger')
+        return redirect(url_for('admin_harmonic_upload'))
+    name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
+    key  = request.form.get('key_signature', 'C').strip()
+    from chord_utils import infer_chords_from_midi
+    import tempfile, re, shutil
+
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+        with os.fdopen(tmp_fd, 'wb') as tmp_f:
+            f.save(tmp_f)
+        chords_list = infer_chords_from_midi(tmp_path, key)
+        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'progression'
+        dest_dir  = os.path.join('static', 'harmonic', slug)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
+        shutil.copy(tmp_path, midi_dest)
+        tag_ids = request.form.getlist('tag_ids', type=int)
+        prog = ChordProgression(
+            name=name,
+            midi_filename=f'harmonic/{slug}/{slug}.mid',
+            chords_json=json.dumps(chords_list),
+            key_signature=key,
+            difficulty=request.form.get('difficulty', 1, type=int),
+            category=request.form.get('category', 'diatonic'),
+        )
+        prog.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+        db.session.add(prog)
+        db.session.flush()
+        prog.public_id = f'HAR-{prog.id:04d}'
+        db.session.commit()
+        flash(f'Progression "{prog.name}" uploaded ({prog.public_id}).', 'success')
+        return redirect(url_for('admin_edit_harmonic', prog_id=prog.id))
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
 @app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('teacher', 'admin')

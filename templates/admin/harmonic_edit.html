@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Edit Progression — {{ prog.name }}{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:720px">
+  <h2 class="mb-1">Edit Chord Progression</h2>
+  <p class="text-muted small mb-4">{{ prog.public_id }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label fw-semibold">Name</label>
+        <input name="name" class="form-control" value="{{ prog.name }}" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Description</label>
+        <textarea name="description" class="form-control" rows="2">{{ prog.description or '' }}</textarea>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Key</label>
+        <input name="key_signature" class="form-control" value="{{ prog.key_signature }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Difficulty</label>
+        <select name="difficulty" class="form-select">
+          {% for d in [1,2,3,4,5] %}
+          <option {% if prog.difficulty == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Visibility</label>
+        <select name="visibility" class="form-select">
+          <option {% if prog.visibility == 'public' %}selected{% endif %}>public</option>
+          <option {% if prog.visibility == 'private' %}selected{% endif %}>private</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Category</label>
+        <select name="category" class="form-select">
+          {% for cat in ['diatonic','chromatic','modal','blues','jazz','other'] %}
+          <option {% if prog.category == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Tags</label>
+        <div class="d-flex flex-wrap gap-2">
+          {% for t in all_tags %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="tag_ids" value="{{ t.id }}"
+                   id="tag_{{ t.id }}" {% if t in prog.tags %}checked{% endif %}>
+            <label class="form-check-label" for="tag_{{ t.id }}">{{ t.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Chords JSON <span class="text-muted fw-normal small">(edit with care)</span></label>
+        <textarea name="chords_json" class="form-control font-monospace small" rows="6">{{ prog.chords_json }}</textarea>
+      </div>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <a href="{{ url_for('admin_harmonics') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

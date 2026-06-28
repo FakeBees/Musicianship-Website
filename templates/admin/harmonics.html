@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Chord Progressions{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="mb-0">Chord Progressions</h2>
+    <a href="{{ url_for('admin_harmonic_upload') }}" class="btn btn-primary btn-sm">+ Upload MIDI</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <form class="row g-2 mb-4" method="get">
+    <div class="col-auto">
+      <input name="q" class="form-control form-control-sm" placeholder="Search name / ID…" value="{{ q }}">
+    </div>
+    <div class="col-auto">
+      <select name="tag" class="form-select form-select-sm">
+        <option value="">— All tags —</option>
+        {% for t in all_tags %}
+        <option {% if t.name == tag_filter %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-outline-secondary btn-sm">Filter</button>
+      <a href="{{ url_for('admin_harmonics') }}" class="btn btn-link btn-sm">Clear</a>
+    </div>
+  </form>
+
+  <table class="table table-sm table-hover">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Key</th>
+        <th>Category</th>
+        <th>Diff</th>
+        <th>Visibility</th>
+        <th>Tags</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in progressions %}
+      <tr>
+        <td class="text-muted small">{{ p.public_id or p.id }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.key_signature }}</td>
+        <td>{{ p.category }}</td>
+        <td>{{ p.difficulty }}</td>
+        <td>{{ p.visibility }}</td>
+        <td class="small">{{ p.tags | map(attribute='name') | join(', ') }}</td>
+        <td class="text-end">
+          <a href="{{ url_for('admin_edit_harmonic', prog_id=p.id) }}" class="btn btn-outline-primary btn-sm">Edit</a>
+          <a href="{{ url_for('admin_delete_harmonic', prog_id=p.id) }}" class="btn btn-outline-danger btn-sm">Delete</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="text-muted text-center py-4">No progressions found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
