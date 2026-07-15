@@ -23,7 +23,7 @@ app = Flask(__name__)
 # ── Database ─────────────────────────────────────────────────────────────────
 # The exercise database is bundled directly in the repository (instance/musicianship.db).
 # No external database service is needed.
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///musicianship.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///musicianship.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # ── Secret key ───────────────────────────────────────────────────────────────
@@ -375,6 +375,8 @@ def _apply_exercise_filters(query, model, params):
         query = query.filter(model.time_signature == params['time_signature'])
     if params.get('key_signature') and hasattr(model, 'key_signature'):
         query = query.filter(model.key_signature == params['key_signature'])
+    if params.get('category') and hasattr(model, 'category'):
+        query = query.filter(model.category.in_(params['category']))
     if params.get('tags'):
         for tag_name in params['tags']:
             query = query.filter(model.tags.any(Tag.name == tag_name))
@@ -967,7 +969,7 @@ def register():
             return render_template('auth/register.html')
         user = User(
             email         = email,
-            password_hash = generate_password_hash(password),
+            password_hash = generate_password_hash(password, method='pbkdf2:sha256'),
             display_name  = name or email.split('@')[0],
             role          = 'student',
         )
@@ -1122,6 +1124,7 @@ def admin_module_exercises(module_id):
             ex_id = 0  # sentinel — not used for filter-based exercises
             difficulties = request.form.getlist('difficulty')
             tags_list    = request.form.getlist('tag')
+            category_list = request.form.getlist('category')
             time_sig     = request.form.get('time_signature', '').strip()
             key_sig      = request.form.get('key_signature', '').strip()
             params_dict  = {}
@@ -1129,6 +1132,8 @@ def admin_module_exercises(module_id):
                 params_dict['difficulty'] = [int(d) for d in difficulties]
             if tags_list:
                 params_dict['tags'] = [t for t in tags_list if t]
+            if category_list and ex_type == 'harmonic':
+                params_dict['category'] = [c for c in category_list if c]
             if time_sig:
                 params_dict['time_signature'] = time_sig
             if key_sig and ex_type == 'harmonic':
@@ -1207,6 +1212,7 @@ def admin_edit_module_exercise(me_id):
     if me.exercise_type != 'holistic':
         difficulties = request.form.getlist('difficulty')
         tags_list    = request.form.getlist('tag')
+        category_list = request.form.getlist('category')
         time_sig     = request.form.get('time_signature', '').strip()
         key_sig      = request.form.get('key_signature', '').strip()
         params_dict  = {}
@@ -1214,6 +1220,8 @@ def admin_edit_module_exercise(me_id):
             params_dict['difficulty'] = [int(d) for d in difficulties]
         if tags_list:
             params_dict['tags'] = [t for t in tags_list if t]
+        if category_list and me.exercise_type == 'harmonic':
+            params_dict['category'] = [c for c in category_list if c]
         if time_sig:
             params_dict['time_signature'] = time_sig
         if key_sig and me.exercise_type == 'harmonic':
