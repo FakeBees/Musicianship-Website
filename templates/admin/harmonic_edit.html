@@ -24,6 +24,10 @@
         <input name="key_signature" class="form-control" value="{{ prog.key_signature }}">
       </div>
       <div class="col-md-3">
+        <label class="form-label fw-semibold">Tempo (BPM)</label>
+        <input name="tempo" type="number" class="form-control" required min="20" max="400" value="{{ prog.tempo }}">
+      </div>
+      <div class="col-md-3">
         <label class="form-label fw-semibold">Difficulty</label>
         <select name="difficulty" class="form-select">
           {% for d in [1,2,3,4,5] %}

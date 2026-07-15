@@ -2146,6 +2146,11 @@ def admin_edit_harmonic(prog_id):
         prog.name          = request.form.get('name', '').strip() or prog.name
         prog.description   = request.form.get('description', '').strip()
         prog.key_signature = request.form.get('key_signature', prog.key_signature)
+        tempo_raw = request.form.get('tempo', '').strip()
+        if not tempo_raw.isdigit():
+            flash('BPM is required and must be a number.', 'danger')
+            return redirect(url_for('admin_edit_harmonic', prog_id=prog_id))
+        prog.tempo          = int(tempo_raw)
         prog.difficulty    = request.form.get('difficulty', prog.difficulty, type=int) or prog.difficulty
         prog.visibility    = request.form.get('visibility', prog.visibility)
         prog.category      = request.form.get('category', prog.category)
