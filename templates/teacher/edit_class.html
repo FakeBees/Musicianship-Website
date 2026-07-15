@@ -95,7 +95,7 @@
               <span {% if is_hidden %}class="text-muted text-decoration-line-through"{% endif %}>
                 {{ ex.name or ex.exercise_type }}
               </span>
-              <span class="badge bg-secondary ms-2">{{ ex.exercise_type }}</span>
+              <span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }} ms-2">{{ ex.exercise_type }}</span>
               {% if is_hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
             </div>
             {% if is_hidden %}

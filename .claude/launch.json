@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Flask Dev",
-      "runtimeExecutable": "python3",
+      "runtimeExecutable": ".venv/bin/python3",
       "runtimeArgs": ["app.py"],
       "port": 5000,
       "autoPort": true

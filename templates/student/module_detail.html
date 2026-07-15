@@ -21,7 +21,7 @@
       <a href="{{ ex.start_url }}" class="card h-100 text-decoration-none{% if ex.completed %} border-success{% endif %}">
         <div class="card-body d-flex flex-column">
           <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge bg-secondary">
+            <span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }}">
               {% if ex.exercise_type == 'melody' %}Melodic
               {% elif ex.exercise_type == 'rhythm' %}Rhythmic
               {% elif ex.exercise_type == 'harmonic' %}Harmonic

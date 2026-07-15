@@ -113,6 +113,10 @@ main {
   background-color: #fd7e14 !important;
   color: #fff !important;
 }
+.bg-purple {
+  background-color: #6f42c1 !important;
+  color: #fff !important;
+}
 
 /* ===========================
    Difficulty star buttons (home page)

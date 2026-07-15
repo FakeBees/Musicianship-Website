@@ -172,7 +172,7 @@
                 <label class="fw-semibold d-block mb-2">Category</label>
                 <div class="d-flex flex-wrap gap-2">
                   {% for cat in harmonic_categories %}
-                  <input type="checkbox" class="btn-check har-check" name="tag" id="h-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
+                  <input type="checkbox" class="btn-check har-check" name="category" id="h-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
                   <label class="btn btn-outline-secondary btn-sm fw-normal" for="h-cat-{{ cat }}">
                     {% if cat == 'diatonic' %}Diatonic
                     {% elif cat == 'chromatic' %}Chromatic
@@ -229,7 +229,7 @@
     <tr>
       <td>{{ ex.order }}</td>
       <td>{{ ex.name }}</td>
-      <td><span class="badge bg-secondary">{{ ex.exercise_type }}</span></td>
+      <td><span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }}">{{ ex.exercise_type }}</span></td>
       <td class="small">
         {% if ex.exercise_type == 'holistic' %}
           {% set hol = holistics | selectattr('id', 'equalto', ex.exercise_id) | first %}
@@ -264,7 +264,7 @@
       <td>
         <div class="d-flex gap-1">
           <button class="btn btn-sm btn-outline-secondary"
-                  onclick="openEditModal({{ {'id': ex.id, 'name': ex.name, 'order': ex.order, 'exercise_type': ex.exercise_type, 'params_json': ex.params_json, 'completion_criterion_json': ex.completion_criterion_json} | tojson }})">Edit</button>
+                  onclick='openEditModal({{ {"id": ex.id, "name": ex.name, "order": ex.order, "exercise_type": ex.exercise_type, "params_json": ex.params_json, "completion_criterion_json": ex.completion_criterion_json} | tojson }})'>Edit</button>
           <form method="post" action="{{ url_for('admin_duplicate_module_exercise', me_id=ex.id) }}">
             <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
           </form>
@@ -351,6 +351,23 @@
               <label class="fw-semibold d-block mb-2">Key Signature <span class="text-muted fw-normal small">(harmonic only)</span></label>
               <input name="key_signature" id="edit-key-sig" class="form-control form-control-sm" style="max-width:180px" placeholder="e.g. C, G, Bb">
             </div>
+            {% if harmonic_categories %}
+            <div class="mb-3 d-none" id="edit-category-row">
+              <label class="fw-semibold d-block mb-2">Category <span class="text-muted fw-normal small">(harmonic only)</span></label>
+              <div class="d-flex flex-wrap gap-2">
+                {% for cat in harmonic_categories %}
+                <input type="checkbox" class="btn-check" name="category" id="edit-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
+                <label class="btn btn-outline-secondary btn-sm fw-normal" for="edit-cat-{{ cat }}">
+                  {% if cat == 'diatonic' %}Diatonic
+                  {% elif cat == 'chromatic' %}Chromatic
+                  {% elif cat == 'mode_mixture' %}Mode Mixture
+                  {% elif cat == 'modal' %}Modal
+                  {% else %}{{ cat }}{% endif %}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
             <div class="mb-2">
               <label class="fw-semibold d-block mb-2">Topics</label>
               <div class="d-flex flex-wrap gap-2" id="edit-tags-container">
@@ -520,17 +537,13 @@ function countHar(cats, diffs, tags) {
   }).length;
 }
 function updateHarmonic() {
-  const cats = getHarSel('tag'), diffs = getHarSel('difficulty'), tg = [];
-  // for harmonic, tags and categories share name="tag" — category values are from harmonic_categories
-  const catValues = new Set({{ harmonic_categories | tojson }});
-  const selCats = cats.filter(v => catValues.has(v));
-  const selTags = cats.filter(v => !catValues.has(v));
-  const total = countHar(selCats, diffs, selTags);
+  const cats = getHarSel('category'), diffs = getHarSel('difficulty'), tg = getHarSel('tag');
+  const total = countHar(cats, diffs, tg);
   const lbl = document.getElementById('har-match-count');
-  lbl.textContent = (cats.length||diffs.length)
+  lbl.textContent = (cats.length||diffs.length||tg.length)
     ? `${total} matching ${total===1?'progression':'progressions'}`
     : `${HAR_DATA.length} progressions available`;
-  lbl.className = 'small mt-2 ' + (total > 0 || !(cats.length||diffs.length) ? 'text-muted' : 'text-danger fw-semibold');
+  lbl.className = 'small mt-2 ' + (total > 0 || !(cats.length||diffs.length||tg.length) ? 'text-muted' : 'text-danger fw-semibold');
 }
 document.querySelectorAll('#harmonic-settings .har-check').forEach(cb => cb.addEventListener('change', updateHarmonic));
 
@@ -571,6 +584,7 @@ function openEditModal(ex) {
   document.getElementById('edit-filter-settings').classList.toggle('d-none', isHolistic);
   document.getElementById('edit-holistic-info').classList.toggle('d-none', !isHolistic);
   document.getElementById('edit-key-sig-row').classList.toggle('d-none', ex.exercise_type !== 'harmonic');
+  document.getElementById('edit-category-row')?.classList.toggle('d-none', ex.exercise_type !== 'harmonic');
 
   // parse params
   let params = {};
@@ -594,6 +608,10 @@ function openEditModal(ex) {
   }
   (params.tags || []).forEach(t => {
     const cb = document.getElementById('edit-tag-' + t.replace(':', '_').replace(' ', '_'));
+    if (cb) cb.checked = true;
+  });
+  (params.category || []).forEach(c => {
+    const cb = document.getElementById('edit-cat-' + c);
     if (cb) cb.checked = true;
   });
   document.getElementById('edit-key-sig').value = params.key_signature || '';
