@@ -34,6 +34,10 @@
       </select>
     </div>
     <div class="mb-3">
+      <label class="form-label fw-semibold">Tempo (BPM)</label>
+      <input name="tempo" type="number" class="form-control" required min="20" max="400" placeholder="e.g. 80" style="max-width:160px">
+    </div>
+    <div class="mb-3">
       <label class="form-label fw-semibold">Difficulty</label>
       <select name="difficulty" class="form-select" style="max-width:120px">
         {% for d in [1,2,3,4,5] %}<option>{{ d }}</option>{% endfor %}

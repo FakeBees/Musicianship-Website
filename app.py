@@ -2192,6 +2192,10 @@ def admin_harmonic_upload():
         return redirect(url_for('admin_harmonic_upload'))
     name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
     key  = request.form.get('key_signature', 'C').strip()
+    tempo_raw = request.form.get('tempo', '').strip()
+    if not tempo_raw.isdigit():
+        flash('BPM is required and must be a number.', 'danger')
+        return redirect(url_for('admin_harmonic_upload'))
     from chord_utils import infer_chords_from_midi
     import tempfile, re, shutil
 
@@ -2210,6 +2214,7 @@ def admin_harmonic_upload():
             key_signature=key,
             difficulty=request.form.get('difficulty', 1, type=int),
             category=request.form.get('category', 'diatonic'),
+            tempo=int(tempo_raw),
         )
         prog.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
         db.session.add(prog)
