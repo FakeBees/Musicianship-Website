@@ -853,23 +853,21 @@ def holistic_index():
 @app.route('/holistic/exercise/<int:exercise_id>')
 def holistic_exercise(exercise_id):
     exercise = HolisticExercise.query.get_or_404(exercise_id)
-    chords   = exercise.harmony_chords
-    unlock_seventh    = any(c.get('seventh')    for c in chords)
-    unlock_extensions = any(c.get('extensions') for c in chords)
-    unlock_sus        = any(c.get('sus')        for c in chords)
-    extra_lines_display = [
-        {'key':   l['file'].replace('.mid', ''),
-         'type':  l['type'],
-         'label': l['label'],
-         'clef':  l.get('clef', 'treble')}
-        for l in exercise.extra_lines
+    harmonic_lines = [l for l in exercise.lines if l.line_type == 'harmonic']
+    all_chords = [c for l in harmonic_lines for c in l.content]
+    unlock_seventh    = any(c.get('seventh')    for c in all_chords)
+    unlock_extensions = any(c.get('extensions') for c in all_chords)
+    unlock_sus        = any(c.get('sus')        for c in all_chords)
+    lines_display = [
+        {'id': l.id, 'key': str(l.id), 'type': l.line_type, 'label': l.name, 'clef': l.clef or 'treble'}
+        for l in exercise.lines
     ]
     return render_template('holistic_exercise.html',
                            exercise=exercise,
                            unlock_seventh=unlock_seventh,
                            unlock_extensions=unlock_extensions,
                            unlock_sus=unlock_sus,
-                           extra_lines_display=extra_lines_display)
+                           lines_display=lines_display)
 
 
 @app.route('/holistic/submit/<int:exercise_id>', methods=['POST'])

@@ -81,23 +81,13 @@
   </div>
   <div class="card-body py-2">
     <div class="staff-toggle-row">
-      <div class="form-check form-check-inline">
-        <input class="form-check-input staff-visibility-check" type="checkbox"
-               id="toggle-melody" data-line-key="melody" checked>
-        <label class="form-check-label" for="toggle-melody">Melody</label>
-      </div>
-      {% for line in extra_lines_display %}
+      {% for line in lines_display %}
         <div class="form-check form-check-inline">
           <input class="form-check-input staff-visibility-check" type="checkbox"
                  id="toggle-{{ line.key }}" data-line-key="{{ line.key }}" checked>
           <label class="form-check-label" for="toggle-{{ line.key }}">{{ line.label }}</label>
         </div>
       {% endfor %}
-      <div class="form-check form-check-inline">
-        <input class="form-check-input staff-visibility-check" type="checkbox"
-               id="toggle-harmony" data-line-key="harmony" checked>
-        <label class="form-check-label" for="toggle-harmony">Harmony</label>
-      </div>
     </div>
   </div>
 </div>
@@ -109,12 +99,12 @@
   </div>
   <div class="card-body p-3">
 
-    <!-- Primary melody stave -->
-    <div id="staff-section-melody" class="mb-4">
+    {% for line in lines_display %}
+    <div id="staff-section-{{ line.key }}" class="mb-4">
+      {% if line.type in ('melody', 'rhythm') %}
       <div class="d-flex align-items-center mb-1 gap-2">
-        <span class="staff-label fw-semibold">Melody</span>
-        <!-- Duration toolbar for melody -->
-        <div class="d-flex flex-wrap gap-1 align-items-center" data-line-key="melody">
+        <span class="staff-label fw-semibold">{{ line.label }}</span>
+        <div class="d-flex flex-wrap gap-1 align-items-center" data-line-key="{{ line.key }}">
           <button class="btn btn-outline-primary btn-sm holistic-dur-btn" data-dur="16">16th</button>
           <button class="btn btn-outline-primary btn-sm holistic-dur-btn" data-dur="8">8th</button>
           <button class="btn btn-outline-primary btn-sm holistic-dur-btn active" data-dur="q">Qtr</button>
@@ -137,97 +127,50 @@
           </div>
         </div>
       </div>
-      <div id="melody-container"
-           class="notation-area border rounded"
-           data-stave-line-key="melody"
-           data-clef="{{ exercise.melody_clef }}"></div>
-    </div>
-
-    <!-- Extra lines -->
-    {% for line in extra_lines_display %}
-    <div id="staff-section-{{ line.key }}" class="mb-4">
-      <div class="d-flex align-items-center mb-1 gap-2">
-        <span class="staff-label fw-semibold">{{ line.label }}</span>
-        <div class="d-flex flex-wrap gap-1 align-items-center" data-line-key="{{ line.key }}">
-          <button class="btn btn-outline-primary btn-sm holistic-dur-btn" data-dur="16">16th</button>
-          <button class="btn btn-outline-primary btn-sm holistic-dur-btn" data-dur="8">8th</button>
-          <button class="btn btn-outline-primary btn-sm holistic-dur-btn active" data-dur="q">Qtr</button>
-          <button class="btn btn-outline-primary btn-sm holistic-dur-btn" data-dur="h">Half</button>
-          <button class="btn btn-outline-primary btn-sm holistic-dur-btn active" data-dur="w">Whole</button>
-          <button class="btn btn-outline-secondary btn-sm holistic-dot-btn ms-1">• Dot</button>
-          <button class="btn btn-outline-secondary btn-sm holistic-rest-btn ms-1">Rest</button>
-          <button class="btn btn-outline-warning btn-sm holistic-undo-btn ms-2">
-            <i class="bi bi-backspace"></i> Undo
-          </button>
-          <button class="btn btn-outline-danger btn-sm holistic-clear-btn">
-            <i class="bi bi-trash"></i> Clear
-          </button>
-          <div class="holistic-sel-controls d-flex flex-wrap gap-1 align-items-center ms-2" style="display:none">
-            <span class="small fw-semibold">Selected:</span>
-            <button class="btn btn-outline-secondary btn-sm holistic-sel-sharp">&#9839;</button>
-            <button class="btn btn-outline-secondary btn-sm holistic-sel-flat">&#9837;</button>
-            <button class="btn btn-outline-secondary btn-sm holistic-sel-natural">&#9838;</button>
-            <button class="btn btn-outline-secondary btn-sm holistic-sel-deselect">&#10005;</button>
-          </div>
-        </div>
-      </div>
       <div id="{{ line.key }}-container"
            class="notation-area border rounded"
            data-stave-line-key="{{ line.key }}"
            data-clef="{{ line.clef }}"></div>
-    </div>
-    {% endfor %}
-
-    <!-- Harmony row -->
-    <div id="staff-section-harmony">
+      {% else %}
       <hr class="my-3">
       <div class="d-flex align-items-center mb-2 gap-2">
-        <span class="staff-label fw-semibold">Harmony</span>
-        <!-- Notation toggle -->
+        <span class="staff-label fw-semibold">{{ line.label }}</span>
         <span class="fw-semibold small me-1">Notation:</span>
-        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn active" data-mode="roman">Roman</button>
-        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn" data-mode="nashville">Nashville</button>
-        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn" data-mode="lead">Lead Sheet</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn active" data-mode="roman" data-harm-line="{{ line.key }}">Roman</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn" data-mode="nashville" data-harm-line="{{ line.key }}">Nashville</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-notation-btn" data-mode="lead" data-harm-line="{{ line.key }}">Lead Sheet</button>
       </div>
-
-      <!-- Chord duration selector -->
       <div class="d-flex flex-wrap gap-1 align-items-center mb-2">
         <span class="small text-muted me-1">Duration:</span>
-        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="w">Whole</button>
-        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn active" data-dur="h">Half</button>
-        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="q">Qtr</button>
-        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="8">8th</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="w" data-harm-line="{{ line.key }}">Whole</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn active" data-dur="h" data-harm-line="{{ line.key }}">Half</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="q" data-harm-line="{{ line.key }}">Qtr</button>
+        <button class="btn btn-outline-secondary btn-sm holistic-harm-dur-btn" data-dur="8" data-harm-line="{{ line.key }}">8th</button>
       </div>
-
-      <!-- Diatonic palette -->
       <div class="mb-2">
         <span class="small text-muted d-block mb-1">Diatonic Chords — click to add:</span>
-        <div id="holistic-diatonic-palette" class="d-flex flex-wrap gap-2"></div>
+        <div id="holistic-diatonic-palette-{{ line.key }}" class="d-flex flex-wrap gap-2"></div>
       </div>
-
-      <!-- Modifier panel -->
-      <div id="holistic-modifier-panel" class="mb-2">
+      <div id="holistic-modifier-panel-{{ line.key }}" class="mb-2">
         <p class="text-muted small mb-0">Select a chord block below to modify it.</p>
       </div>
-
-      <!-- Chord building area -->
       <div class="mb-1">
-        <span class="small text-muted d-block mb-1">Your Harmony Answer:</span>
-        <div id="holistic-harmony-area"
+        <span class="small text-muted d-block mb-1">Your {{ line.label }} Answer:</span>
+        <div id="holistic-harmony-area-{{ line.key }}"
              class="d-flex flex-wrap gap-2 min-height-72 align-items-center p-2 bg-light rounded border border-dashed"
              style="min-height:72px; border-style:dashed !important;"></div>
       </div>
-
-      <!-- Undo / Clear -->
       <div class="d-flex gap-2 mt-2">
-        <button id="btn-harm-undo" class="btn btn-outline-warning btn-sm">
+        <button class="btn btn-outline-warning btn-sm btn-harm-undo" data-harm-line="{{ line.key }}">
           <i class="bi bi-backspace me-1"></i>Undo Last
         </button>
-        <button id="btn-harm-clear" class="btn btn-outline-danger btn-sm">
+        <button class="btn btn-outline-danger btn-sm btn-harm-clear" data-harm-line="{{ line.key }}">
           <i class="bi bi-trash me-1"></i>Clear All
         </button>
       </div>
+      {% endif %}
     </div>
+    {% endfor %}
 
   </div>
 </div>
@@ -262,8 +205,7 @@
   const TIME_SIG_TOP      = {{ exercise.time_signature.split('/')[0] }};
   const TIME_SIG_BOTTOM   = {{ exercise.time_signature.split('/')[1] }};
   const NUM_MEASURES      = {{ exercise.num_measures }};
-  const MELODY_CLEF       = "{{ exercise.melody_clef }}";
-  const EXTRA_LINES       = {{ extra_lines_display | tojson }};
+  const LINES_DISPLAY     = {{ lines_display | tojson }};
   const UNLOCK_SEVENTH    = {{ unlock_seventh | tojson }};
   const UNLOCK_EXTENSIONS = {{ unlock_extensions | tojson }};
   const UNLOCK_SUS        = {{ unlock_sus | tojson }};
