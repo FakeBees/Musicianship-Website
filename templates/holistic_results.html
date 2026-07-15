@@ -41,42 +41,31 @@
         <div class="text-muted small">Overall</div>
       </div>
     </div>
-    <div class="row text-center g-3">
-      <div class="col-6 col-md-3">
-        <div class="fs-4 fw-bold text-primary">{{ scores.get('melody_pitch', 0) | int }}%</div>
-        <div class="text-muted small">Melody Pitch</div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="fs-4 fw-bold text-info">{{ scores.get('melody_duration', 0) | int }}%</div>
-        <div class="text-muted small">Melody Rhythm</div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="fs-4 fw-bold text-success">{{ scores.get('harmony_letter', 0) | int }}%</div>
-        <div class="text-muted small">Harmony Letter</div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="fs-4 fw-bold text-warning">{{ scores.get('harmony_quality', 0) | int }}%</div>
-        <div class="text-muted small">Harmony Quality</div>
-      </div>
-    </div>
-
-    <!-- Extra line scores -->
-    {% for line in exercise.extra_lines %}
-      {% set lkey = line.file.replace('.mid','') %}
+    <!-- Per-line scores -->
+    {% for line in exercise.lines %}
       <div class="row text-center g-3 mt-1">
-        {% if line.type == 'melody' %}
-          <div class="col-6">
-            <div class="fs-5 fw-bold text-primary">{{ scores.get(lkey + '_pitch', 0) | int }}%</div>
-            <div class="text-muted small">{{ line.label }} Pitch</div>
+        {% if line.line_type == 'melody' %}
+          <div class="col-6 col-md-3">
+            <div class="fs-4 fw-bold text-primary">{{ scores.get(line.id ~ '_pitch', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.name }} Pitch</div>
           </div>
-          <div class="col-6">
-            <div class="fs-5 fw-bold text-info">{{ scores.get(lkey + '_duration', 0) | int }}%</div>
-            <div class="text-muted small">{{ line.label }} Rhythm</div>
+          <div class="col-6 col-md-3">
+            <div class="fs-4 fw-bold text-info">{{ scores.get(line.id ~ '_duration', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.name }} Rhythm</div>
           </div>
-        {% elif line.type == 'rhythm' %}
-          <div class="col-12">
-            <div class="fs-5 fw-bold text-warning">{{ scores.get(lkey + '_duration', 0) | int }}%</div>
-            <div class="text-muted small">{{ line.label }} Rhythm</div>
+        {% elif line.line_type == 'rhythm' %}
+          <div class="col-6 col-md-3">
+            <div class="fs-4 fw-bold text-warning">{{ scores.get(line.id ~ '_duration', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.name }} Rhythm</div>
+          </div>
+        {% elif line.line_type == 'harmonic' %}
+          <div class="col-6 col-md-3">
+            <div class="fs-4 fw-bold text-success">{{ scores.get(line.id ~ '_letter', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.name }} Letter</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="fs-4 fw-bold text-warning">{{ scores.get(line.id ~ '_quality', 0) | int }}%</div>
+            <div class="text-muted small">{{ line.name }} Quality</div>
           </div>
         {% endif %}
       </div>
@@ -118,20 +107,16 @@
     <i class="bi bi-check-circle me-2"></i>Correct Answer
   </div>
   <div class="card-body">
-    <p class="small text-muted mb-2">Melody</p>
-    <div id="correct-melody-staff" class="notation-area border rounded mb-3"
-         style="min-height:120px;"></div>
-
-    {% for line in exercise.extra_lines %}
-      {% set lkey = line.file.replace('.mid','') %}
-      <p class="small text-muted mb-2">{{ line.label }}</p>
-      <div id="correct-{{ lkey }}-staff" class="notation-area border rounded mb-3"
-           style="min-height:120px;"></div>
+    {% for line in exercise.lines %}
+      <p class="small text-muted mb-2">{{ line.name }}</p>
+      {% if line.line_type in ('melody', 'rhythm') %}
+        <div id="correct-{{ line.id }}-staff" class="notation-area border rounded mb-3"
+             style="min-height:120px;"></div>
+      {% elif line.line_type == 'harmonic' %}
+        <div id="correct-harmony-{{ line.id }}-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-3"
+             style="min-height:64px;"></div>
+      {% endif %}
     {% endfor %}
-
-    <p class="small text-muted mb-2">Harmony</p>
-    <div id="correct-harmony-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-1"
-         style="min-height:64px;"></div>
   </div>
 </div>
 
@@ -146,20 +131,16 @@
       <span class="badge bg-warning text-dark">Wrong Duration</span>
       <span class="badge bg-danger text-white">Wrong Pitch or Both Wrong</span>
     </div>
-    <p class="small text-muted mb-2">Melody</p>
-    <div id="user-melody-staff" class="notation-area border rounded mb-3"
-         style="min-height:120px;"></div>
-
-    {% for line in exercise.extra_lines %}
-      {% set lkey = line.file.replace('.mid','') %}
-      <p class="small text-muted mb-2">{{ line.label }}</p>
-      <div id="user-{{ lkey }}-staff" class="notation-area border rounded mb-3"
-           style="min-height:120px;"></div>
+    {% for line in exercise.lines %}
+      <p class="small text-muted mb-2">{{ line.name }}</p>
+      {% if line.line_type in ('melody', 'rhythm') %}
+        <div id="user-{{ line.id }}-staff" class="notation-area border rounded mb-3"
+             style="min-height:120px;"></div>
+      {% elif line.line_type == 'harmonic' %}
+        <div id="user-harmony-{{ line.id }}-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-3"
+             style="min-height:64px;"></div>
+      {% endif %}
     {% endfor %}
-
-    <p class="small text-muted mb-2">Harmony</p>
-    <div id="user-harmony-blocks" class="d-flex flex-wrap gap-2 p-2 bg-light rounded border mb-1"
-         style="min-height:64px;"></div>
   </div>
 </div>
 
@@ -190,14 +171,14 @@
 const KEY_SIGNATURE   = "{{ exercise.key_signature }}";
 const TIME_SIG_TOP    = {{ exercise.time_signature.split('/')[0] }};
 const TIME_SIG_BOTTOM = {{ exercise.time_signature.split('/')[1] }};
-const CLEF            = "{{ exercise.melody_clef }}";
+let CLEF              = 'treble';  // reassigned per-line before each stave render below
 
-const CORRECT_MELODY  = {{ exercise.melody_notes_json | tojson }};
-const CORRECT_HARMONY = {{ exercise.harmony_chords_json | tojson }};
-const CORRECT_EXTRA   = {{ exercise.extra_lines_json | tojson }};  // [{type,file,label,clef,notes}]
+// Per-line correct content (index-aligned with LINES_META) and per-line metadata.
+const CORRECT_LINES = {{ exercise.lines | map(attribute='content') | list | tojson }};
+const LINES_META     = [{% for line in exercise.lines %}{id: {{ line.id }}, type: "{{ line.line_type }}", label: {{ line.name | tojson }}, clef: {{ (line.clef or 'treble') | tojson }}}{{ ", " if not loop.last }}{% endfor %}];
 
-const USER_DATA   = {{ attempt.user_data_json | tojson }};    // {melody:[...], harmony:[...], ...}
-const SCORES      = {{ attempt.scores_json | tojson }};
+const USER_DATA   = {{ attempt.user_data | tojson }};    // {"<line_id>": [...notes or chords...], ...}
+const SCORES      = {{ attempt.scores | tojson }};
 
 const EXERCISE_BPM = {{ exercise.tempo }};
 
@@ -357,42 +338,58 @@ async function playMidiAnswer(melodyNotes, harmonyChords) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Render correct answer staves
-  if (typeof window.renderReadOnlyStave === 'function') {
-    window.renderReadOnlyStave('correct-melody-staff', CORRECT_MELODY);
+  // Build an id-keyed lookup of each line's correct content (CORRECT_LINES is
+  // index-aligned with LINES_META since both derive from exercise.lines).
+  const CORRECT_BY_ID = {};
+  LINES_META.forEach((line, i) => { CORRECT_BY_ID[String(line.id)] = CORRECT_LINES[i] || []; });
 
-    CORRECT_EXTRA.forEach(line => {
-      const lkey = line.file.replace('.mid', '');
-      const cid  = 'correct-' + lkey + '-staff';
-      if (document.getElementById(cid)) {
-        window.renderReadOnlyStave(cid, line.notes || []);
+  // Render correct + user answer staves / chord-blocks, one section per line.
+  LINES_META.forEach(line => {
+    const correctContent = CORRECT_BY_ID[String(line.id)] || [];
+    const userContent    = USER_DATA[String(line.id)] || [];
+
+    if (line.type === 'melody' || line.type === 'rhythm') {
+      CLEF = line.clef || 'treble';  // read dynamically by notation.js at render time
+
+      const correctId = 'correct-' + line.id + '-staff';
+      if (typeof window.renderReadOnlyStave === 'function' && document.getElementById(correctId)) {
+        window.renderReadOnlyStave(correctId, correctContent);
+      }
+
+      const userId = 'user-' + line.id + '-staff';
+      if (typeof window.renderStyledStave === 'function' && document.getElementById(userId)) {
+        const styleMap = buildStyleMap(correctContent, userContent);
+        window.renderStyledStave(userId, userContent, styleMap);
+      }
+    } else if (line.type === 'harmonic') {
+      renderChordBlockList('correct-harmony-' + line.id + '-blocks', correctContent, null);
+      renderChordBlockList('user-harmony-' + line.id + '-blocks', userContent, correctContent);
+    }
+  });
+
+  // Concatenate all melodic (melody/rhythm) lines' notes and all harmonic
+  // lines' chords, in line order, for the "play whole answer" MIDI buttons.
+  function collectMelodic(dataById) {
+    const notes = [];
+    LINES_META.forEach(line => {
+      if (line.type === 'melody' || line.type === 'rhythm') {
+        notes.push(...(dataById[String(line.id)] || []));
       }
     });
+    return notes;
   }
-
-  // Render correct harmony blocks
-  renderChordBlockList('correct-harmony-blocks', CORRECT_HARMONY, null);
-
-  // Render user answer staves with colour coding
-  const userMelody = USER_DATA['melody'] || [];
-  if (typeof window.renderStyledStave === 'function') {
-    const styleMap = buildStyleMap(CORRECT_MELODY, userMelody);
-    window.renderStyledStave('user-melody-staff', userMelody, styleMap);
-
-    CORRECT_EXTRA.forEach(line => {
-      const lkey = line.file.replace('.mid', '');
-      const uid  = 'user-' + lkey + '-staff';
-      if (document.getElementById(uid)) {
-        const uNotes    = USER_DATA[lkey] || [];
-        const correctN  = line.notes || [];
-        const sm        = buildStyleMap(correctN, uNotes);
-        window.renderStyledStave(uid, uNotes, sm);
+  function collectHarmonic(dataById) {
+    const chords = [];
+    LINES_META.forEach(line => {
+      if (line.type === 'harmonic') {
+        chords.push(...(dataById[String(line.id)] || []));
       }
     });
+    return chords;
   }
 
-  // Render user harmony blocks with colour coding
-  renderChordBlockList('user-harmony-blocks', USER_DATA['harmony'] || [], CORRECT_HARMONY);
+  const CORRECT_MELODIC  = collectMelodic(CORRECT_BY_ID);
+  const CORRECT_HARMONIC = collectHarmonic(CORRECT_BY_ID);
 
   // MIDI playback
   const btnCorrect = document.getElementById('btn-play-correct-midi');
@@ -410,10 +407,10 @@ document.addEventListener('DOMContentLoaded', () => {
       btnCorrect.disabled = true;
       if (btnUser) btnUser.disabled = true;
       if (btnStop) btnStop.disabled = false;
-      const voiced = getChordVoicing(CORRECT_HARMONY);
+      const voiced = getChordVoicing(CORRECT_HARMONIC);
       Tone.Transport.cancel();
-      if (CORRECT_MELODY && CORRECT_MELODY.length) {
-        await window.playNoteArray(CORRECT_MELODY, EXERCISE_BPM, null);
+      if (CORRECT_MELODIC && CORRECT_MELODIC.length) {
+        await window.playNoteArray(CORRECT_MELODIC, EXERCISE_BPM, null);
       }
       if (voiced && voiced.length) {
         await window.playChordArray(voiced, EXERCISE_BPM, resetPlayBtns);
@@ -428,8 +425,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnCorrect) btnCorrect.disabled = true;
       btnUser.disabled = true;
       if (btnStop) btnStop.disabled = false;
-      const userMel  = USER_DATA['melody'] || [];
-      const userHarm = USER_DATA['harmony'] || [];
+      const userMel  = collectMelodic(USER_DATA);
+      const userHarm = collectHarmonic(USER_DATA);
       const voiced   = getChordVoicing(userHarm);
       Tone.Transport.cancel();
       if (userMel.length) {

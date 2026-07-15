@@ -1181,14 +1181,16 @@ async function submitHolisticAttempt() {
 
   const lines = {};
 
-  // Collect melody line notes
+  // Collect melody/rhythm line notes
   document.querySelectorAll('[data-stave-line-key]').forEach(el => {
     const lk = el.dataset.staveLineKey;
     lines[lk] = lineNotes[lk] || [];
   });
 
-  // Harmony
-  lines['harmony'] = harmonyBlocks;
+  // Collect each harmonic line's blocks
+  LINES_DISPLAY.filter(l => l.type === 'harmonic').forEach(l => {
+    lines[l.key] = getHarmonyState(l.key).blocks;
+  });
 
   try {
     const response = await fetch('/holistic/submit/' + EXERCISE_ID, {
@@ -1220,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initVisibilityToggles();
   initHarmonyPanel();
 
-  // Render all melody stave containers
+  // Render every melody/rhythm stave container (harmonic lines have no stave — handled by initHarmonyPanel)
   document.querySelectorAll('[data-stave-line-key]').forEach(containerEl => {
     const lk   = containerEl.dataset.staveLineKey;
     const clef = containerEl.dataset.clef || 'treble';
