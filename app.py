@@ -6,7 +6,7 @@ import string as _string
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
-                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, \
+                   ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, HolisticLine, \
                    GenProgression, Container, \
                    User, Class, School, Course, Module, ModuleExercise, \
                    ClassModuleExercise, ModuleCompletion, SchoolMembership
@@ -1907,23 +1907,94 @@ def admin_edit_holistic(ex_id):
             return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
         h.time_signature = time_sig
         h.tempo          = int(tempo_raw)
-        h.melody_clef    = request.form.get('melody_clef', h.melody_clef)
         h.difficulty     = request.form.get('difficulty', h.difficulty, type=int) or h.difficulty
         h.visibility     = request.form.get('visibility', h.visibility)
         tag_ids = request.form.getlist('tag_ids', type=int)
         h.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
-        for field in ('melody_notes_json', 'harmony_chords_json', 'extra_lines_json'):
-            raw = request.form.get(field, '').strip()
-            if raw:
-                try:
-                    json.loads(raw)
-                    setattr(h, field, raw)
-                except ValueError:
-                    flash(f'Invalid JSON in {field} — not saved.', 'warning')
         db.session.commit()
         flash('Exercise updated.', 'success')
         return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
-    return render_template('admin/holistic_edit.html', h=h, all_tags=all_tags)
+    lines = h.lines
+    return render_template('admin/holistic_edit.html', h=h, all_tags=all_tags, lines=lines)
+
+
+@app.route('/admin/holistic/<int:ex_id>/lines/add', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_add_holistic_line(ex_id):
+    h = HolisticExercise.query.get_or_404(ex_id)
+    name = request.form.get('name', '').strip()
+    line_type = request.form.get('line_type', '').strip()
+    clef = request.form.get('clef', 'treble').strip() if line_type == 'melody' else None
+    f = request.files.get('midi_file')
+    if not name or line_type not in ('melody', 'rhythm', 'harmonic'):
+        flash('Line name and a valid type are required.', 'danger')
+        return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+    if not f or not f.filename or not f.filename.lower().endswith('.mid'):
+        flash('Please upload a .mid file for this line.', 'danger')
+        return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+
+    import tempfile, shutil
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mid')
+    try:
+        with os.fdopen(tmp_fd, 'wb') as tmp_f:
+            f.save(tmp_f)
+        if line_type == 'harmonic':
+            from chord_utils import infer_chords_from_midi
+            content = infer_chords_from_midi(tmp_path, h.key_signature)
+        else:
+            from midi_to_notes import extract_notes, build_json_list
+            notes = extract_notes(tmp_path)
+            content = build_json_list(notes, h.key_signature)
+
+        next_order = (max((l.order for l in h.lines), default=-1)) + 1
+        dest_dir = os.path.join(app.static_folder, h.folder)
+        os.makedirs(dest_dir, exist_ok=True)
+        midi_dest_name = f'line-{next_order}.mid'
+        shutil.copy(tmp_path, os.path.join(dest_dir, midi_dest_name))
+
+        line = HolisticLine(
+            holistic_exercise_id=h.id, line_type=line_type, name=name,
+            order=next_order, clef=clef,
+            midi_filename=h.folder.rstrip('/') + '/' + midi_dest_name,
+            content_json=json.dumps(content),
+        )
+        db.session.add(line)
+        db.session.commit()
+        flash(f'Line "{name}" added.', 'success')
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+
+
+@app.route('/admin/holistic/<int:ex_id>/lines/reorder', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_reorder_holistic_lines(ex_id):
+    h = HolisticExercise.query.get_or_404(ex_id)
+    order_data = request.get_json(silent=True) or {}
+    line_ids = order_data.get('line_ids', [])
+    line_map = {l.id: l for l in h.lines}
+    for idx, lid in enumerate(line_ids):
+        if lid in line_map:
+            line_map[lid].order = idx
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/admin/holistic/lines/<int:line_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_holistic_line(line_id):
+    line = HolisticLine.query.get_or_404(line_id)
+    ex_id = line.holistic_exercise_id
+    db.session.delete(line)
+    db.session.commit()
+    flash('Line removed.', 'success')
+    return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
 
 
 @app.route('/admin/holistic/<int:ex_id>/delete', methods=['GET', 'POST'])
@@ -1946,14 +2017,10 @@ def admin_delete_holistic(ex_id):
 def admin_holistic_upload():
     if request.method == 'GET':
         return render_template('admin/holistic_upload.html')
-    # POST — accept WAV (required) + MIDI (optional)
+    # POST — accept WAV only; lines are added afterward on the edit page.
     wav_file = request.files.get('wav_file')
     if not wav_file or not wav_file.filename or not wav_file.filename.lower().endswith('.wav'):
         flash('Please upload a .wav file.', 'danger')
-        return redirect(url_for('admin_holistic_upload'))
-    midi_file = request.files.get('midi_file')
-    if midi_file and midi_file.filename and not midi_file.filename.lower().endswith('.mid'):
-        flash('MIDI file must have a .mid extension.', 'danger')
         return redirect(url_for('admin_holistic_upload'))
 
     import re, shutil, tempfile
@@ -1969,30 +2036,9 @@ def admin_holistic_upload():
         return redirect(url_for('admin_holistic_upload'))
     base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'holistic'
 
-    # Save WAV to a temp location first; move to final slug dir after flush gives us the ID
     wav_tmp_fd, wav_tmp_path = tempfile.mkstemp(suffix='.wav')
     with os.fdopen(wav_tmp_fd, 'wb') as _wf:
         wav_file.save(_wf)
-
-    melody_notes_json = '[]'
-    midi_tmp_path = None
-    if midi_file and midi_file.filename:
-        from midi_to_notes import extract_notes, build_json_list
-        try:
-            tmp_fd, midi_tmp_path = tempfile.mkstemp(suffix='.mid')
-            with os.fdopen(tmp_fd, 'wb') as tmp_f:
-                midi_file.save(tmp_f)
-            notes = extract_notes(midi_tmp_path)
-            note_list = build_json_list(notes, key)
-            melody_notes_json = json.dumps(note_list)
-        except Exception:
-            if midi_tmp_path:
-                try:
-                    os.unlink(midi_tmp_path)
-                except OSError:
-                    pass
-            midi_tmp_path = None
-            raise
 
     h = HolisticExercise(
         name=name,
@@ -2001,7 +2047,6 @@ def admin_holistic_upload():
         key_signature=key,
         time_signature=time_sig,
         tempo=int(tempo_raw),
-        melody_notes_json=melody_notes_json,
     )
     db.session.add(h)
     db.session.flush()
@@ -2017,18 +2062,10 @@ def admin_holistic_upload():
     except OSError:
         pass
 
-    if midi_tmp_path:
-        midi_dest = os.path.join(dest_dir, f'{slug}.mid')
-        shutil.copy(midi_tmp_path, midi_dest)
-        try:
-            os.unlink(midi_tmp_path)
-        except OSError:
-            pass
-
     h.folder = f'holistic/{slug}/'
     h.wav_filename = f'{slug}.wav'
     db.session.commit()
-    flash(f'Exercise "{h.name}" uploaded ({h.public_id}).', 'success')
+    flash(f'Exercise "{h.name}" uploaded ({h.public_id}). Now add lines below.', 'success')
     return redirect(url_for('admin_edit_holistic', ex_id=h.id))
 
 
