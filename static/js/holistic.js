@@ -11,7 +11,7 @@
  *
  * Template variables expected:
  *   EXERCISE_ID, WAV_URL, KEY_SIGNATURE, TIME_SIG_TOP, TIME_SIG_BOTTOM,
- *   NUM_MEASURES, MELODY_CLEF, EXTRA_LINES,
+ *   NUM_MEASURES, LINES_DISPLAY,
  *   UNLOCK_SEVENTH, UNLOCK_EXTENSIONS, UNLOCK_SUS
  */
 
@@ -819,78 +819,90 @@ function bindStaveControls(lineKey, clef, containerEl) {
 // Chord block row (harmony)
 // ---------------------------------------------------------------------------
 
-let harmonyBlocks  = [];
-let harmSelectedIdx = null;
-let harmNotationMode = 'roman';
-let harmSelectedDur  = 'h';   // default: half-note chord blocks
+const harmonyState = {};  // harmLineKey -> { blocks: [], selectedIdx: null, notationMode: 'roman', selectedDur: 'h' }
+
+function getHarmonyState(harmLineKey) {
+  if (!harmonyState[harmLineKey]) {
+    harmonyState[harmLineKey] = { blocks: [], selectedIdx: null, notationMode: 'roman', selectedDur: 'h' };
+  }
+  return harmonyState[harmLineKey];
+}
 
 function initHarmonyPanel() {
-  buildHarmonyPalette();
-  renderHarmonyArea();
-  renderHarmonyModifier();
+  const harmLineKeys = LINES_DISPLAY.filter(l => l.type === 'harmonic').map(l => l.key);
 
-  // Notation toggles
-  document.querySelectorAll('.holistic-notation-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      harmNotationMode = btn.dataset.mode;
-      document.querySelectorAll('.holistic-notation-btn').forEach(b =>
-        b.classList.toggle('active', b === btn));
-      buildHarmonyPalette();
-      renderHarmonyArea();
+  harmLineKeys.forEach(harmLineKey => {
+    getHarmonyState(harmLineKey);
+    buildHarmonyPalette(harmLineKey);
+    renderHarmonyArea(harmLineKey);
+    renderHarmonyModifier(harmLineKey);
+
+    document.querySelectorAll(`.holistic-notation-btn[data-harm-line="${harmLineKey}"]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const st = getHarmonyState(harmLineKey);
+        st.notationMode = btn.dataset.mode;
+        document.querySelectorAll(`.holistic-notation-btn[data-harm-line="${harmLineKey}"]`).forEach(b =>
+          b.classList.toggle('active', b === btn));
+        buildHarmonyPalette(harmLineKey);
+        renderHarmonyArea(harmLineKey);
+      });
     });
-  });
 
-  // Duration selector for harmony blocks
-  document.querySelectorAll('.holistic-harm-dur-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      harmSelectedDur = btn.dataset.dur;
-      document.querySelectorAll('.holistic-harm-dur-btn').forEach(b =>
-        b.classList.toggle('active', b === btn));
+    document.querySelectorAll(`.holistic-harm-dur-btn[data-harm-line="${harmLineKey}"]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const st = getHarmonyState(harmLineKey);
+        st.selectedDur = btn.dataset.dur;
+        document.querySelectorAll(`.holistic-harm-dur-btn[data-harm-line="${harmLineKey}"]`).forEach(b =>
+          b.classList.toggle('active', b === btn));
+      });
     });
-  });
 
-  // Undo / Clear
-  document.getElementById('btn-harm-undo')?.addEventListener('click', () => {
-    if (harmonyBlocks.length) {
-      harmonyBlocks.pop();
-      if (harmSelectedIdx !== null && harmSelectedIdx >= harmonyBlocks.length) {
-        harmSelectedIdx = harmonyBlocks.length > 0 ? harmonyBlocks.length - 1 : null;
+    document.querySelector(`.btn-harm-undo[data-harm-line="${harmLineKey}"]`)?.addEventListener('click', () => {
+      const st = getHarmonyState(harmLineKey);
+      if (st.blocks.length) {
+        st.blocks.pop();
+        if (st.selectedIdx !== null && st.selectedIdx >= st.blocks.length) {
+          st.selectedIdx = st.blocks.length > 0 ? st.blocks.length - 1 : null;
+        }
+        renderHarmonyArea(harmLineKey);
+        renderHarmonyModifier(harmLineKey);
       }
-      renderHarmonyArea();
-      renderHarmonyModifier();
-    }
-  });
-  document.getElementById('btn-harm-clear')?.addEventListener('click', () => {
-    harmonyBlocks = [];
-    harmSelectedIdx = null;
-    renderHarmonyArea();
-    renderHarmonyModifier();
+    });
+    document.querySelector(`.btn-harm-clear[data-harm-line="${harmLineKey}"]`)?.addEventListener('click', () => {
+      const st = getHarmonyState(harmLineKey);
+      st.blocks = [];
+      st.selectedIdx = null;
+      renderHarmonyArea(harmLineKey);
+      renderHarmonyModifier(harmLineKey);
+    });
   });
 }
 
-function buildHarmonyPalette() {
-  const container = document.getElementById('holistic-diatonic-palette');
+function buildHarmonyPalette(harmLineKey) {
+  const container = document.getElementById('holistic-diatonic-palette-' + harmLineKey);
   if (!container) return;
   container.innerHTML = '';
 
+  const st = getHarmonyState(harmLineKey);
   const scale = DIATONIC_SCALES[KEY_SIGNATURE] || DIATONIC_SCALES['C'];
   const isMinor = KEY_SIGNATURE.endsWith('m');
   const qualities = isMinor ? DIATONIC_QUALITIES_MINOR : DIATONIC_QUALITIES_MAJOR;
 
   scale.forEach((pc, idx) => {
     const quality = qualities[idx];
-    const chord = makeHarmChord(pc, quality);
-    const label = formatChordName(chord, harmNotationMode, KEY_SIGNATURE);
+    const chord = makeHarmChord(harmLineKey, pc, quality);
+    const label = formatChordName(chord, st.notationMode, KEY_SIGNATURE);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-outline-secondary palette-btn btn-sm';
     btn.textContent = label;
-    btn.addEventListener('click', () => addHarmBlock(makeHarmChord(pc, quality)));
+    btn.addEventListener('click', () => addHarmBlock(harmLineKey, makeHarmChord(harmLineKey, pc, quality)));
     container.appendChild(btn);
   });
 }
 
-function makeHarmChord(rootPc, quality) {
+function makeHarmChord(harmLineKey, rootPc, quality) {
+  const st = getHarmonyState(harmLineKey);
   return {
     root_pc:     rootPc,
     root_name:   noteNameForPc(rootPc, KEY_SIGNATURE),
@@ -901,24 +913,26 @@ function makeHarmChord(rootPc, quality) {
     extensions:  [],
     sus:         null,
     prefer_sharp: null,
-    duration:    harmSelectedDur,
+    duration:    st.selectedDur,
   };
 }
 
-function addHarmBlock(chord) {
-  chord.duration = harmSelectedDur;
-  harmonyBlocks.push(chord);
-  harmSelectedIdx = harmonyBlocks.length - 1;
-  renderHarmonyArea();
-  renderHarmonyModifier();
+function addHarmBlock(harmLineKey, chord) {
+  const st = getHarmonyState(harmLineKey);
+  chord.duration = st.selectedDur;
+  st.blocks.push(chord);
+  st.selectedIdx = st.blocks.length - 1;
+  renderHarmonyArea(harmLineKey);
+  renderHarmonyModifier(harmLineKey);
 }
 
-function renderHarmonyArea() {
-  const area = document.getElementById('holistic-harmony-area');
+function renderHarmonyArea(harmLineKey) {
+  const area = document.getElementById('holistic-harmony-area-' + harmLineKey);
   if (!area) return;
   area.innerHTML = '';
+  const st = getHarmonyState(harmLineKey);
 
-  if (harmonyBlocks.length === 0) {
+  if (st.blocks.length === 0) {
     const msg = document.createElement('span');
     msg.className = 'placeholder-text text-muted small';
     msg.textContent = 'Click a chord above to add it here…';
@@ -926,31 +940,33 @@ function renderHarmonyArea() {
     return;
   }
 
-  harmonyBlocks.forEach((b, i) => {
+  st.blocks.forEach((b, i) => {
     const el = document.createElement('div');
-    el.className = 'chord-block' + (i === harmSelectedIdx ? ' selected' : '');
+    el.className = 'chord-block' + (i === st.selectedIdx ? ' selected' : '');
     const durLabel = {w:'whole',h:'half',q:'qtr','8':'8th','16':'16th'}[b.duration] || b.duration;
-    el.textContent = formatChordName(b, harmNotationMode, KEY_SIGNATURE);
+    el.textContent = formatChordName(b, st.notationMode, KEY_SIGNATURE);
     el.title = durLabel;
     el.addEventListener('click', () => {
-      harmSelectedIdx = (harmSelectedIdx === i) ? null : i;
-      renderHarmonyArea();
-      renderHarmonyModifier();
+      st.selectedIdx = (st.selectedIdx === i) ? null : i;
+      renderHarmonyArea(harmLineKey);
+      renderHarmonyModifier(harmLineKey);
     });
     area.appendChild(el);
   });
 }
 
-function renderHarmonyModifier() {
-  const panel = document.getElementById('holistic-modifier-panel');
+function renderHarmonyModifier(harmLineKey) {
+  const panel = document.getElementById('holistic-modifier-panel-' + harmLineKey);
   if (!panel) return;
 
-  if (harmSelectedIdx === null || harmSelectedIdx >= harmonyBlocks.length) {
+  const st = getHarmonyState(harmLineKey);
+
+  if (st.selectedIdx === null || st.selectedIdx >= st.blocks.length) {
     panel.innerHTML = '<p class="text-muted small mb-0">Select a chord block above to modify it.</p>';
     return;
   }
 
-  const chord = harmonyBlocks[harmSelectedIdx];
+  const chord = st.blocks[st.selectedIdx];
   let html = '<div class="modifier-panel">';
 
   html += `<div class="modifier-row">
@@ -1028,69 +1044,70 @@ function renderHarmonyModifier() {
   html += '</div>';
   panel.innerHTML = html;
 
-  panel.querySelector('#hmod-lower')?.addEventListener('click', () => harmChromaticShift(-1));
-  panel.querySelector('#hmod-raise')?.addEventListener('click', () => harmChromaticShift(1));
+  panel.querySelector('#hmod-lower')?.addEventListener('click', () => harmChromaticShift(harmLineKey, -1));
+  panel.querySelector('#hmod-raise')?.addEventListener('click', () => harmChromaticShift(harmLineKey, 1));
   panel.querySelectorAll('[data-hquality]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
+      const c = st.blocks[st.selectedIdx];
       let { seventh, sus } = c;
       sus = null;
       if (btn.dataset.hquality !== 'diminished' && seventh === 'diminished7') seventh = null;
       if (['minor','diminished','augmented'].includes(btn.dataset.hquality) && seventh === 'major7') seventh = null;
-      harmonyBlocks[harmSelectedIdx] = { ...c, quality: btn.dataset.hquality, seventh, sus };
-      renderHarmonyArea(); renderHarmonyModifier();
+      st.blocks[st.selectedIdx] = { ...c, quality: btn.dataset.hquality, seventh, sus };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelectorAll('[data-hsus]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
+      const c = st.blocks[st.selectedIdx];
       const newSus = c.sus === btn.dataset.hsus ? null : btn.dataset.hsus;
-      harmonyBlocks[harmSelectedIdx] = { ...c, sus: newSus };
-      renderHarmonyArea(); renderHarmonyModifier();
+      st.blocks[st.selectedIdx] = { ...c, sus: newSus };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelectorAll('[data-hseventh]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
+      const c = st.blocks[st.selectedIdx];
       const newSeventh = c.seventh === btn.dataset.hseventh ? null : btn.dataset.hseventh;
-      harmonyBlocks[harmSelectedIdx] = { ...c, seventh: newSeventh };
-      renderHarmonyArea(); renderHarmonyModifier();
+      st.blocks[st.selectedIdx] = { ...c, seventh: newSeventh };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelectorAll('[data-hext]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
+      const c = st.blocks[st.selectedIdx];
       const exts = [...(c.extensions || [])];
       const pos = exts.indexOf(btn.dataset.hext);
       if (pos >= 0) exts.splice(pos, 1); else exts.push(btn.dataset.hext);
-      harmonyBlocks[harmSelectedIdx] = { ...c, extensions: exts };
-      renderHarmonyArea(); renderHarmonyModifier();
+      st.blocks[st.selectedIdx] = { ...c, extensions: exts };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelectorAll('[data-hbass]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
+      const c = st.blocks[st.selectedIdx];
       const pc = parseInt(btn.dataset.hbass);
-      harmonyBlocks[harmSelectedIdx] = { ...c, bass_pc: pc, bass_name: noteNameForPc(pc, KEY_SIGNATURE) };
-      renderHarmonyArea(); renderHarmonyModifier();
+      st.blocks[st.selectedIdx] = { ...c, bass_pc: pc, bass_name: noteNameForPc(pc, KEY_SIGNATURE) };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelectorAll('[data-hdur]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const c = harmonyBlocks[harmSelectedIdx];
-      harmonyBlocks[harmSelectedIdx] = { ...c, duration: btn.dataset.hdur };
-      renderHarmonyArea(); renderHarmonyModifier();
+      const c = st.blocks[st.selectedIdx];
+      st.blocks[st.selectedIdx] = { ...c, duration: btn.dataset.hdur };
+      renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
     });
   });
   panel.querySelector('#hmod-remove')?.addEventListener('click', () => {
-    harmonyBlocks.splice(harmSelectedIdx, 1);
-    harmSelectedIdx = harmonyBlocks.length > 0 ? Math.min(harmSelectedIdx, harmonyBlocks.length - 1) : null;
-    renderHarmonyArea(); renderHarmonyModifier();
+    st.blocks.splice(st.selectedIdx, 1);
+    st.selectedIdx = st.blocks.length > 0 ? Math.min(st.selectedIdx, st.blocks.length - 1) : null;
+    renderHarmonyArea(harmLineKey); renderHarmonyModifier(harmLineKey);
   });
 }
 
-function harmChromaticShift(direction) {
-  const chord = harmonyBlocks[harmSelectedIdx];
+function harmChromaticShift(harmLineKey, direction) {
+  const st = getHarmonyState(harmLineKey);
+  const chord = st.blocks[st.selectedIdx];
   const newPc = (chord.root_pc + direction + 12) % 12;
   const scale = DIATONIC_SCALES[KEY_SIGNATURE] || DIATONIC_SCALES['C'];
   const isDiatonic = scale.includes(newPc);
@@ -1110,7 +1127,7 @@ function harmChromaticShift(direction) {
   const newBassPc   = chord.bass_pc === chord.root_pc ? newPc  : chord.bass_pc;
   const newBassName = chord.bass_pc === chord.root_pc ? newName : chord.bass_name;
 
-  harmonyBlocks[harmSelectedIdx] = {
+  st.blocks[st.selectedIdx] = {
     ...chord,
     root_pc:     newPc,
     root_name:   newName,
@@ -1118,8 +1135,8 @@ function harmChromaticShift(direction) {
     bass_pc:     newBassPc,
     bass_name:   newBassName,
   };
-  renderHarmonyArea();
-  renderHarmonyModifier();
+  renderHarmonyArea(harmLineKey);
+  renderHarmonyModifier(harmLineKey);
 }
 
 // ---------------------------------------------------------------------------
