@@ -1815,6 +1815,14 @@ def admin_rhythm_upload():
     if not f or not f.filename or not f.filename.endswith('.mid'):
         flash('Please upload a .mid file.', 'danger')
         return redirect(url_for('admin_rhythm_upload'))
+    time_sig = request.form.get('time_signature', '').strip()
+    tempo_raw = request.form.get('tempo', '').strip()
+    if not time_sig:
+        flash('Time signature is required.', 'danger')
+        return redirect(url_for('admin_rhythm_upload'))
+    if not tempo_raw.isdigit():
+        flash('BPM is required and must be a number.', 'danger')
+        return redirect(url_for('admin_rhythm_upload'))
     name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
     from midi_to_notes import extract_notes, build_json_list
     import tempfile, re, shutil
@@ -1831,10 +1839,10 @@ def admin_rhythm_upload():
         rhy = Rhythm(
             name=name,
             notes_json=json.dumps(note_list),
-            time_signature=request.form.get('time_signature', '4/4'),
+            time_signature=time_sig,
             min_duration=request.form.get('min_duration', 'q'),
             difficulty=request.form.get('difficulty', 1, type=int),
-            tempo=request.form.get('tempo', 100, type=int),
+            tempo=int(tempo_raw),
         )
         rhy.tags = Tag.query.filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
         db.session.add(rhy)

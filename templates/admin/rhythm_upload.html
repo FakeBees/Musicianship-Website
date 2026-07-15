@@ -13,8 +13,9 @@
       <input name="name" class="form-control" placeholder="Leave blank to use filename"></div>
     <div class="row g-3 mb-3">
       <div class="col-md-4"><label class="form-label fw-semibold">Time Signature</label>
-        <select name="time_signature" class="form-select">
-          {% for ts in ['4/4','3/4','2/4','6/8','5/4','7/8'] %}<option>{{ ts }}</option>{% endfor %}
+        <select name="time_signature" class="form-select" required>
+          <option value="" disabled selected>Choose…</option>
+          {% for ts in ['4/4','3/4','2/4','6/8','9/8','12/8','5/4','7/8'] %}<option>{{ ts }}</option>{% endfor %}
         </select></div>
       <div class="col-md-4"><label class="form-label fw-semibold">Min Duration</label>
         <select name="min_duration" class="form-select">
@@ -25,8 +26,8 @@
           {% for d in [1,2,3,4,5] %}<option>{{ d }}</option>{% endfor %}
         </select></div>
     </div>
-    <div class="mb-3"><label class="form-label fw-semibold">Tempo</label>
-      <input name="tempo" type="number" class="form-control" value="100" style="max-width:120px"></div>
+    <div class="mb-3"><label class="form-label fw-semibold">Tempo (BPM)</label>
+      <input name="tempo" type="number" class="form-control" required min="20" max="400" placeholder="e.g. 100" style="max-width:120px"></div>
     <div class="mb-3"><label class="form-label fw-semibold">Tags</label>
       <div class="d-flex flex-wrap gap-2">
         {% for t in all_tags %}
