@@ -19,10 +19,6 @@
         <input name="time_signature" class="form-control" required value="{{ h.time_signature }}"></div>
       <div class="col-md-3"><label class="form-label fw-semibold">Tempo (BPM)</label>
         <input name="tempo" type="number" class="form-control" required min="20" max="400" value="{{ h.tempo }}"></div>
-      <div class="col-md-3"><label class="form-label fw-semibold">Melody Clef</label>
-        <select name="melody_clef" class="form-select">
-          {% for c in ['treble','bass','alto','tenor'] %}<option {% if h.melody_clef == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select></div>
       <div class="col-md-3"><label class="form-label fw-semibold">Difficulty</label>
         <select name="difficulty" class="form-select">
           {% for d in [1,2,3,4,5] %}<option {% if h.difficulty == d %}selected{% endif %}>{{ d }}</option>{% endfor %}
