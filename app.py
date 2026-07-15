@@ -1967,6 +1967,14 @@ def admin_holistic_upload():
     import re, shutil, tempfile
     name = request.form.get('name', '').strip() or wav_file.filename.rsplit('.', 1)[0]
     key  = request.form.get('key_signature', 'C').strip()
+    time_sig = request.form.get('time_signature', '').strip()
+    tempo_raw = request.form.get('tempo', '').strip()
+    if not time_sig:
+        flash('Time signature is required.', 'danger')
+        return redirect(url_for('admin_holistic_upload'))
+    if not tempo_raw.isdigit():
+        flash('BPM is required and must be a number.', 'danger')
+        return redirect(url_for('admin_holistic_upload'))
     base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'holistic'
 
     # Save WAV to a temp location first; move to final slug dir after flush gives us the ID
@@ -1999,6 +2007,8 @@ def admin_holistic_upload():
         folder='',  # set after flush
         wav_filename='',  # set after flush
         key_signature=key,
+        time_signature=time_sig,
+        tempo=int(tempo_raw),
         melody_notes_json=melody_notes_json,
     )
     db.session.add(h)

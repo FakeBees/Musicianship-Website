@@ -10,8 +10,15 @@
     <div class="row g-3">
       <div class="col-12"><label class="form-label fw-semibold">Name <span class="text-muted small">(optional — defaults to filename)</span></label>
         <input name="name" class="form-control" placeholder="e.g. Waltz in C Major"></div>
-      <div class="col-md-6"><label class="form-label fw-semibold">Key Signature</label>
+      <div class="col-md-4"><label class="form-label fw-semibold">Key Signature</label>
         <input name="key_signature" class="form-control" value="C" placeholder="C"></div>
+      <div class="col-md-4"><label class="form-label fw-semibold">Time Signature</label>
+        <select name="time_signature" class="form-select" required>
+          <option value="" disabled selected>Choose…</option>
+          {% for ts in ['4/4','3/4','2/4','6/8','9/8','12/8','5/4','7/8'] %}<option>{{ ts }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-4"><label class="form-label fw-semibold">Tempo (BPM)</label>
+        <input name="tempo" type="number" class="form-control" required min="20" max="400" placeholder="e.g. 120"></div>
       <div class="col-12"><label class="form-label fw-semibold">WAV File <span class="text-danger">*</span></label>
         <input type="file" name="wav_file" class="form-control" accept=".wav" required></div>
       <div class="col-12"><label class="form-label fw-semibold">MIDI File <span class="text-muted small">(optional — parses melody notes)</span></label>
