@@ -41,12 +41,63 @@
           </div>
           {% endfor %}
         </div></div>
-      <div class="col-12"><label class="form-label fw-semibold">Melody Notes JSON</label>
-        <textarea name="melody_notes_json" class="form-control font-monospace small" rows="6">{{ h.melody_notes_json }}</textarea></div>
-      <div class="col-12"><label class="form-label fw-semibold">Harmony Chords JSON</label>
-        <textarea name="harmony_chords_json" class="form-control font-monospace small" rows="4">{{ h.harmony_chords_json }}</textarea></div>
-      <div class="col-12"><label class="form-label fw-semibold">Extra Lines JSON</label>
-        <textarea name="extra_lines_json" class="form-control font-monospace small" rows="4">{{ h.extra_lines_json }}</textarea></div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Lines</label>
+        {% if lines|length > 8 %}
+        <div class="alert alert-warning small py-2">This exercise has {{ lines|length }} lines — many lines may be hard to read for students. Consider trimming.</div>
+        {% endif %}
+        <ul id="lines-list" class="list-group mb-3">
+          {% for line in lines %}
+          <li class="list-group-item d-flex justify-content-between align-items-center" data-line-id="{{ line.id }}" style="cursor:grab">
+            <span>
+              <i class="bi bi-grip-vertical text-muted me-2"></i>
+              <strong>{{ line.name }}</strong>
+              <span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success'}.get(line.line_type, 'bg-secondary') }} ms-2">{{ line.line_type }}</span>
+              {% if line.clef %}<span class="text-muted small ms-1">({{ line.clef }})</span>{% endif %}
+            </span>
+            <form method="post" action="{{ url_for('admin_delete_holistic_line', line_id=line.id) }}"
+                  onsubmit="return confirm('Remove this line?')">
+              <button class="btn btn-sm btn-outline-danger">Remove</button>
+            </form>
+          </li>
+          {% else %}
+          <li class="list-group-item text-muted">No lines yet — add one below.</li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="{{ url_for('admin_add_holistic_line', ex_id=h.id) }}"
+              enctype="multipart/form-data" class="p-3 border rounded bg-light">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Name</label>
+              <input name="name" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Type</label>
+              <select name="line_type" class="form-select form-select-sm" id="new-line-type" required>
+                <option value="melody">Melodic</option>
+                <option value="rhythm">Rhythmic</option>
+                <option value="harmonic">Harmonic</option>
+              </select>
+            </div>
+            <div class="col-md-2" id="new-line-clef-wrap">
+              <label class="form-label small fw-semibold">Clef</label>
+              <select name="clef" class="form-select form-select-sm">
+                <option value="treble">Treble</option>
+                <option value="bass">Bass</option>
+                <option value="alto">Alto</option>
+                <option value="tenor">Tenor</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">MIDI File</label>
+              <input type="file" name="midi_file" accept=".mid" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-1">
+              <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
     <div class="d-flex gap-2 mt-4">
       <button class="btn btn-primary">Save Changes</button>
@@ -55,4 +106,28 @@
     </div>
   </form>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+  const linesList = document.getElementById('lines-list');
+  if (linesList) {
+    new Sortable(linesList, {
+      animation: 150,
+      onEnd: function () {
+        const lineIds = [...linesList.querySelectorAll('[data-line-id]')].map(el => parseInt(el.dataset.lineId));
+        fetch('{{ url_for("admin_reorder_holistic_lines", ex_id=h.id) }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ line_ids: lineIds }),
+        });
+      },
+    });
+  }
+  const typeSelect = document.getElementById('new-line-type');
+  const clefWrap = document.getElementById('new-line-clef-wrap');
+  function toggleClefField() {
+    clefWrap.style.display = typeSelect.value === 'melody' ? '' : 'none';
+  }
+  typeSelect.addEventListener('change', toggleClefField);
+  toggleClefField();
+</script>
 {% endblock %}
