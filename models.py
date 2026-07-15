@@ -216,41 +216,9 @@ class HolisticExercise(db.Model):
     school_id  = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=True)
     is_major       = db.Column(db.Boolean,     default=True)  # True=major, False=minor
 
-    # Clef for the primary melody line
-    melody_clef    = db.Column(db.String(10),  default='treble')
-
-    # Parsed correct answers (JSON), generated at seed time from MIDI files.
-    # Array of {key, duration[, dotted]} objects -- same format as Melody.notes_json
-    melody_notes_json  = db.Column(db.Text, nullable=False, default='[]')
-
-    # Parsed chord progression -- same format as ChordProgression.chords_json
-    harmony_chords_json = db.Column(db.Text, nullable=False, default='[]')
-
-    # Extra lines metadata + parsed answer data.
-    # JSON array. Each element:
-    #   For a melody line:
-    #     {"type": "melody", "file": "melody_1.mid", "label": "Alto", "clef": "treble",
-    #      "notes": [{key, duration[, dotted]}, ...]}
-    #   For a rhythm line:
-    #     {"type": "rhythm", "file": "rhythm_1.mid", "label": "Kick drum",
-    #      "notes": [{duration[, dotted]}, ...]}
-    extra_lines_json = db.Column(db.Text, nullable=False, default='[]')
-
     tags = db.relationship('Tag', secondary=holistic_tags,
                            backref='holistic_exercises', lazy='subquery')
     public_id = db.Column(db.String(12), unique=True, nullable=True, index=True)
-
-    @property
-    def melody_notes(self):
-        return json.loads(self.melody_notes_json)
-
-    @property
-    def harmony_chords(self):
-        return json.loads(self.harmony_chords_json)
-
-    @property
-    def extra_lines(self):
-        return json.loads(self.extra_lines_json)
 
     @property
     def wav_url_path(self):
@@ -260,11 +228,16 @@ class HolisticExercise(db.Model):
     @property
     def total_beats(self):
         beat_map = {'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25}
-        total = 0.0
-        for n in self.melody_notes:
-            base = beat_map.get(n['duration'].rstrip('r'), 1)
-            total += base * 1.5 if n.get('dotted') else base
-        return total
+        max_total = 0.0
+        for line in self.lines:
+            if line.line_type not in ('melody', 'rhythm'):
+                continue
+            total = 0.0
+            for n in line.content:
+                base = beat_map.get(n['duration'].rstrip('r'), 1)
+                total += base * 1.5 if n.get('dotted') else base
+            max_total = max(max_total, total)
+        return max_total
 
     @property
     def num_measures(self):
@@ -275,6 +248,27 @@ class HolisticExercise(db.Model):
 
     def __repr__(self):
         return '<HolisticExercise {}>'.format(self.name)
+
+
+class HolisticLine(db.Model):
+    id                    = db.Column(db.Integer, primary_key=True)
+    holistic_exercise_id  = db.Column(db.Integer, db.ForeignKey('holistic_exercise.id'), nullable=False)
+    line_type             = db.Column(db.String(10), nullable=False)   # 'melody' | 'rhythm' | 'harmonic'
+    name                  = db.Column(db.String(100), nullable=False)
+    order                 = db.Column(db.Integer, nullable=False, default=0)
+    clef                  = db.Column(db.String(10), nullable=True)    # melody only
+    midi_filename         = db.Column(db.String(200), nullable=False, default='')
+    content_json          = db.Column(db.Text, nullable=False, default='[]')
+
+    exercise = db.relationship('HolisticExercise', backref=db.backref(
+        'lines', order_by='HolisticLine.order', cascade='all, delete-orphan'))
+
+    @property
+    def content(self):
+        return json.loads(self.content_json)
+
+    def __repr__(self):
+        return '<HolisticLine {} ({})>'.format(self.name, self.line_type)
 
 
 class HolisticAttempt(db.Model):
