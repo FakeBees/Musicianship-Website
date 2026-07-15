@@ -1914,7 +1914,16 @@ def admin_edit_holistic(ex_id):
         h.name           = request.form.get('name', '').strip() or h.name
         h.description    = request.form.get('description', '').strip()
         h.key_signature  = request.form.get('key_signature', h.key_signature)
-        h.time_signature = request.form.get('time_signature', h.time_signature)
+        time_sig = request.form.get('time_signature', '').strip()
+        tempo_raw = request.form.get('tempo', '').strip()
+        if not time_sig:
+            flash('Time signature is required.', 'danger')
+            return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+        if not tempo_raw.isdigit():
+            flash('BPM is required and must be a number.', 'danger')
+            return redirect(url_for('admin_edit_holistic', ex_id=ex_id))
+        h.time_signature = time_sig
+        h.tempo          = int(tempo_raw)
         h.melody_clef    = request.form.get('melody_clef', h.melody_clef)
         h.difficulty     = request.form.get('difficulty', h.difficulty, type=int) or h.difficulty
         h.visibility     = request.form.get('visibility', h.visibility)
