@@ -270,45 +270,28 @@ def grade_holistic_attempt(exercise, user_data):
     Grade a holistic attempt against the correct answers stored in the exercise.
 
     Returns:
-        scores (dict): individual metric scores, e.g.:
-            {"melody_pitch": 85.0, "melody_duration": 72.0,
-             "harmony_letter": 90.0, "harmony_quality": 80.0,
-             "rhythm_1_duration": 70.0, ...}
+        scores (dict): individual metric scores keyed by line id, e.g.:
+            {"3_pitch": 85.0, "3_duration": 72.0,
+             "5_letter": 90.0, "5_quality": 80.0,
+             "4_duration": 70.0, ...}
         overall (float): simple average of all individual metric scores.
     """
     from chord_utils import grade_harmonic_attempt
 
     scores = {}
-
-    # Primary melody
-    user_melody = user_data.get('melody', [])
-    p, d, _ = grade_attempt(exercise.melody_notes, user_melody)
-    scores['melody_pitch']    = p
-    scores['melody_duration'] = d
-
-    # Harmony
-    user_harmony = user_data.get('harmony', [])
-    l, q, _ = grade_harmonic_attempt(exercise.harmony_chords, user_harmony)
-    scores['harmony_letter']  = l
-    scores['harmony_quality'] = q
-
-    # Extra lines
-    for line in exercise.extra_lines:
-        ltype = line['type']
-        lfile = line['file']
-        # Derive key from filename: "melody_1.mid" -> "melody_1", "rhythm_1.mid" -> "rhythm_1"
-        lkey = lfile.replace('.mid', '')
-
-        user_line = user_data.get(lkey, [])
-        correct   = line.get('notes', [])
-
-        if ltype == 'melody':
-            p, d, _ = grade_attempt(correct, user_line)
-            scores[lkey + '_pitch']    = p
-            scores[lkey + '_duration'] = d
-        elif ltype == 'rhythm':
-            d = grade_rhythm(correct, user_line)
-            scores[lkey + '_duration'] = d
+    for line in exercise.lines:
+        key = str(line.id)
+        user_line = user_data.get(key, [])
+        if line.line_type == 'melody':
+            p, d, _ = grade_attempt(line.content, user_line)
+            scores[f'{key}_pitch'] = p
+            scores[f'{key}_duration'] = d
+        elif line.line_type == 'rhythm':
+            scores[f'{key}_duration'] = grade_rhythm(line.content, user_line)
+        elif line.line_type == 'harmonic':
+            l, q, _ = grade_harmonic_attempt(line.content, user_line)
+            scores[f'{key}_letter'] = l
+            scores[f'{key}_quality'] = q
 
     overall = round(sum(scores.values()) / len(scores), 1) if scores else 0.0
     return scores, overall

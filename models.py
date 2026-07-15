@@ -276,14 +276,11 @@ class HolisticAttempt(db.Model):
     exercise_id = db.Column(db.Integer, db.ForeignKey('holistic_exercise.id'), nullable=False)
     exercise    = db.relationship('HolisticExercise', backref='attempts')
 
-    # JSON dict: {"melody": [...notes...], "harmony": [...chords...],
-    #             "melody_1": [...], "rhythm_1": [...], ...}
+    # JSON dict keyed by HolisticLine id (as string): {"3": [...notes...], "5": [...chords...], ...}
     user_data_json = db.Column(db.Text, nullable=False, default='{}')
 
-    # JSON dict of individual scores: {"melody_pitch": 85.0, "melody_duration": 72.0,
-    #   "harmony_letter": 90.0, "harmony_quality": 80.0,
-    #   "melody_1_pitch": 60.0, "melody_1_duration": 50.0,
-    #   "rhythm_1_duration": 70.0}
+    # JSON dict of individual scores, keyed by line id: {"3_pitch": 85.0, "3_duration": 72.0,
+    #   "5_letter": 90.0, "5_quality": 80.0, "4_duration": 70.0}
     scores_json    = db.Column(db.Text, nullable=False, default='{}')
 
     overall_score  = db.Column(db.Float, default=0.0)
