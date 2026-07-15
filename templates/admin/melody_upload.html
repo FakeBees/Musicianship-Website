@@ -25,6 +25,17 @@
         {% endfor %}
       </select>
     </div>
+    <div class="mb-3">
+      <label class="form-label">Time Signature</label>
+      <select name="time_signature" class="form-select" required>
+        <option value="" disabled selected>Choose…</option>
+        {% for ts in ['4/4','3/4','2/4','6/8','9/8','12/8','5/4','7/8'] %}<option>{{ ts }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Tempo (BPM)</label>
+      <input name="tempo" type="number" class="form-control" required min="20" max="400" placeholder="e.g. 120" style="max-width:160px">
+    </div>
     <div class="d-flex gap-2">
       <button type="submit" class="btn btn-primary">Upload & Parse</button>
       <a href="{{ url_for('admin_melodies') }}" class="btn btn-outline-secondary">Cancel</a>

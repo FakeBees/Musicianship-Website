@@ -1542,6 +1542,14 @@ def admin_melody_upload():
         return redirect(url_for('admin_melody_upload'))
     name = request.form.get('name', '').strip() or f.filename.rsplit('.', 1)[0]
     key  = request.form.get('key_signature', 'C').strip()
+    time_sig = request.form.get('time_signature', '').strip()
+    tempo_raw = request.form.get('tempo', '').strip()
+    if not time_sig:
+        flash('Time signature is required.', 'danger')
+        return redirect(url_for('admin_melody_upload'))
+    if not tempo_raw.isdigit():
+        flash('BPM is required and must be a number.', 'danger')
+        return redirect(url_for('admin_melody_upload'))
     from midi_to_notes import extract_notes, build_json_list
     import tempfile, re, shutil
 
@@ -1558,6 +1566,8 @@ def admin_melody_upload():
             midi_filename='',  # set after flush
             notes_json=json.dumps(note_list),
             key_signature=key,
+            time_signature=time_sig,
+            tempo=int(tempo_raw),
         )
         db.session.add(mel)
         db.session.flush()
