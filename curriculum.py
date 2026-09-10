@@ -1,19 +1,19 @@
 """
 curriculum.py — helper functions for the module/curriculum system.
 """
-from models import db, Module, ModuleExercise, ClassModuleExercise, ModuleCompletion
+from models import db, Module, ModuleExercise, SectionModuleExercise, ModuleCompletion
 
 
-def effective_exercises(class_obj, module):
+def effective_exercises(section, module):
     """
-    Return the effective list of exercises for `module` in `class_obj`,
-    applying ClassModuleExercise overrides.
+    Return the effective list of exercises for `module` in `section`,
+    applying SectionModuleExercise overrides.
 
     Returns a list of dicts:
       {
-        'source': 'course' | 'class',
+        'source': 'course' | 'section',
         'module_exercise_id': int | None,
-        'class_exercise_id': int | None,
+        'section_exercise_id': int | None,
         'exercise_type': str,
         'exercise_id': int,
         'order': int,
@@ -21,69 +21,69 @@ def effective_exercises(class_obj, module):
       }
     """
     removed_ids = set()
-    overrides   = {}  # module_exercise_id -> ClassModuleExercise
+    overrides   = {}  # module_exercise_id -> SectionModuleExercise
     additions   = []
 
-    for cme in ClassModuleExercise.query.filter_by(class_id=class_obj.id).all():
-        if cme.action == 'remove' and cme.module_exercise_id:
-            removed_ids.add(cme.module_exercise_id)
-        elif cme.action == 'override' and cme.module_exercise_id:
-            overrides[cme.module_exercise_id] = cme
-        elif cme.action == 'add' and cme.module_id == module.id:
-            additions.append(cme)
+    for sme in SectionModuleExercise.query.filter_by(section_id=section.id).all():
+        if sme.action == 'remove' and sme.module_exercise_id:
+            removed_ids.add(sme.module_exercise_id)
+        elif sme.action == 'override' and sme.module_exercise_id:
+            overrides[sme.module_exercise_id] = sme
+        elif sme.action == 'add' and sme.module_id == module.id:
+            additions.append(sme)
 
     result = []
     for me in module.exercises.order_by(ModuleExercise.order).all():
         if me.id in removed_ids:
             continue
         if me.id in overrides:
-            cme = overrides[me.id]
+            sme = overrides[me.id]
             result.append({
-                'source': 'class',
+                'source': 'section',
                 'module_exercise_id': me.id,
-                'class_exercise_id': cme.id,
-                'exercise_type': cme.exercise_type or me.exercise_type,
-                'exercise_id': cme.exercise_id or me.exercise_id,
-                'order': cme.order if cme.order is not None else me.order,
-                'completion_criterion': cme.completion_criterion or me.completion_criterion,
+                'section_exercise_id': sme.id,
+                'exercise_type': sme.exercise_type or me.exercise_type,
+                'exercise_id': sme.exercise_id or me.exercise_id,
+                'order': sme.order if sme.order is not None else me.order,
+                'completion_criterion': sme.completion_criterion or me.completion_criterion,
             })
         else:
             result.append({
                 'source': 'course',
                 'module_exercise_id': me.id,
-                'class_exercise_id': None,
+                'section_exercise_id': None,
                 'exercise_type': me.exercise_type,
                 'exercise_id': me.exercise_id,
                 'order': me.order,
                 'completion_criterion': me.completion_criterion,
             })
 
-    for cme in additions:
+    for sme in additions:
         result.append({
-            'source': 'class',
+            'source': 'section',
             'module_exercise_id': None,
-            'class_exercise_id': cme.id,
-            'exercise_type': cme.exercise_type,
-            'exercise_id': cme.exercise_id,
-            'order': cme.order or 9999,
-            'completion_criterion': cme.completion_criterion or {'attempts': 1},
+            'section_exercise_id': sme.id,
+            'exercise_type': sme.exercise_type,
+            'exercise_id': sme.exercise_id,
+            'order': sme.order or 9999,
+            'completion_criterion': sme.completion_criterion or {'attempts': 1},
         })
 
     result.sort(key=lambda x: x['order'])
     return result
 
 
-def get_completion(user_id, class_id, module_exercise_id=None, class_exercise_id=None):
+def get_completion(user_id, section_id, module_exercise_id=None, section_exercise_id=None):
     """Return ModuleCompletion or None."""
-    q = ModuleCompletion.query.filter_by(user_id=user_id, class_id=class_id)
+    q = ModuleCompletion.query.filter_by(user_id=user_id, section_id=section_id)
     if module_exercise_id is not None:
         q = q.filter_by(module_exercise_id=module_exercise_id)
-    if class_exercise_id is not None:
-        q = q.filter_by(class_exercise_id=class_exercise_id)
+    if section_exercise_id is not None:
+        q = q.filter_by(section_exercise_id=section_exercise_id)
     return q.first()
 
 
-def record_attempt(user_id, class_id, module_exercise_id=None, class_exercise_id=None,
+def record_attempt(user_id, section_id, module_exercise_id=None, section_exercise_id=None,
                    score=None, criterion=None):
     """
     Record one attempt toward a module exercise. Increments counters and marks complete
@@ -92,13 +92,13 @@ def record_attempt(user_id, class_id, module_exercise_id=None, class_exercise_id
     if criterion is None:
         criterion = {'attempts': 1}
 
-    mc = get_completion(user_id, class_id, module_exercise_id, class_exercise_id)
+    mc = get_completion(user_id, section_id, module_exercise_id, section_exercise_id)
     if mc is None:
         mc = ModuleCompletion(
             user_id=user_id,
-            class_id=class_id,
+            section_id=section_id,
             module_exercise_id=module_exercise_id,
-            class_exercise_id=class_exercise_id,
+            section_exercise_id=section_exercise_id,
             attempt_count=0,
             passing_count=0,
             is_complete=False,
@@ -128,18 +128,18 @@ def record_attempt(user_id, class_id, module_exercise_id=None, class_exercise_id
     return mc, (mc.is_complete and not was_complete)
 
 
-def completion_map(user_id, class_id):
+def completion_map(user_id, section_id):
     """
-    Return a set of (module_exercise_id, class_exercise_id) tuples that are
-    fully complete (is_complete=True) for this user in this class.
+    Return a set of (module_exercise_id, section_exercise_id) tuples that are
+    fully complete (is_complete=True) for this user in this section.
     """
     completions = ModuleCompletion.query.filter_by(
-        user_id=user_id, class_id=class_id, is_complete=True
+        user_id=user_id, section_id=section_id, is_complete=True
     ).all()
-    return {(c.module_exercise_id, c.class_exercise_id) for c in completions}
+    return {(c.module_exercise_id, c.section_exercise_id) for c in completions}
 
 
-def get_progress(user_id, class_id, module_exercise_id=None, class_exercise_id=None,
+def get_progress(user_id, section_id, module_exercise_id=None, section_exercise_id=None,
                  criterion=None):
     """
     Return progress dict: {'count': int, 'required': int, 'complete': bool}.
@@ -148,7 +148,7 @@ def get_progress(user_id, class_id, module_exercise_id=None, class_exercise_id=N
     if criterion is None:
         criterion = {'attempts': 1}
 
-    mc = get_completion(user_id, class_id, module_exercise_id, class_exercise_id)
+    mc = get_completion(user_id, section_id, module_exercise_id, section_exercise_id)
     if mc is None:
         count = 0
     elif 'passing' in criterion:
@@ -161,34 +161,34 @@ def get_progress(user_id, class_id, module_exercise_id=None, class_exercise_id=N
     return {'count': count, 'required': required, 'complete': complete}
 
 
-def next_incomplete(user_id, class_id, class_obj, module):
+def next_incomplete(user_id, section_id, section, module):
     """
     Return the first exercise dict (from effective_exercises) in `module` that is not
-    yet completed for this user in this class. Returns None if all are done.
+    yet completed for this user in this section. Returns None if all are done.
     """
-    done = completion_map(user_id, class_id)
-    for ex in effective_exercises(class_obj, module):
-        key = (ex['module_exercise_id'], ex['class_exercise_id'])
+    done = completion_map(user_id, section_id)
+    for ex in effective_exercises(section, module):
+        key = (ex['module_exercise_id'], ex['section_exercise_id'])
         if key not in done:
             return ex
     return None
 
 
-def modules_with_progress(user_id, class_id, class_obj):
+def modules_with_progress(user_id, section_id, section):
     """
-    For each module in the class's course, return:
+    For each module in the section's course, return:
       {'module': Module, 'total': int, 'completed': int, 'exercises': list}
-    Returns [] if class has no course.
+    Returns [] if the section has no course.
     """
-    if not class_obj.course_id:
+    if not section.course_id:
         return []
     result = []
-    done = completion_map(user_id, class_id)
-    for module in class_obj.course.modules.order_by(Module.order).all():
-        exs = effective_exercises(class_obj, module)
+    done = completion_map(user_id, section_id)
+    for module in section.course.modules.order_by(Module.order).all():
+        exs = effective_exercises(section, module)
         completed_count = sum(
             1 for ex in exs
-            if (ex['module_exercise_id'], ex['class_exercise_id']) in done
+            if (ex['module_exercise_id'], ex['section_exercise_id']) in done
         )
         result.append({
             'module': module,

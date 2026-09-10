@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}{{ klass.name }}{% endblock %}
+{% block title %}{{ section.name }}{% endblock %}
 {% block content %}
 <div class="container py-5" style="max-width:600px">
-  <h2 class="mb-1">{{ klass.name }}</h2>
+  <h2 class="mb-1">{{ section.name }}</h2>
   <p class="text-muted mb-4">Choose how you'd like to practice today.</p>
 
   <div class="row g-3">
     {% if has_course %}
     <div class="col-12">
-      <a href="{{ url_for('class_modules', class_id=klass.id) }}" class="card text-decoration-none h-100 border-primary">
+      <a href="{{ url_for('section_modules', section_id=section.id) }}" class="card text-decoration-none h-100 border-primary">
         <div class="card-body">
           <h5 class="card-title"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Study by Module</h5>
-          <p class="card-text text-muted">Work through your class assignments in order. Track your progress module by module.</p>
+          <p class="card-text text-muted">Work through your {{ section_term }} assignments in order. Track your progress module by module.</p>
         </div>
       </a>
     </div>

@@ -1,7 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}Edit GenProgression #{{ gp.number }}{% endblock %}
+
+{% block head %}
+<style>
+  .chord-block {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 2px solid var(--bs-border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    background: var(--bs-body-bg);
+    min-width: 70px;
+    transition: border-color .15s, background .15s;
+    user-select: none;
+  }
+  .chord-block:hover { border-color: var(--bs-primary); }
+  .chord-block.selected { border-color: var(--bs-primary); background: var(--bs-primary-bg-subtle); }
+  .chord-block .cb-label { font-size: 1.1rem; font-weight: 600; }
+  .chord-block .cb-beats { font-size: .7rem; color: var(--bs-secondary-color); }
+  .palette-btn { min-width: 52px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4" style="max-width:760px">
+<div class="container py-4" style="max-width:820px">
   <h2 class="mb-1">Edit GenProgression</h2>
   <p class="text-muted small mb-4">#{{ gp.number }} — {{ gp.name or 'Unnamed' }}</p>
 
@@ -9,13 +34,14 @@
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
   {% endwith %}
 
-  <form method="post">
-    <div class="row g-3">
+  <form method="post" id="gp-form">
+    {# ── Metadata ── #}
+    <div class="row g-3 mb-4">
       <div class="col-md-2">
         <label class="form-label fw-semibold">Number</label>
         <input name="number" type="number" class="form-control" value="{{ gp.number }}" required>
       </div>
-      <div class="col-md-6">
+      <div class="col-md-5">
         <label class="form-label fw-semibold">Name</label>
         <input name="name" class="form-control" value="{{ gp.name or '' }}">
       </div>
@@ -23,54 +49,253 @@
         <label class="form-label fw-semibold">Length (bars)</label>
         <input name="length_bars" type="number" class="form-control" value="{{ gp.length_bars }}" min="1" required>
       </div>
-      <div class="col-md-2">
-        <label class="form-label fw-semibold">Difficulty</label>
+      <div class="col-md-1">
+        <label class="form-label fw-semibold">Diff</label>
         <select name="difficulty" class="form-select">
           {% for d in [1,2,3,4,5] %}
             <option {% if gp.difficulty == d %}selected{% endif %}>{{ d }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label fw-semibold">Mode</label>
-        <select name="mode" class="form-select">
+        <select name="mode" class="form-select" id="mode-select">
           <option value="major" {% if gp.mode == 'major' %}selected{% endif %}>Major</option>
           <option value="minor" {% if gp.mode == 'minor' %}selected{% endif %}>Minor</option>
         </select>
       </div>
-      <div class="col-12">
-        <label class="form-label fw-semibold">Chords JSON</label>
-        <textarea name="chords_json" class="form-control font-monospace" rows="8" required>{{ gp.chords_json }}</textarea>
-        <div class="form-text">
-          Each chord object: <code>{"degree":"I","quality":"maj","inversion":0,"beats":4}</code>.
-          Validated on save — must be valid JSON.
-        </div>
-      </div>
+    </div>
 
-      {# Chord preview #}
-      <div class="col-12">
-        <label class="form-label fw-semibold text-muted">Chord Preview</label>
-        <div class="d-flex flex-wrap gap-2">
-          {% for chord in gp.chords %}
-          <span class="badge bg-secondary fs-6 px-3 py-2">
-            {{ chord.degree }}
-            {% if chord.quality and chord.quality != 'maj' %}<sup>{{ chord.quality }}</sup>{% endif %}
-            {% if chord.inversion %}<sub>{{ chord.inversion }}</sub>{% endif %}
-            <small class="ms-1 opacity-75">{{ chord.beats }}b</small>
-          </span>
-          {% else %}
-          <span class="text-muted">No chords parsed yet.</span>
-          {% endfor %}
+    {# ── Chord Builder ── #}
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">Chord Progression Builder</div>
+      <div class="card-body">
+
+        {# Diatonic palette #}
+        <div class="mb-3">
+          <span class="fw-semibold d-block mb-2 small text-muted">Diatonic chords — click to add:</span>
+          <div id="diatonic-palette" class="d-flex flex-wrap gap-2"></div>
+        </div>
+
+        <hr class="my-3">
+
+        {# Modifier panel #}
+        <div id="modifier-panel" class="mb-3">
+          <p class="text-muted small mb-0">Select a chord block below to modify it.</p>
+        </div>
+
+        <hr class="my-3">
+
+        {# Building area #}
+        <div class="mb-2">
+          <span class="fw-semibold d-block mb-2 small text-muted">Progression:</span>
+          <div id="chord-building-area" class="d-flex flex-wrap gap-2 p-2 border rounded" style="min-height:72px"></div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="button" id="btn-undo" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-backspace me-1"></i>Undo Last
+          </button>
+          <button type="button" id="btn-clear" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>Clear All
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="d-flex gap-2 mt-4">
-      <button class="btn btn-primary">Save Changes</button>
+    {# Hidden field — serialized on submit #}
+    <input type="hidden" name="chords_json" id="chords-json-input">
+
+    <div class="d-flex gap-2 mt-2">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
       <a href="{{ url_for('admin_gen_progressions') }}" class="btn btn-outline-secondary">Cancel</a>
       <a href="{{ url_for('admin_delete_gen_progression', gp_id=gp.id) }}"
          class="btn btn-outline-danger ms-auto">Delete</a>
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chord_block_utils.js') }}"></script>
+<script>
+(function () {
+  'use strict';
+
+  const {
+    DIATONIC_QUALITIES_MAJOR,
+    DIATONIC_QUALITIES_MINOR,
+    ROMAN_UPPER,
+    ROMAN_LOWER,
+  } = window.ChordBlockUtils;
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let blocks      = {{ gp.chords | tojson }};
+  let selectedIdx = null;
+
+  function getMode() {
+    return document.getElementById('mode-select').value;
+  }
+
+  // ── Label helper — uses degree string directly, no root_pc needed ─────────
+  function chordLabel(chord) {
+    const deg     = chord.degree || 'I';
+    const quality = chord.quality || 'major';
+    const minor   = ['minor','diminished','minor7','half-dim','dim7'].includes(quality);
+    // Normalise case to match quality
+    const base = minor ? deg.toLowerCase() : deg.toUpperCase();
+    const suffix = {
+      diminished:   '°',
+      augmented:    '+',
+      dominant7:    '⁷',
+      major7:       'maj⁷',
+      minor7:       'm⁷',
+      'half-dim':   'ø⁷',
+      dim7:         '°⁷',
+      sus2:         'sus2',
+      sus4:         'sus4',
+    }[quality] || '';
+    const inv = chord.inversion === 1 ? '⁶' : chord.inversion === 2 ? '⁶₄' : '';
+    return base + suffix + inv;
+  }
+
+  // ── Palette ───────────────────────────────────────────────────────────────
+  function buildPalette() {
+    const container = document.getElementById('diatonic-palette');
+    container.innerHTML = '';
+    const mode  = getMode();
+    const quals = mode === 'minor' ? DIATONIC_QUALITIES_MINOR : DIATONIC_QUALITIES_MAJOR;
+    // Always store degrees as uppercase Roman numerals (quality determines chord type)
+    for (let i = 0; i < 7; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-secondary palette-btn';
+      const chord = { degree: ROMAN_UPPER[i], quality: quals[i], inversion: 0, beats: 4 };
+      btn.textContent = chordLabel(chord);
+      btn.addEventListener('click', () => {
+        blocks.push({ degree: ROMAN_UPPER[i], quality: quals[i], inversion: 0, beats: 4 });
+        selectedIdx = blocks.length - 1;
+        render();
+      });
+      container.appendChild(btn);
+    }
+  }
+
+  // ── Building area ─────────────────────────────────────────────────────────
+  function render() {
+    const area = document.getElementById('chord-building-area');
+    area.innerHTML = '';
+    if (blocks.length === 0) {
+      area.innerHTML = '<span class="text-muted small">No chords yet — click the palette above to add.</span>';
+    } else {
+      blocks.forEach((chord, i) => {
+        const el = document.createElement('div');
+        el.className = 'chord-block' + (i === selectedIdx ? ' selected' : '');
+        el.innerHTML =
+          '<span class="cb-label">' + chordLabel(chord) + '</span>' +
+          '<span class="cb-beats">' + chord.beats + ' beat' + (chord.beats !== 1 ? 's' : '') + '</span>';
+        el.addEventListener('click', () => { selectedIdx = i; render(); });
+        area.appendChild(el);
+      });
+    }
+    renderModifier();
+  }
+
+  // ── Modifier panel ────────────────────────────────────────────────────────
+  function renderModifier() {
+    const panel = document.getElementById('modifier-panel');
+    if (selectedIdx === null || selectedIdx >= blocks.length) {
+      panel.innerHTML = '<p class="text-muted small mb-0">Select a chord block below to modify it.</p>';
+      return;
+    }
+    const chord = blocks[selectedIdx];
+
+    // Quality options
+    const qualities = ['major','minor','diminished','augmented','dominant7','major7','minor7','half-dim','dim7','sus2','sus4'];
+
+    panel.innerHTML =
+      '<div class="row g-3 align-items-end">' +
+
+      // Quality
+      '<div class="col-md-4">' +
+        '<label class="form-label small fw-semibold">Quality</label>' +
+        '<select class="form-select form-select-sm" id="mod-quality">' +
+          qualities.map(q =>
+            '<option value="' + q + '"' + (chord.quality === q ? ' selected' : '') + '>' + q + '</option>'
+          ).join('') +
+        '</select>' +
+      '</div>' +
+
+      // Inversion
+      '<div class="col-md-3">' +
+        '<label class="form-label small fw-semibold">Inversion</label>' +
+        '<select class="form-select form-select-sm" id="mod-inversion">' +
+          [0,1,2,3].map(n =>
+            '<option value="' + n + '"' + (chord.inversion === n ? ' selected' : '') + '>' +
+            (n === 0 ? 'Root' : n === 1 ? '1st' : n === 2 ? '2nd' : '3rd') + '</option>'
+          ).join('') +
+        '</select>' +
+      '</div>' +
+
+      // Beats
+      '<div class="col-md-3">' +
+        '<label class="form-label small fw-semibold">Beats</label>' +
+        '<select class="form-select form-select-sm" id="mod-beats">' +
+          [1,2,3,4,6,8].map(n =>
+            '<option value="' + n + '"' + (chord.beats === n ? ' selected' : '') + '>' + n + '</option>'
+          ).join('') +
+        '</select>' +
+      '</div>' +
+
+      // Remove
+      '<div class="col-md-2">' +
+        '<button type="button" class="btn btn-sm btn-outline-danger w-100" id="mod-remove">Remove</button>' +
+      '</div>' +
+
+      '</div>';
+
+    document.getElementById('mod-quality').addEventListener('change', function () {
+      blocks[selectedIdx].quality = this.value;
+      render();
+    });
+    document.getElementById('mod-inversion').addEventListener('change', function () {
+      blocks[selectedIdx].inversion = parseInt(this.value);
+      render();
+    });
+    document.getElementById('mod-beats').addEventListener('change', function () {
+      blocks[selectedIdx].beats = parseInt(this.value);
+      render();
+    });
+    document.getElementById('mod-remove').addEventListener('click', function () {
+      blocks.splice(selectedIdx, 1);
+      selectedIdx = blocks.length > 0 ? Math.min(selectedIdx, blocks.length - 1) : null;
+      render();
+    });
+  }
+
+  // ── Undo / Clear ──────────────────────────────────────────────────────────
+  document.getElementById('btn-undo').addEventListener('click', function () {
+    if (blocks.length) { blocks.pop(); selectedIdx = blocks.length > 0 ? blocks.length - 1 : null; render(); }
+  });
+  document.getElementById('btn-clear').addEventListener('click', function () {
+    blocks = []; selectedIdx = null; render();
+  });
+
+  // ── Mode change → rebuild palette ────────────────────────────────────────
+  document.getElementById('mode-select').addEventListener('change', function () {
+    buildPalette();
+    render();
+  });
+
+  // ── Form submit → serialize ───────────────────────────────────────────────
+  document.getElementById('gp-form').addEventListener('submit', function () {
+    document.getElementById('chords-json-input').value = JSON.stringify(blocks);
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  buildPalette();
+  render();
+
+})();
+</script>
 {% endblock %}

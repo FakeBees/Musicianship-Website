@@ -1,0 +1,494 @@
+<mxfile host="app.diagrams.net" agent="Claude Code" version="24.7.17" type="device">
+  <diagram id="musicianship-screens" name="Screen Map">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ================= GROUP BACKGROUNDS (drawn first = behind) ================= -->
+        <mxCell id="grp_auth" value="Entry &amp; Authentication" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="1250" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_practice" value="Practice modes  —  index / random / drill / results.&#10;NOTE: all index + drill pages are reachable WITHOUT login. Only submitting requires an account." style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="285" width="1250" height="385" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_student" value="Student  —  classes &amp; curriculum" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="710" width="1250" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_teacher" value="Teacher  —  class management" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1020" width="1250" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_school" value="School admin  —  admin_teacher scope" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1330" width="1250" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_org" value="Site admin  —  organisation &amp; curriculum CMS" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1540" width="1490" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="grp_cms" value="Site admin  —  exercise content CMS" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#B3B3B3;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;fontStyle=1;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1760" width="1490" height="500" as="geometry" />
+        </mxCell>
+
+        <!-- ================= LEGEND ================= -->
+        <mxCell id="legend_box" value="LEGEND — minimum access level" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=13;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="290" height="345" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" value="Anonymous — no login needed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="Any logged-in user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" value="Section member (or section owner / admin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="160" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4" value="Teacher of the section" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="200" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5" value="School admin (admin_teacher)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="240" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg6" value="Site admin only (role == 'admin')" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="280" width="250" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="lg7" value="Red monospace = the screen NAME. Defined in&#10;screens.py; shown live by debug mode (Ctrl+Shift+D).&#10;Dashed box = redirect only, renders no page.&#10;Dashed arrow = conditional / 302 redirect." style="text;html=1;fontSize=10;fontColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="60" y="320" width="265" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- ================= NOTES ================= -->
+        <mxCell id="notes" value="&lt;b&gt;ACCESS NOTES&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;1. Roles&lt;/b&gt; live on User.role and are one of:&lt;br&gt;student / class_teacher / admin_teacher / admin.&lt;br&gt;SchoolMembership.role is a SEPARATE per-school role.&lt;br&gt;&lt;br&gt;&lt;b&gt;2. Practice pages are open.&lt;/b&gt; /melodic, /rhythm,&lt;br&gt;/harmonic, /holistic and every /exercise/&amp;lt;id&amp;gt; page&lt;br&gt;have NO @login_required. Anyone with the URL can&lt;br&gt;reach them. Only POST /submit requires a login.&lt;br&gt;&lt;br&gt;&lt;b&gt;3. Home is gated, practice is not.&lt;/b&gt; &#39;/&#39; requires&lt;br&gt;login; /sandbox is the anonymous doorway to the&lt;br&gt;same home template.&lt;br&gt;&lt;br&gt;&lt;b&gt;4. Results pages&lt;/b&gt; are owner-only, unless you are&lt;br&gt;a teacher of one of that student&#39;s classes, or admin.&lt;br&gt;&lt;br&gt;&lt;b&gt;5. class_teacher vs admin_teacher.&lt;/b&gt;&lt;br&gt;class_teacher = assigned_teacher_id on the Class;&lt;br&gt;can view/edit a class and its overrides, but cannot&lt;br&gt;create or delete classes.&lt;br&gt;admin_teacher = teacher_id owner; can also create,&lt;br&gt;delete, set course, and assign a class_teacher.&lt;br&gt;&lt;br&gt;&lt;b&gt;6. SCHOOL AUTHORITY.&lt;/b&gt; Every school-scoped route&lt;br&gt;goes through require_school_role(): a role gate alone&lt;br&gt;would let any school&#39;s admin_teacher edit every&lt;br&gt;other school&#39;s courses. Membership changes follow&lt;br&gt;&quot;strictly below your own role&quot; — so only a site admin&lt;br&gt;can seat an admin_teacher, and anyone above&lt;br&gt;student can remove those beneath them.&lt;br&gt;(BUG-003 fixed 2026-08-28.)&lt;br&gt;&lt;br&gt;&lt;b&gt;7. NAMES ARE AUTHORITATIVE.&lt;/b&gt; The red monospace&lt;br&gt;name on each box is the same string in screens.py&lt;br&gt;and in the debug panel. Renaming a box means&lt;br&gt;renaming it in screens.py in the same commit —&lt;br&gt;tests/test_screens.py enforces the pairing." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="405" width="290" height="620" as="geometry" />
+        </mxCell>
+
+        <!-- ================= AUTH ================= -->
+        <mxCell id="n_login" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;LOGIN&lt;/font&gt;&lt;br&gt;&lt;b&gt;Log in&lt;/b&gt;&lt;br&gt;&lt;i&gt;/login&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="95" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_register" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;REGISTER&lt;/font&gt;&lt;br&gt;&lt;b&gt;Register&lt;/b&gt;&lt;br&gt;&lt;i&gt;/register&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="620" y="95" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_home" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HOME&lt;/font&gt;&lt;br&gt;&lt;b&gt;Home&lt;/b&gt;&lt;br&gt;&lt;i&gt;/&lt;/i&gt; &lt;font color=&#39;#777777&#39;&gt;· mode cards + classes&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="850" y="95" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_sandbox" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SANDBOX_HOME&lt;/font&gt;&lt;br&gt;&lt;b&gt;Sandbox home&lt;/b&gt;&lt;br&gt;&lt;i&gt;/sandbox&lt;/i&gt; &lt;font color=&#39;#777777&#39;&gt;· no classes&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="95" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_logout" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;LOGOUT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Log out&lt;/b&gt;&lt;br&gt;&lt;i&gt;/logout&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="95" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_perspective" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;PERSPECTIVE_SET&lt;/font&gt;&lt;br&gt;&lt;b&gt;View as&#8230;&lt;/b&gt;&lt;br&gt;&lt;i&gt;/perspective/&amp;lt;role&amp;gt;&lt;/i&gt;  (302)&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;drops to any role at or below your own&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="850" y="185" width="180" height="72" as="geometry" />
+        </mxCell>
+        <!-- ================= PRACTICE: MELODIC ================= -->
+        <mxCell id="n_mel_idx" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MELODIC_LIBRARY&lt;/font&gt;&lt;br&gt;&lt;b&gt;Melodic library&lt;/b&gt;&lt;br&gt;&lt;i&gt;/melodic&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="300" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_mel_rnd" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MELODIC_RANDOM&lt;/font&gt;&lt;br&gt;&lt;i&gt;/random&lt;/i&gt;  (302)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="390" y="385" width="180" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="n_mel_ex" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MELODIC_DRILL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Melodic drill&lt;/b&gt;&lt;br&gt;&lt;i&gt;/exercise/&amp;lt;id&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;VexFlow editor + playback&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="455" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_mel_res" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MELODIC_RESULTS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Melodic results&lt;/b&gt;&lt;br&gt;&lt;i&gt;/results/&amp;lt;attempt&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;owner / their teacher / admin&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="570" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ================= PRACTICE: RHYTHMIC ================= -->
+        <mxCell id="n_rhy_idx" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;RHYTHM_LIBRARY&lt;/font&gt;&lt;br&gt;&lt;b&gt;Rhythm library&lt;/b&gt;&lt;br&gt;&lt;i&gt;/rhythm&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="300" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_rhy_rnd" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;RHYTHM_RANDOM&lt;/font&gt;&lt;br&gt;&lt;i&gt;/rhythm/random&lt;/i&gt;  (302)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="690" y="385" width="180" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="n_rhy_ex" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;RHYTHM_DRILL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Rhythm drill&lt;/b&gt;&lt;br&gt;&lt;i&gt;/rhythm/exercise/&amp;lt;id&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;percussion staff&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="455" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_rhy_res" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;RHYTHM_RESULTS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Rhythm results&lt;/b&gt;&lt;br&gt;&lt;i&gt;/rhythm/results/&amp;lt;attempt&amp;gt;&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="570" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ================= PRACTICE: HARMONIC ================= -->
+        <mxCell id="n_har_idx" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HARMONIC_LIBRARY&lt;/font&gt;&lt;br&gt;&lt;b&gt;Harmonic library&lt;/b&gt;&lt;br&gt;&lt;i&gt;/harmonic&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="300" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_har_rnd" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HARMONIC_RANDOM&lt;/font&gt;&lt;br&gt;&lt;i&gt;/harmonic/random&lt;/i&gt;  (302)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="990" y="385" width="180" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="n_har_ex" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HARMONIC_DRILL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Harmonic drill&lt;/b&gt;&lt;br&gt;&lt;i&gt;/harmonic/exercise/&amp;lt;id&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;chord-block builder&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="455" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_har_res" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HARMONIC_RESULTS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Harmonic results&lt;/b&gt;&lt;br&gt;&lt;i&gt;/harmonic/results/&amp;lt;attempt&amp;gt;&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="570" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ================= PRACTICE: HOLISTIC ================= -->
+        <mxCell id="n_hol_idx" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HOLISTIC_LIBRARY&lt;/font&gt;&lt;br&gt;&lt;b&gt;Holistic library&lt;/b&gt;&lt;br&gt;&lt;i&gt;/holistic&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="300" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_hol_norand" value="&lt;font color=&#39;#999999&#39;&gt;(no /random route —&lt;br&gt;the only mode without one)&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="385" width="180" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="n_hol_ex" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HOLISTIC_DRILL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Holistic drill&lt;/b&gt;&lt;br&gt;&lt;i&gt;/holistic/exercise/&amp;lt;id&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;WAV + N lines (HolisticLine)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="455" width="180" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_hol_res" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;HOLISTIC_RESULTS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Holistic results&lt;/b&gt;&lt;br&gt;&lt;i&gt;/holistic/results/&amp;lt;attempt&amp;gt;&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="570" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ================= STUDENT ================= -->
+        <mxCell id="n_myclasses" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MY_SECTIONS&lt;/font&gt;&lt;br&gt;&lt;b&gt;My Sections&lt;/b&gt;&lt;br&gt;&lt;i&gt;/my-sections&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;+ SECTION_JOIN / SCHOOL_JOIN&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="765" width="180" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="n_me" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MY_PROGRESS&lt;/font&gt;&lt;br&gt;&lt;b&gt;My Progress&lt;/b&gt;&lt;br&gt;&lt;i&gt;/me&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;attempts + module progress&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="880" width="180" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="n_class_home" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SECTION_HOME&lt;/font&gt;&lt;br&gt;&lt;b&gt;Section home&lt;/b&gt;&lt;br&gt;&lt;i&gt;/section/&amp;lt;id&amp;gt;&lt;/i&gt; &lt;font color=&#39;#777777&#39;&gt;· mode select&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="765" width="180" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="n_class_mods" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SECTION_MODULE_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Module list&lt;/b&gt;&lt;br&gt;&lt;i&gt;/section/&amp;lt;id&amp;gt;/modules&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="765" width="180" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="n_mod_detail" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SECTION_MODULE_DETAIL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Module detail&lt;/b&gt;&lt;br&gt;&lt;i&gt;/section/&amp;lt;id&amp;gt;/modules/&amp;lt;mid&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;exercise blocks + progress&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="765" width="180" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="n_start_me" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;MODULE_EXERCISE_START&lt;/font&gt;&lt;br&gt;&lt;i&gt;/section/&amp;lt;id&amp;gt;/module_exercise/&amp;lt;meid&amp;gt;/start&lt;/i&gt;&lt;br&gt;(302)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="765" width="190" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- ================= TEACHER ================= -->
+        <mxCell id="n_tdash" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_DASHBOARD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Teacher dashboard&lt;/b&gt;&lt;br&gt;&lt;i&gt;/teacher&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;class_teacher | admin_teacher | admin&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1075" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_newclass" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_SECTION_NEW&lt;/font&gt;&lt;br&gt;&lt;b&gt;New section&lt;/b&gt;&lt;br&gt;&lt;i&gt;/teacher/section/new&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;admin_teacher | admin only&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="1075" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_classdetail" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_SECTION_DETAIL&lt;/font&gt;&lt;br&gt;&lt;b&gt;Section detail&lt;/b&gt;&lt;br&gt;&lt;i&gt;/teacher/section/&amp;lt;id&amp;gt;&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;roster + per-mode averages&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="1075" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_editclass" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_SECTION_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit section&lt;/b&gt;&lt;br&gt;&lt;i&gt;/teacher/section/&amp;lt;id&amp;gt;/edit&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;overrides, hide/restore modules&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="1075" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_delclass" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_SECTION_DELETE&lt;/font&gt;&lt;br&gt;&lt;b&gt;Confirm delete section&lt;/b&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;admin_teacher | admin&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="1060" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="n_kick" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;TEACHER_STUDENT_KICK&lt;/font&gt;&lt;br&gt;&lt;b&gt;Confirm remove student&lt;/b&gt;&lt;br&gt;&lt;i&gt;/teacher/section/&amp;lt;id&amp;gt;/kick/&amp;lt;uid&amp;gt;&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="1145" width="190" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ================= SCHOOL ADMIN ================= -->
+        <mxCell id="n_myschool" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SCHOOL_ADMIN_ENTRY&lt;/font&gt;&lt;br&gt;&lt;i&gt;/admin/my-school&lt;/i&gt;  (302)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1390" width="180" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="n_schooldetail" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;SCHOOL_DETAIL&lt;/font&gt;&lt;br&gt;&lt;b&gt;School detail&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/schools/&amp;lt;id&amp;gt;/detail&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;members · roles · remove&lt;br&gt;join code: school admin only&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="1385" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_courseclasses" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;COURSE_SECTIONS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Course sections&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/courses/&amp;lt;id&amp;gt;/sections&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="1385" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_school_note" value="&lt;font color=&#39;#777777&#39;&gt;admin_teacher must hold an&lt;br&gt;admin_teacher SchoolMembership&lt;br&gt;for THAT school, else 403.&lt;/font&gt;" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="1385" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ================= SITE ADMIN: ORG ================= -->
+        <mxCell id="n_admin" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_DASHBOARD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Admin dashboard&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin&lt;/i&gt; &lt;font color=&#39;#777777&#39;&gt;· content counts&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1595" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_users" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_USERS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Users&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/users&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="630" y="1595" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_schools" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_SCHOOLS&lt;/font&gt;&lt;br&gt;&lt;b&gt;Schools&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/schools&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="1595" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_courses" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_COURSES&lt;/font&gt;&lt;br&gt;&lt;b&gt;Courses&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/schools/&amp;lt;id&amp;gt;/courses&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="1595" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_modules" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MODULES&lt;/font&gt;&lt;br&gt;&lt;b&gt;Modules&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/courses/&amp;lt;id&amp;gt;/modules&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="1595" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_modexercises" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MODULE_EXERCISES&lt;/font&gt;&lt;br&gt;&lt;b&gt;Module exercises&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/modules/&amp;lt;id&amp;gt;/exercises&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;filter presets, completion rules&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="1595" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ================= SITE ADMIN: CONTENT CMS ================= -->
+        <mxCell id="n_cms_mel" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MELODY_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Melodies&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/melodies&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1810" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_mel_edit" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MELODY_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit melody&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/melodies/&amp;lt;id&amp;gt;/edit&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1900" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_mel_up" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MELODY_UPLOAD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Upload MIDI&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/melodies/upload&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1990" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_mel_gen" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_MELODY_GENERATOR&lt;/font&gt;&lt;br&gt;&lt;b&gt;Melody generator&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/melodies/generate&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;generate / approve / reject&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="390" y="2080" width="180" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_cms_rhy" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_RHYTHM_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Rhythms&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/rhythms&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1810" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_rhy_edit" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_RHYTHM_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit rhythm&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/rhythms/&amp;lt;id&amp;gt;/edit&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1900" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_rhy_up" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_RHYTHM_UPLOAD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Upload MIDI&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/rhythms/upload&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="690" y="1990" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_cms_har" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HARMONIC_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Harmonics&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/harmonics&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1810" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_har_edit" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HARMONIC_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit progression&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/harmonics/&amp;lt;id&amp;gt;/edit&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1900" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_har_up" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HARMONIC_UPLOAD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Upload MIDI&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/harmonics/upload&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1990" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_cms_hol" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HOLISTIC_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Holistic&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/holistic&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="1810" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_hol_edit" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HOLISTIC_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit holistic&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/holistic/&amp;lt;id&amp;gt;/edit&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;Lines builder (add/reorder/delete)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="1895" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_hol_up" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_HOLISTIC_UPLOAD&lt;/font&gt;&lt;br&gt;&lt;b&gt;Upload WAV + MIDI&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/holistic/upload&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="1990" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_cms_gp" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_GENPROG_LIST&lt;/font&gt;&lt;br&gt;&lt;b&gt;Gen progressions&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/gen-progressions&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="1810" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n_cms_gp_edit" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_GENPROG_EDIT&lt;/font&gt;&lt;br&gt;&lt;b&gt;Edit gen progression&lt;/b&gt;&lt;br&gt;&lt;i&gt;/admin/gen-progressions/&amp;lt;id&amp;gt;/edit&lt;/i&gt;&lt;br&gt;&lt;font color=&#39;#777777&#39;&gt;chord-block editor (WIP, uncommitted)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="1895" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_confirm_del" value="&lt;font color=&#39;#b85450&#39; face=&#39;monospace&#39;&gt;ADMIN_*_DELETE&lt;/font&gt;&lt;br&gt;&lt;b&gt;Shared confirm-delete&lt;/b&gt;&lt;br&gt;&lt;i&gt;admin/confirm_delete.html&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="2160" width="240" height="72" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: AUTH ================= -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_login" target="n_home">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="auto-login" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_register" target="n_home">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_logout">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="302 &#8594; LOGIN" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_logout" target="n_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_persp" value="nav: View as&#10;caps at your real role" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_home" target="n_perspective">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_persp2" value="re-renders every screen&#10;under the chosen role" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_perspective" target="n_home">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- ================= EDGES: HOME -> PRACTICE ================= -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_mel_idx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_rhy_idx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_har_idx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="4 mode cards" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_hol_idx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="?sandbox=1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#999999;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_sandbox" target="n_hol_idx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: PRACTICE FLOWS ================= -->
+        <mxCell id="e10" value="Random" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_mel_idx" target="n_mel_rnd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_mel_rnd" target="n_mel_ex">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="MELODIC_SUBMIT&#10;POST · LOGIN REQUIRED" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#B85450;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_mel_ex" target="n_mel_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="Random" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_rhy_idx" target="n_rhy_rnd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_rhy_rnd" target="n_rhy_ex">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" value="RHYTHM_SUBMIT&#10;POST · LOGIN REQUIRED" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#B85450;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_rhy_ex" target="n_rhy_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" value="Random" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_har_idx" target="n_har_rnd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_har_rnd" target="n_har_ex">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" value="HARMONIC_SUBMIT&#10;POST · LOGIN REQUIRED" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#B85450;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_har_ex" target="n_har_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="pick exercise" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_hol_idx" target="n_hol_ex">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" value="HOLISTIC_SUBMIT&#10;POST · LOGIN REQUIRED" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#B85450;strokeColor=#666666;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_hol_ex" target="n_hol_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" value="Next &#8594;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#999999;endArrow=blockThin;endFill=1;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="n_har_res" target="n_har_rnd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: STUDENT ================= -->
+        <mxCell id="e22" value="nav: My Classes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_myclasses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" value="nav: My Progress" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#6c8ebf;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_myclasses" target="n_me">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" value="if member of section&#10;(SECTION_JOIN to join by code)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_myclasses" target="n_class_home">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" value="only if section has a course" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_class_home" target="n_class_mods">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" value="module not hidden for section" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_class_mods" target="n_mod_detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" value="Start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_mod_detail" target="n_start_me">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" value="302 into the drill&#10;with module context&#10;(session-carried me_id / class_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_start_me" target="n_hol_ex">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" value="ModuleCompletion recorded&#10;on submit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#82b366;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_hol_res" target="n_mod_detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: TEACHER ================= -->
+        <mxCell id="e30" value="nav: My Classes&#10;(teacher roles)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#d79b00;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_tdash">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" value="admin_teacher | admin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_tdash" target="n_newclass">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" value="class_teacher: only if assigned_teacher_id == me&#10;admin_teacher: only if teacher_id == me" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#d79b00;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_tdash" target="n_classdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_newclass" target="n_classdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#d79b00;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_classdetail" target="n_editclass">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e35" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#d79b00;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_classdetail" target="n_kick">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e36" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_editclass" target="n_delclass">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e37" value="teacher can read a student&#39;s&#10;results page (own classes only)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#d79b00;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_classdetail" target="n_mel_res">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: SCHOOL ADMIN ================= -->
+        <mxCell id="e38" value="nav: Admin&#10;(admin_teacher)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_myschool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e39" value="admin_teacher: 302" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_myschool" target="n_schooldetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e40" value="admin: 302" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#999999;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_myschool" target="n_schools">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e41" value="must be admin_teacher OF that school" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_schools" target="n_schooldetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_courses" target="n_courseclasses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e43" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#9673a6;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_courseclasses" target="n_classdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= EDGES: SITE ADMIN ================= -->
+        <mxCell id="e44" value="nav: Admin&#10;(role == 'admin')" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;fontColor=#444444;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_home" target="n_admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e45" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e46" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_schools">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e47" value="drill down" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_schools" target="n_courses">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e48" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_courses" target="n_modules">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e49" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_modules" target="n_modexercises">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e50" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_cms_mel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_cms_rhy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e52" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_cms_har">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e53" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_cms_hol">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e54" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_admin" target="n_cms_gp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e55" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_mel" target="n_cms_mel_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e56" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_mel" target="n_cms_mel_up">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e57" value="after upload &#8594; edit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_cms_mel_up" target="n_cms_mel_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_mel" target="n_cms_mel_gen">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e59" value="Approve &#8594; saved melody" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_cms_mel_gen" target="n_cms_mel_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e60" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_rhy" target="n_cms_rhy_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e61" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_rhy" target="n_cms_rhy_up">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e62" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_har" target="n_cms_har_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e63" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_har" target="n_cms_har_up">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e64" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_hol" target="n_cms_hol_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e65" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_hol" target="n_cms_hol_up">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e66" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#b85450;endArrow=blockThin;endFill=1;" edge="1" parent="1" source="n_cms_gp" target="n_cms_gp_edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e67" value="Delete (GET confirms)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#999999;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_cms_har" target="n_confirm_del">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e68" value="module exercises point&#10;at the four content types" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=9;strokeColor=#999999;endArrow=blockThin;endFill=1;dashed=1;" edge="1" parent="1" source="n_modexercises" target="n_cms_gp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

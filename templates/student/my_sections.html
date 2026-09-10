@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}My Classes{% endblock %}
+{% block title %}My {{ section_terms_title }}{% endblock %}
 {% block content %}
 <div class="container py-4" style="max-width:700px">
-  <h2 class="mb-4">My Classes</h2>
+  <h2 class="mb-4">My {{ section_terms_title }}</h2>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
@@ -11,7 +11,7 @@
   <div class="card mb-3">
     <div class="card-header fw-semibold">Join a school</div>
     <div class="card-body">
-      <p class="text-muted small mb-2">You need to join a school before you can join its classes.</p>
+      <p class="text-muted small mb-2">You need to join a school before you can join its {{ section_terms }}.</p>
       <form method="post" action="{{ url_for('join_school') }}" class="d-flex gap-2" style="max-width:360px">
         <input type="text" name="school_code" class="form-control" placeholder="School join code" required>
         <button type="submit" class="btn btn-outline-secondary">Join School</button>
@@ -25,33 +25,33 @@
   </div>
 
   <div class="card mb-4">
-    <div class="card-header fw-semibold">Join a class</div>
+    <div class="card-header fw-semibold">Join a {{ section_term }}</div>
     <div class="card-body">
-      <form method="post" action="{{ url_for('join_class') }}" class="d-flex gap-2" style="max-width:360px">
-        <input type="text" name="join_code" class="form-control" placeholder="Enter class join code" required>
+      <form method="post" action="{{ url_for('join_section') }}" class="d-flex gap-2" style="max-width:360px">
+        <input type="text" name="join_code" class="form-control" placeholder="Enter {{ section_term }} join code" required>
         <button type="submit" class="btn btn-outline-primary">Join</button>
       </form>
     </div>
   </div>
 
-  {% if classes %}
-  <h5 class="mb-3">Your classes</h5>
+  {% if sections %}
+  <h5 class="mb-3">Your {{ section_terms }}</h5>
   <div class="list-group">
-    {% for klass in classes %}
+    {% for section in sections %}
     <div class="list-group-item d-flex justify-content-between align-items-center">
       <div>
-        <strong>{{ klass.name }}</strong>
-        {% if klass.course %}<span class="text-muted small ms-2">{{ klass.course.name }}</span>{% endif %}
+        <strong>{{ section.name }}</strong>
+        {% if section.course %}<span class="text-muted small ms-2">{{ section.course.name }}</span>{% endif %}
       </div>
-      <form method="post" action="{{ url_for('leave_class', class_id=klass.id) }}"
-            onsubmit="return confirm('Leave class &quot;{{ klass.name }}&quot;? You will lose access to its modules.')">
+      <form method="post" action="{{ url_for('leave_section', section_id=section.id) }}"
+            onsubmit="return confirm('Leave {{ section_term }} &quot;{{ section.name }}&quot;? You will lose access to its modules.')">
         <button class="btn btn-sm btn-outline-danger">Leave</button>
       </form>
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-muted">You are not enrolled in any classes yet.</p>
+  <p class="text-muted">You are not enrolled in any {{ section_terms }} yet.</p>
   {% endif %}
 </div>
 {% endblock %}

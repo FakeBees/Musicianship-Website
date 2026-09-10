@@ -1,5 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}Melody Generator — Admin{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/tone@14/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/notation.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  {% if preview %}
+  <script>
+  // Registered AFTER notation.js's own DOMContentLoaded, so VF is already initialized.
+  document.addEventListener('DOMContentLoaded', function() {
+    var notes = {{ preview.notes_json | safe }};
+    if (window.renderReadOnlyStave) window.renderReadOnlyStave('notation-container', notes);
+    document.getElementById('play-btn').onclick = function() {
+      if (window.playMidi) window.playMidi();
+    };
+    document.getElementById('stop-btn').onclick = function() {
+      if (window.stopAllNotes) window.stopAllNotes();
+    };
+  });
+  </script>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
   <h2 class="mb-4">Melody Generator</h2>
@@ -155,25 +182,10 @@
       </form>
     </div>
 
-    {# ── Right: Preview ───────────────────────────────────────────────── #}
+    {# ── Right: Approve form (only when preview exists) ──────────────── #}
+    {% if preview %}
     <div class="col-lg-7">
-      {% if preview %}
       <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span class="fw-semibold">Preview</span>
-          <span class="badge bg-secondary">Difficulty suggestion: {{ preview.difficulty_suggestion }}</span>
-        </div>
-        <div class="card-body">
-          <div id="notation-container" style="overflow-x:auto"></div>
-          <div class="mt-2">
-            <button id="play-btn" class="btn btn-sm btn-outline-primary">▶ Play</button>
-            <button id="stop-btn" class="btn btn-sm btn-outline-secondary ms-1">■ Stop</button>
-          </div>
-          <p class="small text-muted mt-2">Auto-tags: {{ preview.auto_tags | join(', ') }}</p>
-        </div>
-      </div>
-
-      <div class="card mt-3">
         <div class="card-header fw-semibold">Approve &amp; Save</div>
         <div class="card-body">
           <form method="post" action="{{ url_for('admin_melody_approve') }}">
@@ -225,32 +237,49 @@
           </form>
         </div>
       </div>
-
-      <script>
-      (function(){
-        const notes = {{ preview.notes_json | tojson }};
-        const midiUrl = "{{ preview.midi_url }}";
-        if (window.renderNotation) {
-          window.renderNotation('notation-container', notes, {
-            timeSignature: '{{ last_params.get("time_sig",["4/4"])[0] }}',
-            clef: '{{ last_params.get("clef",["treble"])[0] }}',
-            keySignature: '{{ last_params.get("key",["C"])[0] }}',
-          });
-        }
-        document.getElementById('play-btn').onclick = function() {
-          if (window.playMidi) window.playMidi(midiUrl);
-        };
-        document.getElementById('stop-btn').onclick = function() {
-          if (window.stopMidi) window.stopMidi();
-        };
-      })();
-      </script>
-      {% else %}
+    </div>
+    {% else %}
+    <div class="col-lg-7">
       <div class="text-center text-muted py-5 border rounded">
         <p>Set parameters and click <strong>Generate</strong> to preview a melody.</p>
       </div>
-      {% endif %}
+    </div>
+    {% endif %}
+  </div>{# end parameters row #}
+
+  {# ── Full-width notation preview ──────────────────────────────────────── #}
+  {% if preview %}
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Sheet Music Preview</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary">Difficulty: {{ preview.difficulty_suggestion }}</span>
+            <span class="small text-muted">{{ preview.auto_tags | join(', ') }}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="notation-container" class="text-center" style="overflow-x:auto; min-height:200px"></div>
+          <div class="d-flex justify-content-center gap-2 mt-3">
+            <button id="play-btn" class="btn btn-outline-primary px-4">▶ Play</button>
+            <button id="stop-btn" class="btn btn-outline-secondary px-4" disabled>■ Stop</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <script>
+  var CLEF          = '{{ last_params.get("clef",["treble"])[0] }}';
+  var KEY_SIGNATURE = '{{ last_params.get("key",["C"])[0] }}';
+  {% set ts = last_params.get("time_sig",["4/4"])[0] %}
+  var TIME_SIG_TOP    = {{ ts.split('/')[0] }};
+  var TIME_SIG_BOTTOM = {{ ts.split('/')[1] }};
+  var MIDI_URL     = "{{ preview.midi_url }}";
+  var MELODY_TEMPO = {{ last_params.get("tempo",["100"])[0] }};
+  </script>
+  {% endif %}
+
 </div>
 {% endblock %}

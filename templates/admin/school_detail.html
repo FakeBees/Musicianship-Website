@@ -3,13 +3,19 @@
 {% block content %}
 <div class="container py-4">
   <h2>{{ school.name }}</h2>
+  <p class="text-muted small mb-3">
+    Your role here: <span class="badge bg-secondary">{{ my_school_role }}</span>
+  </p>
+  {% if is_full_admin %}
   <a href="{{ url_for('admin_schools') }}" class="btn btn-outline-secondary btn-sm mb-3">← Schools</a>
+  {% endif %}
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
   {% endwith %}
 
-  <!-- Join code -->
+  {# Join code is school-admin business — section teachers don't get it. #}
+  {% if my_school_role in ('admin_teacher', 'admin') %}
   <div class="card mb-4">
     <div class="card-header fw-semibold">School Join Code</div>
     <div class="card-body d-flex align-items-center gap-3">
@@ -21,8 +27,59 @@
     </div>
   </div>
 
-  <!-- Add member (full admin only) -->
-  {% if is_full_admin %}
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Courses</div>
+    <div class="card-body">
+      <a href="{{ url_for('admin_courses', school_id=school.id) }}" class="btn btn-sm btn-primary">
+        Manage courses &rarr;
+      </a>
+      <span class="text-muted small ms-2">Create courses, edit modules, and see their {{ section_terms }}.</span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Appointing a school administrator means granting admin_teacher, which needs
+     a role above it — so this card is site-admin only, by the same rule that
+     governs every other membership change. #}
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Administrative teachers</div>
+    <div class="card-body">
+      {% if school_admins %}
+      <ul class="list-unstyled mb-3">
+        {% for u in school_admins %}
+        <li>
+          <i class="bi bi-person-badge me-1"></i>
+          <strong>{{ u.display_name or u.email }}</strong>
+          <span class="text-muted small">{{ u.email }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-muted small">This school has no administrative teacher yet.</p>
+      {% endif %}
+
+      {% if 'admin_teacher' in grantable_roles %}
+      <form method="post" action="{{ url_for('admin_set_school_admin', school_id=school.id) }}"
+            class="d-flex gap-2 flex-wrap">
+        <input name="email" type="email" class="form-control" style="max-width:300px"
+               placeholder="teacher@example.com" required>
+        <button class="btn btn-primary">Make administrative teacher</button>
+      </form>
+      <p class="text-muted small mb-0 mt-2">
+        Works whether or not they are already a member — they will be added or promoted.
+        To step someone down, change their role in the members table below.
+      </p>
+      {% else %}
+      <p class="text-muted small mb-0">
+        Only a site admin can appoint an administrative teacher.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# You can only ever hand out a role below your own, so an admin_teacher
+     cannot mint another admin_teacher — only a site admin can. #}
+  {% if can_manage_members and grantable_roles %}
   <div class="card mb-4">
     <div class="card-header fw-semibold">Add member by email</div>
     <div class="card-body">
@@ -31,23 +88,25 @@
         <input name="email" type="email" class="form-control" placeholder="user@example.com"
                style="max-width:280px" required>
         <select name="role" class="form-select" style="max-width:180px">
-          <option value="student">student</option>
-          <option value="class_teacher">class_teacher</option>
-          <option value="admin_teacher">admin_teacher</option>
+          {% for r in grantable_roles %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
         </select>
         <button class="btn btn-primary">Add</button>
       </form>
+      <p class="text-muted small mb-0 mt-2">
+        You can grant roles below your own ({{ grantable_roles | join(', ') }}).
+      </p>
     </div>
   </div>
   {% endif %}
 
-  <!-- Members table -->
   <div class="card">
     <div class="card-header fw-semibold">Members</div>
     <div class="card-body p-0">
       <table class="table table-sm align-middle mb-0">
         <thead>
-          <tr><th>Email</th><th>Name</th><th>Role</th><th>Joined</th><th></th></tr>
+          <tr><th>Email</th><th>Name</th><th>Role</th><th>Joined</th><th style="width:1%"></th></tr>
         </thead>
         <tbody>
         {% for m in memberships %}
@@ -57,18 +116,29 @@
           <td><span class="badge bg-secondary">{{ m.role }}</span></td>
           <td class="text-muted small">{{ m.joined_at.strftime('%Y-%m-%d') if m.joined_at else '—' }}</td>
           <td>
-            <form method="post" action="{{ url_for('admin_set_member_role', school_id=school.id) }}"
-                  class="d-flex gap-1">
-              <input type="hidden" name="user_id" value="{{ m.user_id }}">
-              <select name="role" class="form-select form-select-sm" style="width:auto">
-                {% if is_full_admin %}
-                <option value="student" {% if m.role == 'student' %}selected{% endif %}>student</option>
-                {% endif %}
-                <option value="class_teacher" {% if m.role == 'class_teacher' %}selected{% endif %}>class_teacher</option>
-                <option value="admin_teacher" {% if m.role == 'admin_teacher' %}selected{% endif %}>admin_teacher</option>
-              </select>
-              <button class="btn btn-sm btn-outline-primary">Set</button>
-            </form>
+            {% if actionable.get(m.user_id) %}
+            <div class="d-flex gap-1 align-items-center">
+              {% if can_manage_members %}
+              <form method="post" action="{{ url_for('admin_set_member_role', school_id=school.id) }}"
+                    class="d-flex gap-1">
+                <input type="hidden" name="user_id" value="{{ m.user_id }}">
+                <select name="role" class="form-select form-select-sm" style="width:auto">
+                  {% for r in grantable_roles %}
+                  <option value="{{ r }}" {% if m.role == r %}selected{% endif %}>{{ r }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-sm btn-outline-primary">Set</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin_remove_school_member', school_id=school.id) }}"
+                    onsubmit="return confirm('Remove {{ m.user.email }} from {{ school.name }}? They will also be dropped from this school’s {{ section_terms }}.')">
+                <input type="hidden" name="user_id" value="{{ m.user_id }}">
+                <button class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </div>
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}
@@ -76,6 +146,9 @@
         {% endfor %}
         </tbody>
       </table>
+    </div>
+    <div class="card-footer text-muted small">
+      You can change or remove members whose role is below your own.
     </div>
   </div>
 </div>

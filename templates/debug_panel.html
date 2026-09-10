@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug — Musicianship Trainer</title>
+  <style>
+    :root {
+      --bg: #16181c; --panel: #1e2128; --line: #2f343d;
+      --text: #e6e8eb; --muted: #8b93a1; --accent: #f8cecc; --ok: #82b366;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      padding: 14px;
+    }
+    h1 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+         color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+    .card { background: var(--panel); border: 1px solid var(--line);
+            border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+    .screen-name { font-size: 19px; font-weight: 700; color: #fff;
+                   word-break: break-all; line-height: 1.25; }
+    .path { color: var(--muted); font-size: 12px; margin-top: 3px;
+            word-break: break-all; }
+    .row { display: flex; gap: 10px; padding: 4px 0; align-items: baseline; }
+    .k { color: var(--muted); min-width: 92px; flex-shrink: 0; }
+    .v { color: var(--text); word-break: break-word; }
+    .pill { display: inline-block; padding: 2px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; color: #12141a; }
+    .note { color: var(--muted); font-size: 11.5px; line-height: 1.45;
+            margin-top: 8px; border-left: 2px solid var(--line); padding-left: 9px; }
+    .yes { color: var(--ok); font-weight: 700; }
+    .no  { color: #d97b7b; font-weight: 700; }
+    .foot { color: var(--muted); font-size: 11px; text-align: center;
+            margin-top: 14px; line-height: 1.6; }
+    kbd { background: #2f343d; border: 1px solid #454b57; border-radius: 4px;
+          padding: 1px 5px; font-size: 10.5px; color: var(--text); }
+    .stale { opacity: .45; }
+  </style>
+</head>
+<body>
+
+<h1>Debug &mdash; current screen</h1>
+
+<div class="card" id="screen-card">
+  <div class="screen-name" id="d-name">&mdash;</div>
+  <div class="path" id="d-path"></div>
+  <div style="margin-top:11px">
+    <div class="row"><span class="k">endpoint</span><span class="v" id="d-endpoint"></span></div>
+    <div class="row"><span class="k">kind</span><span class="v" id="d-kind"></span></div>
+    <div class="row"><span class="k">group</span><span class="v" id="d-group"></span></div>
+    <div class="row"><span class="k">template</span><span class="v" id="d-template"></span></div>
+  </div>
+</div>
+
+<h1>Required access</h1>
+<div class="card">
+  <div><span class="pill" id="d-access-pill">&mdash;</span></div>
+  <div class="note" id="d-access-desc"></div>
+  <div class="note" id="d-condition" style="display:none"></div>
+</div>
+
+<h1>Your permission level</h1>
+<div class="card" id="viewer-card">
+  <div class="row"><span class="k">logged in</span><span class="v" id="d-authed"></span></div>
+  <div class="row"><span class="k">identity</span><span class="v" id="d-identity"></span></div>
+  <div class="row"><span class="k">User.role</span><span class="v" id="d-role"></span></div>
+  <div class="row" id="d-persp-row" style="display:none"><span class="k">viewing as</span><span class="v" id="d-persp"></span></div>
+  <div class="row"><span class="k">schools</span><span class="v" id="d-schools"></span></div>
+  <div class="row"><span class="k">sections</span><span class="v" id="d-sections"></span></div>
+  <div id="d-section-ctx"></div>
+  <div class="note" id="d-verdict"></div>
+</div>
+
+<div class="foot">
+  Follows the main tab automatically.<br>
+  Press <kbd id="d-combo">Ctrl+Shift+D</kbd> in the main window to turn debug mode off.
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SCREEN_KEY = 'musicianship.debugScreen';
+  var STORAGE_KEY = 'musicianship.debugMode';
+
+  // Server-rendered fallback for the very first paint, before any storage read.
+  var BOOT = {{ boot_screen | tojson }};
+
+  var ACCESS_COLOURS = {{ access_colours | tojson }};
+
+  function $(id) { return document.getElementById(id); }
+  function txt(id, v) { $(id).textContent = (v === null || v === undefined || v === '') ? '—' : v; }
+
+  function readScreen() {
+    try {
+      var raw = localStorage.getItem(SCREEN_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (err) { /* fall through */ }
+    return BOOT;
+  }
+
+  function renderScreen(meta) {
+    txt('d-name', meta.name);
+    txt('d-path', meta.path);
+    txt('d-endpoint', meta.endpoint);
+    txt('d-kind', meta.kind);
+    txt('d-group', meta.group);
+    txt('d-template', meta.template);
+
+    var pill = $('d-access-pill');
+    pill.textContent = meta.access_label || meta.access;
+    pill.style.background = ACCESS_COLOURS[meta.access] || '#999999';
+    txt('d-access-desc', meta.access_description);
+
+    var cond = $('d-condition');
+    if (meta.condition) {
+      cond.style.display = '';
+      cond.textContent = 'Route condition: ' + meta.condition;
+    } else {
+      cond.style.display = 'none';
+    }
+  }
+
+  function yesno(v) {
+    return '<span class="' + (v ? 'yes' : 'no') + '">' + (v ? 'YES' : 'NO') + '</span>';
+  }
+
+  function renderViewer(v) {
+    $('d-authed').innerHTML = yesno(v.authenticated);
+    txt('d-identity', v.identity);
+    txt('d-role', v.role);
+    var pr = $('d-persp-row');
+    if (v.perspective) {
+      pr.style.display = '';
+      txt('d-persp', v.perspective + '  (real: ' + v.real_role + ')');
+    } else { pr.style.display = 'none'; }
+    txt('d-schools', v.schools && v.schools.length ? v.schools.join(', ') : 'none');
+    txt('d-sections', v.sections && v.sections.length ? v.sections.join(', ') : 'none');
+
+    var ctx = $('d-section-ctx');
+    ctx.innerHTML = '';
+    if (v.section_context) {
+      var c = v.section_context;
+      ctx.innerHTML =
+        '<div class="row"><span class="k">section ctx</span><span class="v">' +
+          c.name + ' (id ' + c.id + ')</span></div>' +
+        '<div class="row"><span class="k">&nbsp;member</span><span class="v">' +
+          yesno(c.is_member) + '</span></div>' +
+        '<div class="row"><span class="k">&nbsp;owner</span><span class="v">' +
+          yesno(c.is_owner_teacher) + '</span></div>' +
+        '<div class="row"><span class="k">&nbsp;assigned</span><span class="v">' +
+          yesno(c.is_assigned_teacher) + '</span></div>';
+    }
+    $('d-verdict').textContent = v.verdict || '';
+  }
+
+  var inflight = null;
+  function refresh() {
+    var meta = readScreen();
+    renderScreen(meta);
+    document.getElementById('screen-card').classList.remove('stale');
+
+    var url = '/debug/state?endpoint=' + encodeURIComponent(meta.endpoint || '') +
+              '&section_id=' + encodeURIComponent(meta.section_id || '');
+    if (inflight) inflight.abort();
+    inflight = new AbortController();
+    fetch(url, { signal: inflight.signal, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(renderViewer)
+      .catch(function () { /* aborted or offline — keep the last render */ });
+  }
+
+  window.addEventListener('storage', function (e) {
+    if (e.key === SCREEN_KEY) refresh();
+    if (e.key === STORAGE_KEY && localStorage.getItem(STORAGE_KEY) !== 'on') {
+      document.getElementById('screen-card').classList.add('stale');
+      $('d-verdict').textContent = 'Debug mode was turned off in the main window.';
+    }
+  });
+
+  refresh();
+})();
+</script>
+
+</body>
+</html>

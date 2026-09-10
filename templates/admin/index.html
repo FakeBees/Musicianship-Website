@@ -22,15 +22,15 @@
     </div>
     <div class="col-md-3">
       <div class="card text-center p-3">
-        <div class="fs-2 fw-bold">{{ class_count }}</div>
-        <div class="text-muted">Classes</div>
+        <div class="fs-2 fw-bold">{{ section_count }}</div>
+        <div class="text-muted">{{ section_terms_title }}</div>
       </div>
     </div>
     <div class="col-md-3">
       <div class="card text-center p-3">
         <div class="fs-2 fw-bold">{{ gen_prog_count }}</div>
         <div class="text-muted">Gen Progressions</div>
-        <a href="/admin/gen_progressions" class="btn btn-sm btn-outline-secondary mt-2">Manage →</a>
+        <a href="{{ url_for('admin_gen_progressions') }}" class="btn btn-sm btn-outline-secondary mt-2">Manage →</a>
       </div>
     </div>
   </div>

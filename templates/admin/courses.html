@@ -9,7 +9,7 @@
     <button class="btn btn-primary">Add</button>
   </form>
   <table class="table table-sm align-middle">
-    <thead><tr><th>Name</th><th>Modules</th><th>Classes</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>Modules</th><th>{{ section_terms_title }}</th><th></th></tr></thead>
     <tbody>
     {% for c in courses %}
     <tr>
@@ -19,8 +19,8 @@
         <a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
       </td>
       <td>
-        {{ c.classes | length }}
-        <a href="{{ url_for('admin_course_classes', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
+        {{ c.sections | length }}
+        <a href="{{ url_for('admin_course_sections', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
       </td>
       <td class="d-flex gap-1 flex-wrap">
         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"

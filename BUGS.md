@@ -6,16 +6,11 @@ A running list of known bugs and issues to fix. Add new entries at the bottom of
 
 ## Harmonic Dictation
 
-**BUG-001 — Dissonant/messy chord during results page playback** *(confirmed still present)*
-Chords sound dissonant or garbled during playback on the results page, but play correctly during the exercise. Most commonly observed on the I chord when it follows a V chord (e.g., the resolution in I–IV–V–I). Only occurs post-grading. Likely a Tone.js scheduling or Transport state issue — a previous playback session may not be fully cleaned up before the results page initiates playback, causing notes from a prior play to bleed into or clash with the new playback. Investigate whether `Tone.Transport.cancel()` and synth `releaseAll()` are called before starting results-page playback. The V→I resolution is a likely trigger because V chords hold sustained notes (leading tone, dominant) that may not be released before the I chord attacks.
+**BUG-001 — Dissonant/messy chord during results page playback** — ✅ **FIXED 2026-03-19**
+Chords sounded dissonant or garbled during playback on the results page, but played correctly during the exercise. Most commonly observed on the I chord following a V chord. Cause was Tone.js Transport scheduling leaving a prior playback session uncleaned. Fixed by switching `window.playChordArray()` in `static/js/player.js` from `Tone.Transport.schedule` to direct `Tone.now() + 0.1` AudioContext scheduling, with `stopAllNotes()` calling `sampler.releaseAll()`.
 
-**BUG-002 — Roman numeral inversion notation uses slash chords instead of figured bass**
-Inversions in Roman numeral mode are displayed as `I/E` or `I/G` instead of the correct `I6` (first inversion, third in bass) and `I64` (second inversion, fifth in bass). Inversion notation differs by mode:
-- **Lead sheet:** slash chord with note name — `C/E`, `C/G` ✓ (already correct)
-- **Nashville:** slash chord with scale degree number — `1/3`, `1/5` (intentional, keep as-is)
-- **Roman numeral:** figured bass numbers only — `I6`, `I64`, `I4/2` (currently wrong, shows slash notation like Nashville — fix this)
-
-Fix only the Roman numeral branch in `format_chord_name` in `chord_utils.py` and `formatChordName` in `chord_block_utils.js` (or `harmonic.js` before refactor). Nashville slash notation is correct and should not be changed.
+**BUG-002 — Roman numeral inversion notation uses slash chords instead of figured bass** — ✅ **FIXED 2026-03-19**
+Inversions in Roman numeral mode displayed as `I/E` or `I/G` instead of `I6` / `I64` / `I4/2`. Fixed in the Roman branch of `format_chord_name` (`chord_utils.py`) and `formatChordName` (`static/js/chord_block_utils.js`). Nashville slash notation was intentionally left unchanged; lead sheet was already correct.
 
 ---
 
@@ -39,15 +34,24 @@ Fix only the Roman numeral branch in `format_chord_name` in `chord_utils.py` and
 
 ## General / Shared
 
-*(none yet)*
+**BUG-003 — `admin_teacher` gets a 403 from their own nav bar** — ✅ **FIXED 2026-08-28**
+`templates/base.html` shows an "Admin" link pointing at `/admin/my-school` for users with role `admin_teacher`. That route (`app.py:2395`) redirects them to `admin_courses(school_id=…)` — i.e. `/admin/schools/<id>/courses` — which is gated `@role_required('admin')` at `app.py:1050`. The result is that an `admin_teacher` clicking Admin in the nav always lands on a 403, making the role effectively unusable through the UI.
+
+Fixed by doing both: `admin_my_school` now redirects to `admin_school_detail`, and the whole course/module CMS was opened to `admin_teacher` behind a new `require_school_role()` guard. See `docs/NAMING.md` § School authority.
+
+**Anonymous access to practice pages** *(needs a design decision, not necessarily a fix)*
+`/` requires login, but `/melodic`, `/rhythm`, `/harmonic`, `/holistic`, every `/exercise/<id>` page and every `/random` route have no `@login_required`. Anyone with a URL can practise; only POST submit requires an account. The existence of `/sandbox` suggests this is intentional, but it is currently undocumented rather than deliberately designed. Decide whether to keep it as the sandbox story or gate it.
+
+**SQLAlchemy 2.0 deprecation** *(low priority)*
+`User.query.get()` in `load_user` (`app.py:46`) raises `LegacyAPIWarning` under SQLAlchemy 2.x. Harmless today; will break on a major upgrade. Replace with `db.session.get(User, int(user_id))`.
 
 ---
 
-*Last updated: 2026-03-19*
+*Last updated: 2026-08-28*
 
 ---
 
-### Figured bass quick reference (for BUG-002 fix)
+### Figured bass quick reference (kept for reference)
 
 | Inversion | Bass note | Roman numeral suffix | Lead sheet |
 |---|---|---|---|

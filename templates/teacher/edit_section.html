@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Edit {{ cls.name }}{% endblock %}
+{% block title %}Edit {{ section.name }}{% endblock %}
 {% block content %}
 <div class="container py-4" style="max-width:660px">
   <div class="d-flex align-items-center gap-3 mb-4">
-    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link p-0 text-decoration-none">← Classes</a>
-    <h2 class="mb-0">Edit {{ cls.name }}</h2>
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link p-0 text-decoration-none">← {{ section_terms_title }}</a>
+    <h2 class="mb-0">Edit {{ section.name }}</h2>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -13,19 +13,19 @@
 
   <!-- Basic settings -->
   <div class="card mb-4">
-    <div class="card-header fw-semibold">Class Settings</div>
+    <div class="card-header fw-semibold">{{ section_term_title }} Settings</div>
     <div class="card-body">
       <form method="post">
         <div class="mb-3">
-          <label class="form-label fw-semibold">Class Name</label>
-          <input name="name" class="form-control" value="{{ cls.name }}" required>
+          <label class="form-label fw-semibold">{{ section_term_title }} Name</label>
+          <input name="name" class="form-control" value="{{ section.name }}" required>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Course <span class="text-muted fw-normal">(optional)</span></label>
           <select name="course_id" class="form-select">
             <option value="">— No course —</option>
             {% for c in courses %}
-            <option value="{{ c.id }}" {% if cls.course_id == c.id %}selected{% endif %}>
+            <option value="{{ c.id }}" {% if section.course_id == c.id %}selected{% endif %}>
               {{ c.school.name }} / {{ c.name }}
             </option>
             {% endfor %}
@@ -37,50 +37,63 @@
     </div>
   </div>
 
-  <!-- Assign Class Teacher -->
+  <!-- Assign {{ section_term_title }} Teacher -->
   <div class="card mb-4">
-    <div class="card-header fw-semibold">Assign Class Teacher</div>
+    <div class="card-header fw-semibold">Assign {{ section_term_title }} Teacher</div>
     <div class="card-body">
-      <form method="post" action="{{ url_for('teacher_assign_class_teacher', class_id=cls.id) }}"
-            class="d-flex gap-2 align-items-center">
-        <select name="user_id" class="form-select" style="max-width:280px">
-          <option value="">— No assigned teacher —</option>
-          {% for t in class_teachers %}
-          <option value="{{ t.id }}" {% if cls.assigned_teacher_id == t.id %}selected{% endif %}>
-            {{ t.display_name or t.email }}
-          </option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-outline-primary">Assign</button>
-      </form>
-      {% if cls.assigned_teacher %}
-      <p class="text-muted small mt-2">
-        Currently assigned: <strong>{{ cls.assigned_teacher.display_name or cls.assigned_teacher.email }}</strong>
+      {% if section.assigned_teacher %}
+      <p class="mb-3">
+        Currently assigned:
+        <strong>{{ section.assigned_teacher.display_name or section.assigned_teacher.email }}</strong>
+        <span class="text-muted small">({{ section.assigned_teacher.email }})</span>
+        <form method="post" action="{{ url_for('teacher_assign_section_teacher', section_id=section.id) }}"
+              class="d-inline ms-2">
+          <input type="hidden" name="clear" value="1">
+          <button class="btn btn-sm btn-outline-secondary">Clear</button>
+        </form>
       </p>
       {% endif %}
+
+      <form method="post" action="{{ url_for('teacher_assign_section_teacher', section_id=section.id) }}"
+            class="d-flex gap-2 align-items-center flex-wrap">
+        <input name="email" type="email" class="form-control" style="max-width:300px"
+               placeholder="teacher@example.com" required>
+        <button type="submit" class="btn btn-outline-primary">Assign</button>
+      </form>
+      <p class="text-muted small mb-0 mt-2">
+        Enter the email of someone who is already a teacher in this school.
+        {% if assignable_count %}
+          {{ assignable_count }} eligible teacher{{ 's' if assignable_count != 1 }} in
+          <strong>{{ school_name }}</strong>.
+        {% elif school_name %}
+          <strong>{{ school_name }}</strong> has no teachers yet — add them on the school page first.
+        {% else %}
+          This {{ section_term }} has no course, so it belongs to no school yet.
+        {% endif %}
+      </p>
     </div>
   </div>
 
   <!-- Override management -->
   <div class="card mb-4">
-    <div class="card-header fw-semibold">Class-Specific Overrides</div>
+    <div class="card-header fw-semibold">{{ section_term_title }}-Specific Overrides</div>
     <div class="card-body">
-      {% if not cls.course_id %}
-        <p class="text-muted mb-0">Assign a course above to manage which exercises are visible to students in this class.</p>
+      {% if not section.course_id %}
+        <p class="text-muted mb-0">Assign a course above to manage which exercises are visible to students in this {{ section_term }}.</p>
       {% elif not modules_with_exercises %}
         <p class="text-muted mb-0">This course has no modules yet. Add modules and exercises in the admin panel.</p>
       {% else %}
-        <p class="text-muted small mb-3">By default students see all exercises from the course. Hide individual exercises to customize what this class sees.</p>
+        <p class="text-muted small mb-3">By default students see all exercises from the course. Hide individual exercises to customize what this {{ section_term }} sees.</p>
         {% for item in modules_with_exercises %}
         <div class="d-flex align-items-center justify-content-between mt-3 mb-2">
           <h6 class="fw-semibold mb-0">{{ item.module.name }}</h6>
           {% set all_hidden = item.exercises | length > 0 and item.exercises | selectattr('id', 'in', hidden_ids) | list | length == item.exercises | length %}
           {% if all_hidden %}
-          <form method="post" action="{{ url_for('teacher_restore_module', class_id=cls.id, module_id=item.module.id) }}">
+          <form method="post" action="{{ url_for('teacher_restore_module', section_id=section.id, module_id=item.module.id) }}">
             <button class="btn btn-sm btn-outline-success">Restore module</button>
           </form>
           {% else %}
-          <form method="post" action="{{ url_for('teacher_hide_module', class_id=cls.id, module_id=item.module.id) }}">
+          <form method="post" action="{{ url_for('teacher_hide_module', section_id=section.id, module_id=item.module.id) }}">
             <button class="btn btn-sm btn-outline-warning">Hide module</button>
           </form>
           {% endif %}
@@ -99,14 +112,14 @@
               {% if is_hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
             </div>
             {% if is_hidden %}
-              {% set cme = overrides | selectattr('module_exercise_id', 'equalto', ex.id) | selectattr('action', 'equalto', 'hide') | first %}
-              {% if cme %}
-              <form method="post" action="{{ url_for('teacher_delete_override', class_id=cls.id, cme_id=cme.id) }}">
+              {% set sme = overrides | selectattr('module_exercise_id', 'equalto', ex.id) | selectattr('action', 'equalto', 'hide') | first %}
+              {% if sme %}
+              <form method="post" action="{{ url_for('teacher_delete_override', section_id=section.id, sme_id=sme.id) }}">
                 <button class="btn btn-sm btn-outline-success">Restore</button>
               </form>
               {% endif %}
             {% else %}
-              <form method="post" action="{{ url_for('teacher_add_override', class_id=cls.id) }}">
+              <form method="post" action="{{ url_for('teacher_add_override', section_id=section.id) }}">
                 <input type="hidden" name="action" value="hide">
                 <input type="hidden" name="module_exercise_id" value="{{ ex.id }}">
                 <input type="hidden" name="module_id" value="{{ item.module.id }}">
@@ -119,10 +132,10 @@
         {% else %}
         <p class="text-muted small">No exercises in this module.</p>
         {% endif %}
-        {% if current_user.role != 'class_teacher' %}
+        {% if can_manage %}
         <details class="mt-2 mb-3">
-          <summary class="text-muted small" style="cursor:pointer">+ Add exercise to this module</summary>
-          <form method="post" action="{{ url_for('teacher_add_module_exercise', class_id=cls.id) }}" class="mt-2 p-3 border rounded bg-light">
+          <summary class="text-muted small" style="cursor:pointer">+ Add exercise to this {{ section_term }} only</summary>
+          <form method="post" action="{{ url_for('teacher_add_module_exercise', section_id=section.id) }}" class="mt-2 p-3 border rounded bg-light">
             <input type="hidden" name="module_id" value="{{ item.module.id }}">
             <div class="row g-2">
               <div class="col-md-3">
@@ -153,8 +166,8 @@
   </div>
 
   <div class="d-flex gap-2">
-    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-secondary">Back to Classes</a>
-    <a href="{{ url_for('teacher_delete_class', class_id=cls.id) }}" class="btn btn-outline-danger ms-auto">Delete Class</a>
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-secondary">Back to {{ section_terms_title }}</a>
+    <a href="{{ url_for('teacher_delete_section', section_id=section.id) }}" class="btn btn-outline-danger ms-auto">Delete {{ section_term_title }}</a>
   </div>
 </div>
 {% endblock %}

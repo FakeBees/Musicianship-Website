@@ -16,7 +16,10 @@
 
   {% block head %}{% endblock %}
 </head>
-<body>
+<body data-screen="{{ screen_name }}" data-debug-url="{{ url_for('debug_panel') }}">
+
+{# Canonical screen identity — see screens.py and docs/SCREEN_MAP.drawio #}
+<script id="screen-meta" type="application/json">{{ screen_meta | tojson }}</script>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container d-flex align-items-center justify-content-between">
@@ -32,23 +35,47 @@
             {{ current_user.display_name or current_user.email }}
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
-            {% if current_user.role == 'student' %}
+            {# Nav follows the ACTIVE role, so a perspective changes the menu too. #}
+            {% if active_role == 'student' %}
               <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('my_classes') }}">My Classes</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('my_sections') }}">My {{ section_terms_title }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
-            {% elif current_user.role in ('admin_teacher', 'class_teacher') %}
-              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
-              {% if current_user.role == 'admin_teacher' %}
+            {% elif active_role in ('admin_teacher', 'class_teacher') %}
+              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">{{ section_terms_title }} I Teach</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('my_sections') }}">My {{ section_terms_title }}</a></li>
+              {% if active_role == 'admin_teacher' %}
               <li><a class="dropdown-item" href="{{ url_for('admin_my_school') }}">Admin</a></li>
               {% endif %}
               <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
               <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
-            {% elif current_user.role == 'admin' %}
-              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">My Classes</a></li>
+            {% elif active_role == 'admin' %}
+              <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">{{ section_terms_title }} I Teach</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('my_sections') }}">My {{ section_terms_title }}</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin') }}">Admin</a></li>
               <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
               <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
             {% endif %}
+
+            {# ── View as ─────────────────────────────────────────────────── #}
+            {% if available_perspectives | length > 1 %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">View as</h6></li>
+            {% for r in available_perspectives | reverse %}
+              <li>
+                <a class="dropdown-item d-flex align-items-center justify-content-between
+                          {% if r == active_role %}active{% endif %}"
+                   href="{{ url_for('set_perspective', role=r) }}">
+                  <span>{{ role_labels[r] }}</span>
+                  {% if r == real_role %}
+                    <span class="badge bg-secondary ms-2">you</span>
+                  {% elif r == active_role %}
+                    <span class="badge bg-warning text-dark ms-2">active</span>
+                  {% endif %}
+                </a>
+              </li>
+            {% endfor %}
+            {% endif %}
+
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('logout') }}">Log out</a></li>
           </ul>
@@ -62,6 +89,25 @@
   </div>
 </nav>
 
+{% if in_perspective %}
+{# Always visible while a perspective is active — the way back out must never
+   depend on a menu that the perspective itself might have hidden. #}
+<div class="bg-warning-subtle border-bottom border-warning py-2">
+  <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="small">
+      <i class="bi bi-eye me-1"></i>
+      Viewing as <strong>{{ role_labels[active_role] }}</strong>.
+      Pages beyond this role are blocked, exactly as they would be for a real
+      {{ role_labels[active_role] | lower }}.
+    </span>
+    <a href="{{ url_for('set_perspective', role=real_role) }}"
+       class="btn btn-sm btn-warning">
+      Back to {{ role_labels[real_role] }}
+    </a>
+  </div>
+</div>
+{% endif %}
+
 <main class="container py-4">
   {% block content %}{% endblock %}
 </main>
@@ -74,6 +120,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/midi_input.js') }}"></script>
 <script>MidiInput.attachStatusIndicator(document.getElementById('midi-status'));</script>
+<script src="{{ url_for('static', filename='js/debug.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

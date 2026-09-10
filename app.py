@@ -8,10 +8,11 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from models import db, Melody, Tag, UserAttempt, Rhythm, RhythmAttempt, \
                    ChordProgression, HarmonicAttempt, HolisticExercise, HolisticAttempt, HolisticLine, \
                    GenProgression, Container, \
-                   User, Class, School, Course, Module, ModuleExercise, \
-                   ClassModuleExercise, ModuleCompletion, SchoolMembership
+                   User, Section, School, Course, Module, ModuleExercise, \
+                   SectionModuleExercise, ModuleCompletion, SchoolMembership
 from chord_utils import grade_harmonic_attempt, format_chord_name
 import curriculum as cur
+import screens
 
 _ALPHA = _string.ascii_uppercase + _string.digits
 
@@ -46,11 +47,338 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
+# ---------------------------------------------------------------------------
+# Permission perspectives ("view as")
+#
+# A user may drop into any role at or below their own to see the site the way
+# that role sees it. The perspective is stored in the session and genuinely
+# restricts: role_required() and every ownership check consult the effective
+# role, not User.role.
+#
+# Two invariants make this safe:
+#   1. active_role() is always min(session perspective, real role) — a
+#      perspective can only ever REDUCE privileges, never grant them. A tampered
+#      session value above the user's real role is ignored, not honoured.
+#   2. The perspective switcher itself is never role-gated, so you can always
+#      get back out.
+#
+# Roles are per-section, so there is a second, narrower rule for a specific
+# section — see effective_section_role().
+# ---------------------------------------------------------------------------
+
+ROLE_ORDER = ['student', 'class_teacher', 'admin_teacher', 'admin']
+
+ROLE_LABELS = {
+    'student':       'Student',
+    'class_teacher': 'Section Teacher',
+    'admin_teacher': 'School Admin',
+    'admin':         'Site Admin',
+}
+
+
+def role_rank(role):
+    """Position in the privilege hierarchy; -1 for anything unrecognised."""
+    try:
+        return ROLE_ORDER.index(role)
+    except ValueError:
+        return -1
+
+
+def real_role():
+    """The role stored on the account, ignoring any active perspective."""
+    return current_user.role if current_user.is_authenticated else None
+
+
+def active_role():
+    """The role currently in force. Never exceeds the account's real role."""
+    if not current_user.is_authenticated:
+        return None
+    chosen = session.get('perspective')
+    if not chosen or chosen not in ROLE_ORDER:
+        return current_user.role
+    # Invariant 1: cap at the real role. Never trust the session upward.
+    if role_rank(chosen) > role_rank(current_user.role):
+        return current_user.role
+    return chosen
+
+
+def in_perspective():
+    """True when viewing as something other than your own role."""
+    return current_user.is_authenticated and active_role() != current_user.role
+
+
+def available_perspectives():
+    """Every role this account may view as — its own and everything below."""
+    if not current_user.is_authenticated:
+        return []
+    return [r for r in ROLE_ORDER if role_rank(r) <= role_rank(current_user.role)]
+
+
+def section_role(section, user=None):
+    """The role a user actually holds *within* one section, or None.
+
+    Deliberately does not special-case site admins: global authority is not a
+    relationship with a particular section, and the perspective screens list
+    only sections the account genuinely belongs to.
+    """
+    u = user or current_user
+    if not u.is_authenticated:
+        return None
+    if section.teacher_id == u.id:
+        return 'admin_teacher'
+    if section.assigned_teacher_id == u.id:
+        return 'class_teacher'
+    if u in section.members:
+        return 'student'
+    return None
+
+
+def effective_section_role(section):
+    """Role held in this section, capped by the active perspective.
+
+    This is the rule for the per-section conflict: you get the highest role you
+    genuinely hold here that does not exceed the perspective you selected.
+    """
+    actual = section_role(section)
+    if actual is None:
+        return None
+    perspective = active_role()
+    if role_rank(actual) > role_rank(perspective):
+        return perspective
+    return actual
+
+
+def section_access(section):
+    """Effective role within one section, including site-admin blanket authority.
+
+    Returns None when the account has no claim on this section at the active
+    perspective.
+    """
+    role = effective_section_role(section)
+    if role is None and active_role() == 'admin':
+        return 'admin'
+    return role
+
+
+def require_section_role(section, minimum):
+    """403 unless the effective role in `section` is at least `minimum`.
+
+    Roles are inclusive: holding admin_teacher over a section also grants
+    class_teacher and student access to it. That is what makes a lowered
+    perspective useful — a section owner viewing as a student gets the student
+    view of their OWN section rather than being locked out of it.
+    """
+    role = section_access(section)
+    if role is None or role_rank(role) < role_rank(minimum):
+        abort(403)
+
+
+
+def find_user_by_email(email):
+    """Look up an account by email, case- and whitespace-insensitively.
+
+    People type addresses with stray capitals and spaces; every email-driven
+    form goes through here so they all behave the same. Deliberately not
+    ``ilike``, which would treat ``_`` and ``%`` in an address as wildcards.
+    """
+    from sqlalchemy import func
+    cleaned = (email or '').strip()
+    if not cleaned:
+        return None
+    return User.query.filter(func.lower(User.email) == cleaned.lower()).first()
+
+
+def school_role(school_id, user=None):
+    """A user's SchoolMembership role for one school, or None if not a member.
+
+    Deliberately ignores site-admin authority — that is global, not a membership.
+    Use effective_school_role() for authorization.
+    """
+    u = user or current_user
+    if not getattr(u, 'is_authenticated', False):
+        return None
+    mem = SchoolMembership.query.filter_by(school_id=school_id, user_id=u.id).first()
+    return mem.role if mem else None
+
+
+def effective_school_role(school_id):
+    """The caller's authority over one school: their membership role, plus
+    site-admin blanket authority, capped by the active perspective."""
+    if active_role() == 'admin':
+        return 'admin'
+    role = school_role(school_id)
+    if role is None:
+        return None
+    if role_rank(role) > role_rank(active_role()):
+        return active_role()
+    return role
+
+
+def require_school_role(school_id, minimum):
+    """403 unless the caller's authority over `school_id` is at least `minimum`.
+
+    This is the school-level twin of require_section_role(). Every route that
+    touches a school's courses, modules or membership goes through it — without
+    it, `@role_required('admin_teacher')` alone lets any school's admin_teacher
+    edit every other school's courses.
+    """
+    role = effective_school_role(school_id)
+    if role is None or role_rank(role) < role_rank(minimum):
+        abort(403)
+
+
+def section_school_id(section):
+    """The school a section belongs to, derived through its course.
+
+    Sections are attached to a school only via Course, so a section with no
+    course assigned has no school — and only its owner has authority over it.
+    """
+    return section.course.school_id if section.course else None
+
+
+def can_manage_section(section):
+    """True if the caller may administer this section: either they hold
+    admin_teacher over it directly (they own it), or they are a school admin of
+    the school it belongs to."""
+    if role_rank(section_access(section) or '') >= role_rank('admin_teacher'):
+        return True
+    sid = section_school_id(section)
+    return sid is not None and \
+        role_rank(effective_school_role(sid) or '') >= role_rank('admin_teacher')
+
+
+def require_manage_section(section):
+    if not can_manage_section(section):
+        abort(403)
+
+
+def outranks_in_school(school_id, target_user):
+    """True if the caller may act on `target_user` within this school.
+
+    The rule: you may add, re-role or remove anyone whose school role is
+    strictly below your own. Students outrank nobody, so they can never act on
+    anyone; and nobody can confer or revoke a role at or above their own — which
+    is what keeps 'only a site admin creates an admin_teacher' true.
+    """
+    mine = effective_school_role(school_id)
+    if mine is None:
+        return False
+    theirs = school_role(school_id, target_user)
+    if theirs is None:
+        return False
+    return role_rank(mine) > role_rank(theirs)
+
+
+def grantable_school_roles(school_id):
+    """School roles the caller may hand out here — strictly below their own."""
+    mine = effective_school_role(school_id)
+    if mine is None:
+        return []
+    return [r for r in ('student', 'class_teacher', 'admin_teacher')
+            if role_rank(r) < role_rank(mine)]
+
+
+def administered_schools():
+    """Schools the caller is an admin_teacher of (all schools for site admins)."""
+    if active_role() == 'admin':
+        return School.query.order_by(School.name).all()
+    mems = SchoolMembership.query.filter_by(
+        user_id=current_user.id, role='admin_teacher').all()
+    ids = [m.school_id for m in mems]
+    if not ids:
+        return []
+    return School.query.filter(School.id.in_(ids)).order_by(School.name).all()
+
+
+def administered_courses():
+    """Courses in schools the caller administers."""
+    school_ids = [s.id for s in administered_schools()]
+    if not school_ids:
+        return []
+    return (Course.query.filter(Course.school_id.in_(school_ids))
+            .order_by(Course.name).all())
+
+
+def related_sections(user=None):
+    """Sections the account has a real relationship with: owns, is assigned to,
+    or is enrolled in. Site admins get no blanket expansion here."""
+    u = user or current_user
+    if not u.is_authenticated:
+        return []
+    from sqlalchemy import or_
+    return (Section.query
+            .filter(or_(Section.teacher_id == u.id,
+                        Section.assigned_teacher_id == u.id,
+                        Section.members.any(User.id == u.id)))
+            .order_by(Section.name)
+            .all())
+
+
+@app.context_processor
+def inject_perspective():
+    if not current_user.is_authenticated:
+        return {'active_role': None, 'in_perspective': False,
+                'available_perspectives': [], 'role_labels': ROLE_LABELS}
+    return {
+        'active_role': active_role(),
+        'real_role': current_user.role,
+        'in_perspective': in_perspective(),
+        'available_perspectives': available_perspectives(),
+        'role_labels': ROLE_LABELS,
+    }
+
+
+@app.route('/perspective/<role>')
+@login_required
+def set_perspective(role):
+    """Switch the viewing perspective. Selecting your own role exits."""
+    if role not in ROLE_ORDER:
+        abort(404)
+    # Invariant 1 again, at the entry point: refuse to store an elevated role.
+    if role_rank(role) > role_rank(current_user.role):
+        abort(403)
+    if role == current_user.role:
+        session.pop('perspective', None)
+        flash('Back to your own view.', 'info')
+    else:
+        session['perspective'] = role
+        flash(f'Now viewing as {ROLE_LABELS[role]}. '
+              f'You will only see what that role can reach.', 'info')
+    return redirect(url_for('home'))
+
+
+# ---------------------------------------------------------------------------
+# Audience-dependent wording
+#
+# One concept, two names in the UI: staff read "section", students read
+# "classroom". Code, routes and templates always say "section" — only the words
+# on screen change. See docs/NAMING.md.
+# ---------------------------------------------------------------------------
+
+def section_word(plural=False, title=False):
+    """The word for a Section, from the current viewer's point of view."""
+    is_student = current_user.is_authenticated and active_role() == 'student'
+    word = 'classroom' if is_student else 'section'
+    if plural:
+        word += 's'
+    return word.capitalize() if title else word
+
+
+@app.context_processor
+def inject_section_words():
+    return {
+        'section_term':       section_word(),
+        'section_terms':      section_word(plural=True),
+        'section_term_title': section_word(title=True),
+        'section_terms_title': section_word(plural=True, title=True),
+    }
+
+
 def role_required(*roles):
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
-            if not current_user.is_authenticated or current_user.role not in roles:
+            if not current_user.is_authenticated or active_role() not in roles:
                 abort(403)
             return f(*args, **kwargs)
         return decorated
@@ -61,62 +389,60 @@ def role_required(*roles):
 # Module-completion helper
 # ---------------------------------------------------------------------------
 
-def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=False):
+def _handle_module_completion(section_id, me_id, sme_id, score, keep_practicing=False):
     """
     Called after a drill submission when the student came from a module.
     Records the attempt, checks criterion, returns nav context dict or None.
     """
-    if not class_id:
+    if not section_id:
         return None
     try:
-        class_id_int = int(class_id)
-        klass = Class.query.get(class_id_int)
-        if not klass:
+        section_id_int = int(section_id)
+        section = Section.query.get(section_id_int)
+        if not section:
             return None
     except (ValueError, TypeError):
         return None
 
-    is_member = current_user in klass.members
-    is_own_teacher = klass.teacher_id == current_user.id
-    if not is_member and not is_own_teacher and current_user.role != 'admin':
+    if section_access(section) is None:
         return None
 
     me_id_int  = int(me_id)  if me_id  else None
-    cme_id_int = int(cme_id) if cme_id else None
+    sme_id_int = int(sme_id) if sme_id else None
 
     me = ModuleExercise.query.get(me_id_int) if me_id_int else None
     criterion = me.completion_criterion if me else {'attempts': 1}
 
     # Validate me_id belongs to this class's course (prevent forged me_id)
-    if me and (klass.course_id is None or me.module.course_id != klass.course_id):
+    if me and (section.course_id is None or me.module.course_id != section.course_id):
         return None
 
     mc, just_completed = cur.record_attempt(
-        current_user.id, class_id_int, me_id_int, cme_id_int, score, criterion
+        current_user.id, section_id_int, me_id_int, sme_id_int, score, criterion
     )
 
     progress = cur.get_progress(
-        current_user.id, class_id_int, me_id_int, cme_id_int, criterion
+        current_user.id, section_id_int, me_id_int, sme_id_int, criterion
     )
 
     module = me.module if me else None
-    if not module and cme_id_int:
-        cme = ClassModuleExercise.query.get(cme_id_int)
-        if cme and cme.class_id == class_id_int:
-            module = Module.query.get(cme.module_id)
+    if not module and sme_id_int:
+        sme = SectionModuleExercise.query.get(sme_id_int)
+        if sme and sme.section_id == section_id_int:
+            module = Module.query.get(sme.module_id)
 
-    module_url = url_for('class_module_detail', class_id=class_id_int,
-                         module_id=module.id) if module else url_for('class_home', class_id=class_id_int)
+    module_url = url_for('section_module_detail', section_id=section_id_int,
+                         module_id=module.id) if module else url_for('section_home', section_id=section_id_int)
     module_name  = module.name if module else None
     exercise_name = me.name if me else None
     keep_practicing_url = url_for('start_module_exercise',
-                                  class_id=class_id_int, me_id=me_id_int,
+                                  section_id=section_id_int, me_id=me_id_int,
                                   kp='1') if me_id_int else None
 
     if not module:
         return {
-            'next_url': url_for('class_home', class_id=class_id_int),
-            'module_url': url_for('class_home', class_id=class_id_int),
+            'next_url': url_for('section_home', section_id=section_id_int),
+            'module_url': url_for('section_home', section_id=section_id_int),
             'module_name': None,
             'exercise_name': exercise_name,
             'keep_practicing_url': None,
@@ -124,15 +450,15 @@ def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=Fa
             'module_done': False,
             'complete': mc.is_complete,
             'progress': progress,
-            'class_id': class_id_int,
+            'section_id': section_id_int,
         }
 
     if mc.is_complete:
-        next_ex = cur.next_incomplete(current_user.id, class_id_int, klass, module)
+        next_ex = cur.next_incomplete(current_user.id, section_id_int, section, module)
         if next_ex:
             if next_ex['module_exercise_id']:
                 next_url = url_for('start_module_exercise',
-                                   class_id=class_id_int,
+                                   section_id=section_id_int,
                                    me_id=next_ex['module_exercise_id'])
             else:
                 next_url = module_url
@@ -146,7 +472,7 @@ def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=Fa
                 'module_done': False,
                 'complete': True,
                 'progress': progress,
-                'class_id': class_id_int,
+                'section_id': section_id_int,
                 'module_id': module.id,
             }
         else:
@@ -160,13 +486,13 @@ def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=Fa
                 'module_done': True,
                 'complete': True,
                 'progress': progress,
-                'class_id': class_id_int,
+                'section_id': section_id_int,
                 'module_id': module.id,
             }
     else:
         if me_id_int:
             start_url = url_for('start_module_exercise',
-                                class_id=class_id_int, me_id=me_id_int)
+                                section_id=section_id_int, me_id=me_id_int)
         else:
             start_url = module_url
         return {
@@ -179,7 +505,7 @@ def _handle_module_completion(class_id, me_id, cme_id, score, keep_practicing=Fa
             'module_done': False,
             'complete': False,
             'progress': progress,
-            'class_id': class_id_int,
+            'section_id': section_id_int,
             'module_id': module.id,
         }
 
@@ -339,9 +665,9 @@ def _visible_exercise_filter(model):
     if not current_user.is_authenticated:
         return model.visibility == 'public'
     user_school_ids = set()
-    for klass in current_user.classes:
-        if klass.course_id and klass.course:
-            user_school_ids.add(klass.course.school_id)
+    for section in current_user.sections:
+        if section.course_id and section.course:
+            user_school_ids.add(section.course.school_id)
     if user_school_ids:
         return or_(
             model.visibility == 'public',
@@ -367,6 +693,127 @@ def _apply_exercise_filters(query, model, params):
 
 
 # ---------------------------------------------------------------------------
+# Screen registry / debug mode
+# ---------------------------------------------------------------------------
+
+@app.context_processor
+def inject_screen():
+    """Make the current screen's registry entry available to every template.
+
+    Deliberately cheap: pure dict lookups, no database access. The debug panel
+    fetches the (query-backed) viewer state separately from /debug/state, so a
+    normal page load costs nothing extra.
+    """
+    scr = screens.screen_for(request.endpoint)
+    access = screens.access_info(scr['access'])
+    meta = {
+        'name':               scr['name'],
+        'endpoint':           scr['endpoint'],
+        'kind':               scr['kind'],
+        'group':              scr['group'],
+        'template':           scr.get('template'),
+        'condition':          scr.get('condition'),
+        'access':             scr['access'],
+        'access_label':       access['label'],
+        'access_description': access['description'],
+        'access_colour':      access['colour'],
+        'path':               request.path,
+        'section_id':           (request.view_args or {}).get('section_id'),
+    }
+    return {'screen_name': scr['name'], 'screen_meta': meta}
+
+
+def _viewer_state(endpoint, section_id):
+    """Describe the current viewer's permissions. Only called by /debug/state."""
+    scr = screens.screen_for(endpoint)
+
+    if not current_user.is_authenticated:
+        return {
+            'authenticated': False,
+            'identity': 'anonymous',
+            'role': None,
+            'real_role': None,
+            'perspective': None,
+            'schools': [],
+            'sections': [],
+            'section_context': None,
+            'verdict': ('Not logged in. You can reach anything marked Anonymous; '
+                        'everything else redirects to LOGIN or 403s.'),
+        }
+
+    memberships = SchoolMembership.query.filter_by(user_id=current_user.id).all()
+    schools = [f'{m.school.name} ({m.role})' for m in memberships if m.school]
+    sections = [f'{c.name} #{c.id}' for c in current_user.sections]
+
+    section_context = None
+    if section_id:
+        section = db.session.get(Section, section_id)
+        if section:
+            section_context = {
+                'id': section.id,
+                'name': section.name,
+                'is_member': current_user in section.members,
+                'is_owner_teacher': section.teacher_id == current_user.id,
+                'is_assigned_teacher': section.assigned_teacher_id == current_user.id,
+            }
+
+    required = scr['access']
+    role = active_role()
+    if role == 'admin':
+        verdict = 'Site admin — every screen on the map is reachable.'
+    elif required == 'site_admin':
+        verdict = f'This screen is site-admin only; your role is {role}. Expect a 403.'
+    elif required == 'school_admin' and role not in ('admin_teacher', 'admin'):
+        verdict = f'This screen needs admin_teacher; your role is {role}. Expect a 403.'
+    elif required == 'teacher' and role not in ('class_teacher', 'admin_teacher', 'admin'):
+        verdict = f'This screen needs a teacher role; your role is {role}. Expect a 403.'
+    elif required == 'section_member' and section_context and not (
+            section_context['is_member'] or section_context['is_owner_teacher']):
+        verdict = 'You are neither a member nor the owning teacher of this section. Expect a 403.'
+    else:
+        verdict = f'Your role ({role}) satisfies this screen.'
+    if in_perspective():
+        verdict = (f'Viewing as {ROLE_LABELS[role]} (real role: '
+                   f'{current_user.role}). ' + verdict)
+
+    return {
+        'authenticated': True,
+        'identity': current_user.display_name or current_user.email,
+        'role': role,
+        'real_role': current_user.role,
+        'perspective': active_role() if in_perspective() else None,
+        'schools': schools,
+        'sections': sections,
+        'section_context': section_context,
+        'verdict': verdict,
+    }
+
+
+@app.route('/debug/panel')
+def debug_panel():
+    """Popup window for debug mode. Reports only the current viewer's own state."""
+    scr = screens.screen_for(request.endpoint)
+    access = screens.access_info(scr['access'])
+    boot = {
+        'name': scr['name'], 'endpoint': scr['endpoint'], 'kind': scr['kind'],
+        'group': scr['group'], 'template': scr.get('template'),
+        'condition': scr.get('condition'), 'access': scr['access'],
+        'access_label': access['label'], 'access_description': access['description'],
+        'path': request.path, 'section_id': None,
+    }
+    colours = {k: v['colour'] for k, v in screens.ACCESS_LEVELS.items()}
+    return render_template('debug_panel.html',
+                           boot_screen=boot, access_colours=colours)
+
+
+@app.route('/debug/state')
+def debug_state():
+    """JSON viewer state for the debug panel."""
+    section_id = request.args.get('section_id', type=int)
+    return jsonify(_viewer_state(request.args.get('endpoint'), section_id))
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -374,23 +821,26 @@ def _apply_exercise_filters(query, model, params):
 @login_required
 def home():
     sandbox_mode = request.args.get('sandbox') == '1'
-    user_classes = current_user.classes if current_user.role == 'student' else []
+    role = active_role()
+    # Under a perspective, list only sections this account genuinely belongs to
+    # (owns, is assigned to, or is enrolled in) — see related_sections().
+    user_sections = related_sections() if role == 'student' else []
     teacher_courses = []
-    if current_user.role == 'admin_teacher' and not sandbox_mode:
+    if role == 'admin_teacher' and not sandbox_mode:
         mem = SchoolMembership.query.filter_by(
             user_id=current_user.id, role='admin_teacher'
         ).first()
         if mem:
             teacher_courses = Course.query.filter_by(school_id=mem.school_id).all()
     return render_template('home.html',
-                           user_classes=user_classes,
+                           user_sections=user_sections,
                            teacher_courses=teacher_courses,
                            sandbox_mode=sandbox_mode)
 
 
 @app.route('/sandbox')
 def sandbox():
-    return render_template('home.html', user_classes=[], sandbox_mode=True)
+    return render_template('home.html', user_sections=[], sandbox_mode=True)
 
 
 @app.route('/melodic')
@@ -478,11 +928,11 @@ def submit(melody_id):
     db.session.add(attempt)
     db.session.commit()
 
-    class_id = data.get('class_id', '')
+    section_id = data.get('section_id', '')
     me_id    = data.get('me_id', '')
-    cme_id   = data.get('cme_id', '')
+    sme_id   = data.get('sme_id', '')
     return jsonify({'redirect': url_for('results', attempt_id=attempt.id,
-                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
+                                        section_id=section_id, me_id=me_id, sme_id=sme_id)})
 
 
 @app.route('/results/<int:attempt_id>')
@@ -491,9 +941,9 @@ def results(attempt_id):
     attempt = UserAttempt.query.get_or_404(attempt_id)
     if attempt.user_id is not None and attempt.user_id != current_user.id:
         is_teacher = attempt.user and any(
-            cls.teacher_id == current_user.id for cls in attempt.user.classes
+            s.teacher_id == current_user.id for s in attempt.user.sections
         )
-        if not is_teacher and current_user.role != 'admin':
+        if not is_teacher and active_role() != 'admin':
             abort(403)
     melody = attempt.melody
     correct_notes = melody.notes
@@ -515,13 +965,13 @@ def results(attempt_id):
 
     next_url = build_next_url()
 
-    class_id = request.args.get('class_id')
+    section_id = request.args.get('section_id')
     me_id    = request.args.get('me_id')
-    cme_id   = request.args.get('cme_id')
+    sme_id   = request.args.get('sme_id')
     kp       = request.args.get('kp', '') == '1'
     module_ctx = None
-    if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+    if current_user.is_authenticated and section_id:
+        module_ctx = _handle_module_completion(section_id, me_id, sme_id, attempt.overall_score,
                                                keep_practicing=kp)
 
     return render_template('results.html', attempt=attempt, melody=melody,
@@ -602,11 +1052,11 @@ def rhythm_submit(rhythm_id):
     db.session.add(attempt)
     db.session.commit()
 
-    class_id = data.get('class_id', '')
+    section_id = data.get('section_id', '')
     me_id    = data.get('me_id', '')
-    cme_id   = data.get('cme_id', '')
+    sme_id   = data.get('sme_id', '')
     return jsonify({'redirect': url_for('rhythm_results', attempt_id=attempt.id,
-                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
+                                        section_id=section_id, me_id=me_id, sme_id=sme_id)})
 
 
 @app.route('/rhythm/results/<int:attempt_id>')
@@ -615,9 +1065,9 @@ def rhythm_results(attempt_id):
     attempt = RhythmAttempt.query.get_or_404(attempt_id)
     if attempt.user_id is not None and attempt.user_id != current_user.id:
         is_teacher = attempt.user and any(
-            cls.teacher_id == current_user.id for cls in attempt.user.classes
+            s.teacher_id == current_user.id for s in attempt.user.sections
         )
-        if not is_teacher and current_user.role != 'admin':
+        if not is_teacher and active_role() != 'admin':
             abort(403)
     rhythm  = attempt.rhythm
     correct_notes = rhythm.notes
@@ -637,13 +1087,13 @@ def rhythm_results(attempt_id):
 
     next_url = build_next_rhythm_url()
 
-    class_id = request.args.get('class_id')
+    section_id = request.args.get('section_id')
     me_id    = request.args.get('me_id')
-    cme_id   = request.args.get('cme_id')
+    sme_id   = request.args.get('sme_id')
     kp       = request.args.get('kp', '') == '1'
     module_ctx = None
-    if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.duration_accuracy,
+    if current_user.is_authenticated and section_id:
+        module_ctx = _handle_module_completion(section_id, me_id, sme_id, attempt.duration_accuracy,
                                                keep_practicing=kp)
 
     return render_template('rhythm_results.html', attempt=attempt, rhythm=rhythm,
@@ -746,11 +1196,11 @@ def harmonic_submit(progression_id):
     db.session.add(attempt)
     db.session.commit()
 
-    class_id = data.get('class_id', '')
+    section_id = data.get('section_id', '')
     me_id    = data.get('me_id', '')
-    cme_id   = data.get('cme_id', '')
+    sme_id   = data.get('sme_id', '')
     return jsonify({'redirect': url_for('harmonic_results', attempt_id=attempt.id,
-                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
+                                        section_id=section_id, me_id=me_id, sme_id=sme_id)})
 
 
 @app.route('/harmonic/results/<int:attempt_id>')
@@ -759,9 +1209,9 @@ def harmonic_results(attempt_id):
     attempt     = HarmonicAttempt.query.get_or_404(attempt_id)
     if attempt.user_id is not None and attempt.user_id != current_user.id:
         is_teacher = attempt.user and any(
-            cls.teacher_id == current_user.id for cls in attempt.user.classes
+            s.teacher_id == current_user.id for s in attempt.user.sections
         )
-        if not is_teacher and current_user.role != 'admin':
+        if not is_teacher and active_role() != 'admin':
             abort(403)
     progression = attempt.progression
     correct_chords = progression.chords
@@ -811,13 +1261,13 @@ def harmonic_results(attempt_id):
     )
     next_url = url_for('random_harmonic') + '?' + urlencode(params)
 
-    class_id = request.args.get('class_id')
+    section_id = request.args.get('section_id')
     me_id    = request.args.get('me_id')
-    cme_id   = request.args.get('cme_id')
+    sme_id   = request.args.get('sme_id')
     kp       = request.args.get('kp', '') == '1'
     module_ctx = None
-    if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+    if current_user.is_authenticated and section_id:
+        module_ctx = _handle_module_completion(section_id, me_id, sme_id, attempt.overall_score,
                                                keep_practicing=kp)
 
     return render_template('harmonic_results.html',
@@ -891,11 +1341,11 @@ def holistic_submit(exercise_id):
     db.session.add(attempt)
     db.session.commit()
 
-    class_id = data.get('class_id', '')
+    section_id = data.get('section_id', '')
     me_id    = data.get('me_id', '')
-    cme_id   = data.get('cme_id', '')
+    sme_id   = data.get('sme_id', '')
     return jsonify({'redirect': url_for('holistic_results', attempt_id=attempt.id,
-                                        class_id=class_id, me_id=me_id, cme_id=cme_id)})
+                                        section_id=section_id, me_id=me_id, sme_id=sme_id)})
 
 
 @app.route('/holistic/results/<int:attempt_id>')
@@ -904,19 +1354,19 @@ def holistic_results(attempt_id):
     attempt  = HolisticAttempt.query.get_or_404(attempt_id)
     if attempt.user_id is not None and attempt.user_id != current_user.id:
         is_teacher = attempt.user and any(
-            cls.teacher_id == current_user.id for cls in attempt.user.classes
+            s.teacher_id == current_user.id for s in attempt.user.sections
         )
-        if not is_teacher and current_user.role != 'admin':
+        if not is_teacher and active_role() != 'admin':
             abort(403)
     exercise = attempt.exercise
 
-    class_id = request.args.get('class_id')
+    section_id = request.args.get('section_id')
     me_id    = request.args.get('me_id')
-    cme_id   = request.args.get('cme_id')
+    sme_id   = request.args.get('sme_id')
     kp       = request.args.get('kp', '') == '1'
     module_ctx = None
-    if current_user.is_authenticated and class_id:
-        module_ctx = _handle_module_completion(class_id, me_id, cme_id, attempt.overall_score,
+    if current_user.is_authenticated and section_id:
+        module_ctx = _handle_module_completion(section_id, me_id, sme_id, attempt.overall_score,
                                                keep_practicing=kp)
 
     return render_template('holistic_results.html',
@@ -1001,7 +1451,7 @@ def admin():
     return render_template('admin/index.html',
         user_count=User.query.count(),
         school_count=School.query.count(),
-        class_count=Class.query.count(),
+        section_count=Section.query.count(),
         melody_count=Melody.query.count(),
         harmonic_count=ChordProgression.query.count(),
         rhythm_count=Rhythm.query.count(),
@@ -1049,8 +1499,9 @@ def admin_schools():
 
 @app.route('/admin/schools/<int:school_id>/courses', methods=['GET', 'POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_courses(school_id):
+    require_school_role(school_id, 'admin_teacher')
     school = School.query.get_or_404(school_id)
     if request.method == 'POST':
         name = request.form['name'].strip()
@@ -1065,9 +1516,10 @@ def admin_courses(school_id):
 
 @app.route('/admin/courses/<int:course_id>/modules', methods=['GET', 'POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_modules(course_id):
     course = Course.query.get_or_404(course_id)
+    require_school_role(course.school_id, 'admin_teacher')
     if request.method == 'POST':
         name  = request.form['name'].strip()
         order = int(request.form.get('order', 0))
@@ -1082,9 +1534,10 @@ def admin_modules(course_id):
 
 @app.route('/admin/modules/<int:module_id>/exercises', methods=['GET', 'POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_module_exercises(module_id):
     module = Module.query.get_or_404(module_id)
+    require_school_role(module.course.school_id, 'admin_teacher')
     if request.method == 'POST':
         ex_type   = request.form['exercise_type']
         name      = request.form.get('name', '').strip() or ex_type.capitalize()
@@ -1165,9 +1618,10 @@ def admin_module_exercises(module_id):
 
 @app.route('/admin/module_exercises/<int:me_id>/delete', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_delete_module_exercise(me_id):
     me = ModuleExercise.query.get_or_404(me_id)
+    require_school_role(me.module.course.school_id, 'admin_teacher')
     module_id = me.module_id
     db.session.delete(me)
     db.session.commit()
@@ -1177,9 +1631,10 @@ def admin_delete_module_exercise(me_id):
 
 @app.route('/admin/module_exercises/<int:me_id>/edit', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_edit_module_exercise(me_id):
     me = ModuleExercise.query.get_or_404(me_id)
+    require_school_role(me.module.course.school_id, 'admin_teacher')
     me.name  = request.form.get('name', me.name).strip() or me.name
     me.order = int(request.form.get('order', me.order))
     criterion_type = request.form.get('criterion_type', 'attempts')
@@ -1215,9 +1670,10 @@ def admin_edit_module_exercise(me_id):
 
 @app.route('/admin/module_exercises/<int:me_id>/duplicate', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_duplicate_module_exercise(me_id):
     src = ModuleExercise.query.get_or_404(me_id)
+    require_school_role(src.module.course.school_id, 'admin_teacher')
     copy = ModuleExercise(
         module_id=src.module_id,
         name=src.name + ' (copy)',
@@ -1245,7 +1701,7 @@ def admin_delete_school(school_id):
             me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
             if me_ids:
                 ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-                ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+                SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
             ModuleExercise.query.filter_by(module_id=module.id).delete()
             db.session.delete(module)
         db.session.delete(course)
@@ -1257,86 +1713,231 @@ def admin_delete_school(school_id):
 
 @app.route('/admin/schools/<int:school_id>/detail', methods=['GET'])
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('class_teacher', 'admin_teacher', 'admin')
 def admin_school_detail(school_id):
     school = School.query.get_or_404(school_id)
-    if current_user.role == 'admin_teacher':
-        mem = SchoolMembership.query.filter_by(
-            school_id=school_id, user_id=current_user.id, role='admin_teacher'
-        ).first()
-        if not mem:
-            abort(403)
+    require_school_role(school_id, 'class_teacher')
+    can_manage_members = role_rank(effective_school_role(school_id) or '') \
+        >= role_rank('admin_teacher')
     memberships = SchoolMembership.query.filter_by(school_id=school_id).all()
-    return render_template('admin/school_detail.html',
-                           school=school,
-                           memberships=memberships,
-                           is_full_admin=(current_user.role == 'admin'))
+    return render_template(
+        'admin/school_detail.html',
+        school=school,
+        memberships=memberships,
+        is_full_admin=(active_role() == 'admin'),
+        my_school_role=effective_school_role(school_id),
+        grantable_roles=grantable_school_roles(school_id),
+        can_manage_members=can_manage_members,
+        school_admins=[m.user for m in memberships
+                       if m.role == 'admin_teacher' and m.user],
+        # Precomputed so the template never has to re-derive authority.
+        actionable={m.user_id: outranks_in_school(school_id, m.user)
+                    for m in memberships if m.user},
+    )
 
 
 @app.route('/admin/schools/<int:school_id>/set-member-role', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
 def admin_set_member_role(school_id):
-    school = School.query.get_or_404(school_id)
-    if current_user.role == 'admin_teacher':
-        own_mem = SchoolMembership.query.filter_by(
-            school_id=school_id, user_id=current_user.id, role='admin_teacher'
-        ).first()
-        if not own_mem:
-            abort(403)
+    School.query.get_or_404(school_id)
+    require_school_role(school_id, 'admin_teacher')
+    back = redirect(url_for('admin_school_detail', school_id=school_id))
+
     user_id  = request.form.get('user_id', type=int)
     new_role = request.form.get('role', '').strip()
-    if new_role not in ('student', 'admin_teacher', 'class_teacher'):
-        flash('Invalid role.', 'danger')
-        return redirect(url_for('admin_school_detail', school_id=school_id))
-    if current_user.role == 'admin_teacher':
-        mem = SchoolMembership.query.filter_by(
-            school_id=school_id, user_id=user_id
-        ).first_or_404()
-    else:
-        mem = SchoolMembership.query.filter_by(
-            school_id=school_id, user_id=user_id
-        ).first()
-        if not mem:
-            flash('User is not a member of this school.', 'danger')
-            return redirect(url_for('admin_school_detail', school_id=school_id))
+
+    target = db.session.get(User, user_id) if user_id else None
+    if target is None:
+        flash('No such user.', 'danger')
+        return back
+    mem = SchoolMembership.query.filter_by(
+        school_id=school_id, user_id=user_id).first()
+    if not mem:
+        flash('User is not a member of this school.', 'danger')
+        return back
+
+    # You may only act on someone whose school role is strictly below your own…
+    if not outranks_in_school(school_id, target):
+        flash('You can only change the role of members below your own.', 'danger')
+        return back
+    # …and only hand out a role strictly below your own.
+    if new_role not in grantable_school_roles(school_id):
+        flash(f'You cannot grant the role "{new_role}".', 'danger')
+        return back
+
     mem.role = new_role
-    if new_role in ('admin_teacher', 'class_teacher'):
-        from models import User as _User
-        target = _User.query.get(user_id)
-        if target and new_role in ('admin_teacher', 'class_teacher') and target.role not in ('admin_teacher', 'class_teacher', 'admin'):
-            target.role = new_role
+    _sync_global_role(target)
     db.session.commit()
-    flash('Role updated.', 'success')
-    return redirect(url_for('admin_school_detail', school_id=school_id))
+    flash(f'{target.email} is now {new_role} in {mem.school.name}.', 'success')
+    return back
+
+
+def _sync_global_role(user):
+    """Keep User.role in step with the user's highest role across all schools.
+
+    School membership is the source of truth for staff status: promote someone
+    anywhere and they gain the role globally; strip their last staff membership
+    and they drop back to student. Site admins are never demoted by this — their
+    role is global, not conferred by any school.
+    """
+    if user.role == 'admin':
+        return
+    mems = SchoolMembership.query.filter_by(user_id=user.id).all()
+    best = 'student'
+    for m in mems:
+        if role_rank(m.role) > role_rank(best):
+            best = m.role
+    user.role = best
 
 
 @app.route('/admin/schools/<int:school_id>/add-member', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_add_school_member(school_id):
-    school = School.query.get_or_404(school_id)
-    email  = request.form.get('email', '').strip()
-    role   = request.form.get('role', 'student')
-    if role not in ('student', 'admin_teacher', 'class_teacher'):
-        role = 'student'
-    from models import User as _User
-    user = _User.query.filter_by(email=email).first()
+    School.query.get_or_404(school_id)
+    require_school_role(school_id, 'admin_teacher')
+    back = redirect(url_for('admin_school_detail', school_id=school_id))
+
+    email = request.form.get('email', '').strip()
+    role  = request.form.get('role', 'student')
+
+    # Only roles strictly below your own — so only a site admin can seat an
+    # admin_teacher, which is what makes "the site admin decides which schools
+    # an admin_teacher is over" hold.
+    if role not in grantable_school_roles(school_id):
+        flash(f'You cannot grant the role "{role}".', 'danger')
+        return back
+
+    user = User.query.filter_by(email=email).first()
     if not user:
         flash(f'No user with email "{email}".', 'danger')
-        return redirect(url_for('admin_school_detail', school_id=school_id))
-    exists = SchoolMembership.query.filter_by(
-        school_id=school_id, user_id=user.id
-    ).first()
-    if exists:
+        return back
+    if SchoolMembership.query.filter_by(school_id=school_id, user_id=user.id).first():
         flash(f'{email} is already a member.', 'info')
-        return redirect(url_for('admin_school_detail', school_id=school_id))
+        return back
+
     db.session.add(SchoolMembership(school_id=school_id, user_id=user.id, role=role))
-    if role in ('admin_teacher', 'class_teacher') and user.role == 'student':
-        user.role = role
+    db.session.flush()
+    _sync_global_role(user)
     db.session.commit()
     flash(f'Added {email} as {role}.', 'success')
-    return redirect(url_for('admin_school_detail', school_id=school_id))
+    return back
+
+
+@app.route('/admin/schools/<int:school_id>/set-admin', methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'admin')
+def admin_set_school_admin(school_id):
+    """Appoint someone, by email, as an administrative teacher of this school.
+
+    Requirement 1 of the authority model — "the site admin decides which schools
+    an admin_teacher is over" — falls out of the ordinary strictly-below rule:
+    granting admin_teacher needs a school role ranking above it, which only a
+    site admin has. This route is the dedicated place to do it, and handles both
+    cases: promoting an existing member, and adding someone who is not a member
+    yet.
+    """
+    school = School.query.get_or_404(school_id)
+    require_school_role(school_id, 'admin_teacher')
+    back = redirect(url_for('admin_school_detail', school_id=school_id))
+
+    if 'admin_teacher' not in grantable_school_roles(school_id):
+        flash('Only a site admin can appoint a school administrator.', 'danger')
+        return back
+
+    email = (request.form.get('email') or '').strip()
+    user = find_user_by_email(email)
+    if user is None:
+        flash(f'No account found for "{email}".', 'danger')
+        return back
+
+    mem = SchoolMembership.query.filter_by(
+        school_id=school_id, user_id=user.id).first()
+    if mem is None:
+        db.session.add(SchoolMembership(school_id=school_id, user_id=user.id,
+                                        role='admin_teacher'))
+        verb = 'added to'
+    elif mem.role == 'admin_teacher':
+        flash(f'{user.email} already administers {school.name}.', 'info')
+        return back
+    else:
+        mem.role = 'admin_teacher'
+        verb = 'promoted in'
+
+    db.session.flush()
+    _sync_global_role(user)
+    db.session.commit()
+    flash(f'{user.email} {verb} {school.name} as an administrative teacher.',
+          'success')
+    return back
+
+
+@app.route('/admin/schools/<int:school_id>/remove-member', methods=['POST'])
+@login_required
+@role_required('class_teacher', 'admin_teacher', 'admin')
+def admin_remove_school_member(school_id):
+    """Remove a member from a school.
+
+    Anyone above student may remove someone whose school role is strictly below
+    their own. Removal also drops the person from that school's sections —
+    otherwise they would keep doing the coursework they were just removed from.
+    Attempt history and completion records are left untouched.
+    """
+    School.query.get_or_404(school_id)
+    require_school_role(school_id, 'class_teacher')
+    back = redirect(url_for('admin_school_detail', school_id=school_id))
+
+    user_id = request.form.get('user_id', type=int)
+    target = db.session.get(User, user_id) if user_id else None
+    if target is None:
+        flash('No such user.', 'danger')
+        return back
+    mem = SchoolMembership.query.filter_by(
+        school_id=school_id, user_id=user_id).first()
+    if not mem:
+        flash('User is not a member of this school.', 'danger')
+        return back
+    if not outranks_in_school(school_id, target):
+        flash('You can only remove members below your own role.', 'danger')
+        return back
+
+    # A section's teacher_id is NOT nullable, so refuse rather than cascade-delete
+    # somebody's sections out from under them.
+    owned = [s for s in Section.query.filter_by(teacher_id=target.id).all()
+             if section_school_id(s) == school_id]
+    if owned:
+        names = ', '.join(s.name for s in owned)
+        flash(f'{target.email} still owns {len(owned)} '
+              f'{section_word(plural=len(owned) != 1)} here ({names}). '
+              f'Reassign or delete them first.', 'danger')
+        return back
+
+    school_sections = [s for s in Section.query.all()
+                       if section_school_id(s) == school_id]
+    dropped = 0
+    unassigned = 0
+    for sec in school_sections:
+        if target in sec.members:
+            sec.members.remove(target)
+            dropped += 1
+        if sec.assigned_teacher_id == target.id:
+            sec.assigned_teacher_id = None
+            unassigned += 1
+
+    db.session.delete(mem)
+    db.session.flush()
+    _sync_global_role(target)
+    db.session.commit()
+
+    detail = []
+    if dropped:
+        detail.append(f'removed from {dropped} {section_word(plural=dropped != 1)}')
+    if unassigned:
+        detail.append(f'unassigned as teacher of {unassigned}')
+    suffix = f' ({"; ".join(detail)})' if detail else ''
+    flash(f'{target.email} removed from the school{suffix}.', 'success')
+    return back
 
 
 @app.route('/admin/schools/<int:school_id>/regen-join-code', methods=['POST'])
@@ -1344,12 +1945,7 @@ def admin_add_school_member(school_id):
 @role_required('admin_teacher', 'admin')
 def admin_regen_join_code(school_id):
     school = School.query.get_or_404(school_id)
-    if current_user.role == 'admin_teacher':
-        mem = SchoolMembership.query.filter_by(
-            school_id=school_id, user_id=current_user.id, role='admin_teacher'
-        ).first()
-        if not mem:
-            abort(403)
+    require_school_role(school_id, 'admin_teacher')
     school.join_code = _random_school_code()
     db.session.commit()
     flash(f'Join code regenerated: {school.join_code}', 'success')
@@ -1358,9 +1954,10 @@ def admin_regen_join_code(school_id):
 
 @app.route('/admin/courses/<int:course_id>/delete', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_delete_course(course_id):
     course = Course.query.get_or_404(course_id)
+    require_school_role(course.school_id, 'admin_teacher')
     school_id = course.school_id
     name = course.name
     for module in course.modules.all():
@@ -1368,7 +1965,7 @@ def admin_delete_course(course_id):
         me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
         if me_ids:
             ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-            ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+            SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
         ModuleExercise.query.filter_by(module_id=module.id).delete()
         db.session.delete(module)
     db.session.delete(course)
@@ -1382,6 +1979,7 @@ def admin_delete_course(course_id):
 @role_required('admin_teacher', 'admin')
 def admin_rename_course(course_id):
     course = Course.query.get_or_404(course_id)
+    require_school_role(course.school_id, 'admin_teacher')
     name = request.form.get('name', '').strip()
     if name:
         course.name = name
@@ -1395,6 +1993,7 @@ def admin_rename_course(course_id):
 @role_required('admin_teacher', 'admin')
 def admin_duplicate_course(course_id):
     src = Course.query.get_or_404(course_id)
+    require_school_role(src.school_id, 'admin_teacher')
     new_course = Course(name=f'{src.name} (copy)', school_id=src.school_id)
     db.session.add(new_course)
     db.session.flush()
@@ -1418,28 +2017,30 @@ def admin_duplicate_course(course_id):
     return redirect(url_for('admin_courses', school_id=src.school_id))
 
 
-@app.route('/admin/courses/<int:course_id>/classes')
+@app.route('/admin/courses/<int:course_id>/sections')
 @login_required
 @role_required('admin_teacher', 'admin')
-def admin_course_classes(course_id):
+def admin_course_sections(course_id):
     course = Course.query.get_or_404(course_id)
-    classes = Class.query.filter_by(course_id=course_id).all()
-    return render_template('admin/course_classes.html',
-                           course=course, classes=classes)
+    require_school_role(course.school_id, 'admin_teacher')
+    sections = Section.query.filter_by(course_id=course_id).all()
+    return render_template('admin/course_sections.html',
+                           course=course, sections=sections)
 
 
 @app.route('/admin/modules/<int:module_id>/delete', methods=['POST'])
 @login_required
-@role_required('admin')
+@role_required('admin_teacher', 'admin')
 def admin_delete_module(module_id):
     module = Module.query.get_or_404(module_id)
+    require_school_role(module.course.school_id, 'admin_teacher')
     course_id = module.course_id
     name = module.name
     # Clean up dependent records before deleting ModuleExercise
     me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
     if me_ids:
         ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-        ClassModuleExercise.query.filter(ClassModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
+        SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
     ModuleExercise.query.filter_by(module_id=module.id).delete()
     db.session.delete(module)
     db.session.commit()
@@ -2279,56 +2880,52 @@ def admin_harmonic_upload():
                 pass
 
 
-@app.route('/teacher/classes/<int:class_id>/delete', methods=['GET', 'POST'])
+@app.route('/teacher/sections/<int:section_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
-def teacher_delete_class(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if klass.teacher_id != current_user.id and current_user.role != 'admin':
-        abort(403)
+def teacher_delete_section(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_manage_section(section)
     if request.method == 'GET':
-        return render_template('teacher/confirm_delete_class.html', cls=klass)
-    name = klass.name
-    ModuleCompletion.query.filter_by(class_id=class_id).delete()
-    ClassModuleExercise.query.filter_by(class_id=class_id).delete()
-    klass.members.clear()
+        return render_template('teacher/confirm_delete_section.html', section=section)
+    name = section.name
+    ModuleCompletion.query.filter_by(section_id=section_id).delete()
+    SectionModuleExercise.query.filter_by(section_id=section_id).delete()
+    section.members.clear()
     db.session.flush()
-    db.session.delete(klass)
+    db.session.delete(section)
     db.session.commit()
-    flash(f'Class "{name}" deleted.', 'success')
+    flash(f'Section "{name}" deleted.', 'success')
     return redirect(url_for('teacher_dashboard'))
 
 
-@app.route('/teacher/class/<int:class_id>/kick/<int:user_id>', methods=['GET', 'POST'])
+@app.route('/teacher/section/<int:section_id>/kick/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_kick_student(class_id, user_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
+def teacher_kick_student(section_id, user_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
     student = User.query.get_or_404(user_id)
     if request.method == 'GET':
-        return render_template('teacher/confirm_kick_student.html', cls=klass, student=student)
-    if student in klass.members:
-        klass.members.remove(student)
+        return render_template('teacher/confirm_kick_student.html', section=section, student=student)
+    if student in section.members:
+        section.members.remove(student)
         db.session.commit()
-        flash(f'{student.display_name or student.email} removed from {klass.name}.', 'success')
-    return redirect(url_for('teacher_class_detail', class_id=class_id))
+        flash(f'{student.display_name or student.email} removed from {section.name}.', 'success')
+    return redirect(url_for('teacher_section_detail', section_id=section_id))
 
 
-@app.route('/class/<int:class_id>/leave', methods=['POST'])
+@app.route('/section/<int:section_id>/leave', methods=['POST'])
 @login_required
-def leave_class(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user not in klass.members:
-        flash('You are not in this class.', 'info')
+def leave_section(section_id):
+    section = Section.query.get_or_404(section_id)
+    if current_user not in section.members:
+        flash(f'You are not in this {section_word()}.', 'info')
     else:
-        klass.members.remove(current_user)
+        section.members.remove(current_user)
         db.session.commit()
-        flash(f'Left "{klass.name}".', 'success')
-    return redirect(url_for('my_classes'))
+        flash(f'Left "{section.name}".', 'success')
+    return redirect(url_for('my_sections'))
 
 
 @app.route('/me')
@@ -2369,51 +2966,61 @@ def me():
         'holistic': {'count': len(holistic_attempts), 'avg': avg(holistic_attempts)},
     }
 
-    module_progress_by_class = []
-    for klass in current_user.classes:
-        mods = cur.modules_with_progress(current_user.id, klass.id, klass)
+    module_progress_by_section = []
+    for section in current_user.sections:
+        mods = cur.modules_with_progress(current_user.id, section.id, section)
         if mods:
-            module_progress_by_class.append({'class': klass, 'modules': mods})
+            module_progress_by_section.append({'section': section, 'modules': mods})
 
     return render_template('me.html',
                            stats=stats,
                            days=days_int,
-                           module_progress_by_class=module_progress_by_class)
+                           module_progress_by_section=module_progress_by_section)
 
 
 @app.route('/teacher')
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_dashboard():
-    if current_user.role == 'class_teacher':
-        classes = Class.query.filter_by(assigned_teacher_id=current_user.id).all()
+    if active_role() == 'class_teacher':
+        sections = Section.query.filter_by(assigned_teacher_id=current_user.id).all()
     else:
-        classes = Class.query.filter_by(teacher_id=current_user.id).all()
-    return render_template('teacher/dashboard.html', classes=classes)
+        sections = Section.query.filter_by(teacher_id=current_user.id).all()
+    return render_template('teacher/dashboard.html', sections=sections,
+                           can_create_section=bool(administered_schools()))
 
 
 @app.route('/admin/my-school')
 @login_required
 @role_required('admin_teacher', 'admin')
 def admin_my_school():
-    # find school where current user is an admin_teacher member
+    """Entry point for the nav's "Admin" link.
+
+    BUG-003 lived here: this used to send an admin_teacher to admin_courses,
+    which was site-admin-only, so they 403'd out of their own nav bar. It now
+    lands on the school detail page — which they can actually use — and
+    admin_courses is open to school admins anyway.
+    """
     mem = SchoolMembership.query.filter_by(
         user_id=current_user.id, role='admin_teacher'
     ).first()
     if mem:
-        return redirect(url_for('admin_courses', school_id=mem.school_id))
-    # full admins: redirect to schools list
-    return redirect(url_for('admin_schools'))
+        return redirect(url_for('admin_school_detail', school_id=mem.school_id))
+    if active_role() == 'admin':
+        return redirect(url_for('admin_schools'))
+    # A staff member with no admin_teacher membership anywhere.
+    flash('You are not a school administrator of any school yet.', 'info')
+    return redirect(url_for('home'))
 
 
-@app.route('/my-classes')
+@app.route('/my-sections')
 @login_required
-def my_classes():
+def my_sections():
     school_memberships = SchoolMembership.query.filter_by(
         user_id=current_user.id
     ).all()
-    return render_template('student/my_classes.html',
-                           classes=current_user.classes,
+    return render_template('student/my_sections.html',
+                           sections=current_user.sections,
                            school_memberships=school_memberships)
 
 
@@ -2424,96 +3031,108 @@ def join_school():
     school = School.query.filter_by(join_code=code).first()
     if not school:
         flash('Invalid school join code.', 'danger')
-        return redirect(url_for('my_classes'))
+        return redirect(url_for('my_sections'))
     exists = SchoolMembership.query.filter_by(
         school_id=school.id, user_id=current_user.id
     ).first()
     if exists:
         flash(f'You are already a member of "{school.name}".', 'info')
-        return redirect(url_for('my_classes'))
+        return redirect(url_for('my_sections'))
     db.session.add(SchoolMembership(
         school_id=school.id,
         user_id=current_user.id,
         role='student',
     ))
     db.session.commit()
-    flash(f'Joined school "{school.name}"! Now you can join classes at that school.', 'success')
-    return redirect(url_for('my_classes'))
+    flash(f'Joined school "{school.name}"! Now you can join {section_word(plural=True)} at that school.', 'success')
+    return redirect(url_for('my_sections'))
 
 
-@app.route('/teacher/class/<int:class_id>/edit', methods=['GET', 'POST'])
+@app.route('/teacher/section/<int:section_id>/edit', methods=['GET', 'POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_edit_class(class_id):
-    cls = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and cls.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and cls.teacher_id != current_user.id:
-        abort(403)
-    courses = Course.query.order_by(Course.name).all()
+def teacher_edit_section(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
+    courses = administered_courses()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         course_id = request.form.get('course_id', type=int)
         if not name:
-            flash('Class name is required.', 'danger')
+            flash('Section name is required.', 'danger')
+        elif course_id and course_id not in {c.id for c in administered_courses()}:
+            flash('That course is not in a school you administer.', 'danger')
         else:
-            cls.name = name
-            cls.course_id = course_id or None
+            section.name = name
+            section.course_id = course_id or None
             db.session.commit()
-            flash('Class updated.', 'success')
-        return redirect(url_for('teacher_edit_class', class_id=class_id))
+            flash(f'{section_word(title=True)} updated.', 'success')
+        return redirect(url_for('teacher_edit_section', section_id=section_id))
 
     # Build module/exercise data for override management
     modules_with_exercises = []
-    hidden_ids = {cme.module_exercise_id for cme in cls.module_overrides if cme.action == 'hide' and cme.module_exercise_id}
-    if cls.course_id and cls.course:
-        for mod in cls.course.modules.order_by(Module.order).all():
+    hidden_ids = {sme.module_exercise_id for sme in section.module_overrides if sme.action == 'hide' and sme.module_exercise_id}
+    if section.course_id and section.course:
+        for mod in section.course.modules.order_by(Module.order).all():
             exercises = list(mod.exercises.order_by(ModuleExercise.order).all())
             modules_with_exercises.append({'module': mod, 'exercises': exercises})
 
-    class_teachers = User.query.filter_by(role='class_teacher').all()
-    return render_template('teacher/edit_class.html', cls=cls, courses=courses,
+    school_id = section_school_id(section)
+    school = db.session.get(School, school_id) if school_id else None
+    return render_template('teacher/edit_section.html', section=section, courses=courses,
                            modules_with_exercises=modules_with_exercises,
                            hidden_ids=hidden_ids,
-                           overrides=cls.module_overrides,
-                           class_teachers=class_teachers)
+                           overrides=section.module_overrides,
+                           assignable_count=len(assignable_section_teachers(section)),
+                           school_name=school.name if school else None,
+                           can_manage=can_manage_section(section))
 
 
-@app.route('/teacher/class/new', methods=['GET', 'POST'])
+@app.route('/teacher/section/new', methods=['GET', 'POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
-def teacher_new_class():
+def teacher_new_section():
+    # @role_required only asks "is this account an admin_teacher anywhere?".
+    # A section is governed through the school its course belongs to, so someone
+    # who administers no school has nowhere to put one — and the section they
+    # created would answer to nobody but themselves.
+    if not administered_schools():
+        flash('You do not administer any school yet, so there is nowhere to '
+              f'create a {section_word()}.', 'warning')
+        return redirect(url_for('teacher_dashboard'))
+
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         course_id = request.form.get('course_id', type=int)
         if not name:
-            flash('Class name is required.', 'danger')
-            courses = Course.query.order_by(Course.name).all()
-            return render_template('teacher/new_class.html', courses=courses)
+            flash(f'{section_word(title=True)} name is required.', 'danger')
+            return render_template('teacher/new_section.html',
+                                   courses=administered_courses())
+        if course_id and course_id not in {c.id for c in administered_courses()}:
+            flash('That course is not in a school you administer.', 'danger')
+            return render_template('teacher/new_section.html',
+                                   courses=administered_courses())
         join_code = secrets.token_urlsafe(8)[:8].upper()
-        cls = Class(name=name, join_code=join_code,
+        section = Section(name=name, join_code=join_code,
                     teacher_id=current_user.id,
                     course_id=course_id if course_id else None)
-        db.session.add(cls)
+        db.session.add(section)
         db.session.commit()
-        flash(f'Class "{name}" created. Join code: {join_code}', 'success')
-        return redirect(url_for('teacher_class_detail', class_id=cls.id))
-    courses = Course.query.order_by(Course.name).all()
-    return render_template('teacher/new_class.html', courses=courses)
+        flash(f'Section "{name}" created. Join code: {join_code}', 'success')
+        return redirect(url_for('teacher_section_detail', section_id=section.id))
+    return render_template('teacher/new_section.html',
+                           courses=administered_courses())
 
 
-@app.route('/teacher/class/<int:class_id>')
+@app.route('/teacher/section/<int:section_id>')
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_class_detail(class_id):
-    cls = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and cls.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and cls.teacher_id != current_user.id:
-        abort(403)
+def teacher_section_detail(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
 
     roster = []
-    for student in cls.members:
+    for student in section.members:
         uid = student.id
 
         def mode_avg(model, score_field, _uid=uid):
@@ -2529,53 +3148,96 @@ def teacher_class_detail(class_id):
             'holistic': mode_avg(HolisticAttempt,'overall_score'),
         })
 
-    return render_template('teacher/class_detail.html', cls=cls, roster=roster)
+    return render_template('teacher/section_detail.html', section=section, roster=roster)
 
 
-@app.route('/teacher/classes/<int:class_id>/set_course', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/set_course', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
-def teacher_set_course(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if klass.teacher_id != current_user.id and current_user.role != 'admin':
-        abort(403)
-    course_id = request.form.get('course_id')
-    klass.course_id = int(course_id) if course_id else None
+def teacher_set_course(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_manage_section(section)
+    course_id = request.form.get('course_id', type=int)
+    if course_id and course_id not in {c.id for c in administered_courses()}:
+        flash('That course is not in a school you administer.', 'danger')
+        return redirect(url_for('teacher_section_detail', section_id=section_id))
+    section.course_id = course_id or None
     db.session.commit()
     flash('Course assignment updated.', 'success')
-    return redirect(url_for('teacher_class_detail', class_id=class_id))
+    return redirect(url_for('teacher_section_detail', section_id=section_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/assign-teacher', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/assign-teacher', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
-def teacher_assign_class_teacher(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
-    user_id = request.form.get('user_id', type=int)
-    if user_id:
-        user = User.query.get_or_404(user_id)
-        if user.role != 'class_teacher':
-            flash('That user is not a class teacher.', 'warning')
-            return redirect(url_for('teacher_edit_class', class_id=class_id))
-        klass.assigned_teacher_id = user.id
-    else:
-        klass.assigned_teacher_id = None
+def teacher_assign_section_teacher(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_manage_section(section)
+    back = redirect(url_for('teacher_edit_section', section_id=section_id))
+
+    if request.form.get('clear'):
+        section.assigned_teacher_id = None
+        db.session.commit()
+        flash(f'{section_word(title=True)} teacher cleared.', 'success')
+        return back
+
+    email = (request.form.get('email') or '').strip()
+    if not email:
+        flash('Enter the email of a teacher in this school.', 'danger')
+        return back
+
+    school_id = section_school_id(section)
+    if school_id is None:
+        flash(f'This {section_word()} has no course, so it does not belong to a '
+              f'school yet. Assign a course first.', 'warning')
+        return back
+    school = db.session.get(School, school_id)
+
+    user = find_user_by_email(email)
+    if user is None:
+        flash(f'No account found for "{email}".', 'danger')
+        return back
+
+    # The candidate must be staff in THIS section's school — otherwise any
+    # teacher anywhere on the site could be assigned. Say precisely which of
+    # those two things went wrong.
+    mem = SchoolMembership.query.filter_by(
+        school_id=school_id, user_id=user.id).first()
+    if mem is None:
+        flash(f'{user.email} is not a member of {school.name}. '
+              f'Add them to the school first.', 'warning')
+        return back
+    if mem.role not in ('class_teacher', 'admin_teacher'):
+        flash(f'{user.email} is a {mem.role} in {school.name}, not a teacher. '
+              f'Change their school role first.', 'warning')
+        return back
+
+    section.assigned_teacher_id = user.id
     db.session.commit()
-    flash('Class teacher updated.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    flash(f'{user.email} is now the {section_word()} teacher.', 'success')
+    return back
 
 
-@app.route('/teacher/classes/<int:class_id>/overrides/add', methods=['POST'])
+def assignable_section_teachers(section):
+    """Staff who may be assigned to teach this section: class_teacher or
+    admin_teacher members of the section's school. "Or higher" is honoured — an
+    admin_teacher can be assigned as a section teacher."""
+    sid = section_school_id(section)
+    if sid is None:
+        return []
+    mems = SchoolMembership.query.filter(
+        SchoolMembership.school_id == sid,
+        SchoolMembership.role.in_(('class_teacher', 'admin_teacher'))
+    ).all()
+    return [m.user for m in mems if m.user]
+
+
+@app.route('/teacher/sections/<int:section_id>/overrides/add', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_add_override(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
+def teacher_add_override(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
     action    = request.form['action']
     module_id = request.form.get('module_id', type=int)
     me_id     = request.form.get('module_exercise_id', type=int)
@@ -2588,8 +3250,8 @@ def teacher_add_override(class_id):
             json.loads(criterion)
         except (ValueError, TypeError):
             criterion = '{"attempts":1}'
-    cme = ClassModuleExercise(
-        class_id=class_id,
+    sme = SectionModuleExercise(
+        section_id=section_id,
         action=action,
         module_exercise_id=me_id,
         module_id=module_id,
@@ -2598,80 +3260,70 @@ def teacher_add_override(class_id):
         order=order,
         completion_criterion_json=criterion,
     )
-    db.session.add(cme)
+    db.session.add(sme)
     db.session.commit()
     flash('Override added.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    return redirect(url_for('teacher_edit_section', section_id=section_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/overrides/<int:cme_id>/delete', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/overrides/<int:sme_id>/delete', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_delete_override(class_id, cme_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
+def teacher_delete_override(section_id, sme_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
+    sme = SectionModuleExercise.query.get_or_404(sme_id)
+    if sme.section_id != section_id:
         abort(403)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
-    cme = ClassModuleExercise.query.get_or_404(cme_id)
-    if cme.class_id != class_id:
-        abort(403)
-    db.session.delete(cme)
+    db.session.delete(sme)
     db.session.commit()
     flash('Override removed.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    return redirect(url_for('teacher_edit_section', section_id=section_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/hide', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/modules/<int:module_id>/hide', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_hide_module(class_id, module_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
+def teacher_hide_module(section_id, module_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
     module = Module.query.get_or_404(module_id)
     for ex in module.exercises:
-        exists = ClassModuleExercise.query.filter_by(
-            class_id=class_id, module_exercise_id=ex.id, action='hide'
+        exists = SectionModuleExercise.query.filter_by(
+            section_id=section_id, module_exercise_id=ex.id, action='hide'
         ).first()
         if not exists:
-            db.session.add(ClassModuleExercise(
-                class_id=class_id,
+            db.session.add(SectionModuleExercise(
+                section_id=section_id,
                 module_id=module_id,
                 module_exercise_id=ex.id,
                 action='hide'
             ))
     db.session.commit()
-    flash(f'Module "{module.name}" hidden for this class.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    flash(f'Module "{module.name}" hidden for this {section_word()}.', 'success')
+    return redirect(url_for('teacher_edit_section', section_id=section_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/modules/<int:module_id>/restore', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/modules/<int:module_id>/restore', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'class_teacher', 'admin')
-def teacher_restore_module(class_id, module_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'class_teacher' and klass.assigned_teacher_id != current_user.id:
-        abort(403)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
-    ClassModuleExercise.query.filter_by(
-        class_id=class_id, module_id=module_id, action='hide'
+def teacher_restore_module(section_id, module_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'class_teacher')
+    SectionModuleExercise.query.filter_by(
+        section_id=section_id, module_id=module_id, action='hide'
     ).delete()
     db.session.commit()
     flash('Module restored.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    return redirect(url_for('teacher_edit_section', section_id=section_id))
 
 
-@app.route('/teacher/classes/<int:class_id>/module_exercises/add', methods=['POST'])
+@app.route('/teacher/sections/<int:section_id>/module_exercises/add', methods=['POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
-def teacher_add_module_exercise(class_id):
-    klass = Class.query.get_or_404(class_id)
-    if current_user.role == 'admin_teacher' and klass.teacher_id != current_user.id:
-        abort(403)
+def teacher_add_module_exercise(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_manage_section(section)
     module_id = request.form.get('module_id', type=int)
     exercise_type = request.form.get('exercise_type', '').strip()
     exercise_id = request.form.get('exercise_id', type=int)
@@ -2679,49 +3331,52 @@ def teacher_add_module_exercise(class_id):
     order = request.form.get('order', type=int) or 0
     if not all([module_id, exercise_type, exercise_id]):
         flash('All fields required.', 'danger')
-        return redirect(url_for('teacher_edit_class', class_id=class_id))
-    me = ModuleExercise(
+        return redirect(url_for('teacher_edit_section', section_id=section_id))
+    # Per-SECTION addition. Writing a ModuleExercise here would edit the shared
+    # course and change the curriculum for every other section using it.
+    sme = SectionModuleExercise(
+        section_id=section_id,
+        action='add',
         module_id=module_id,
         exercise_type=exercise_type,
         exercise_id=exercise_id,
-        name=name or exercise_type,
         order=order,
     )
-    db.session.add(me)
+    db.session.add(sme)
     db.session.commit()
-    flash(f'Exercise "{me.name}" added to module.', 'success')
-    return redirect(url_for('teacher_edit_class', class_id=class_id))
+    flash(f'Exercise added to this {section_word()} only.', 'success')
+    return redirect(url_for('teacher_edit_section', section_id=section_id))
 
 
-@app.route('/teacher/join', methods=['POST'])
+@app.route('/section/join', methods=['POST'])
 @login_required
-def join_class():
+def join_section():
     code = request.form.get('join_code', '').strip().upper()
     if not code:
         flash('Please enter a join code.', 'danger')
         return redirect(url_for('me'))
-    cls  = Class.query.filter_by(join_code=code).first()
-    if not cls:
+    section  = Section.query.filter_by(join_code=code).first()
+    if not section:
         flash('Invalid join code.', 'danger')
-    elif current_user in cls.members:
-        flash('You are already in this class.', 'info')
+    elif current_user in section.members:
+        flash(f'You are already in this {section_word()}.', 'info')
     else:
-        if cls.course and cls.course.school_id:
+        if section.course and section.course.school_id:
             mem = SchoolMembership.query.filter_by(
-                school_id=cls.course.school_id,
+                school_id=section.course.school_id,
                 user_id=current_user.id,
             ).first()
             if not mem:
-                school = School.query.get(cls.course.school_id)
+                school = School.query.get(section.course.school_id)
                 flash(
                     f'You must join school "{school.name}" first. '
                     f'Ask your teacher for the school join code.',
                     'warning'
                 )
                 return redirect(url_for('me'))
-        cls.members.append(current_user)
+        section.members.append(current_user)
         db.session.commit()
-        flash(f'Joined "{cls.name}".', 'success')
+        flash(f'Joined "{section.name}".', 'success')
     return redirect(url_for('me'))
 
 
@@ -2729,52 +3384,43 @@ def join_class():
 # Student class routes
 # ---------------------------------------------------------------------------
 
-@app.route('/class/<int:class_id>')
+@app.route('/section/<int:section_id>')
 @login_required
-def class_home(class_id):
-    klass = Class.query.get_or_404(class_id)
-    is_member = current_user in klass.members
-    is_own_teacher = klass.teacher_id == current_user.id
-    if not is_member and not is_own_teacher and current_user.role != 'admin':
-        abort(403)
-    has_course = klass.course_id is not None
-    return render_template('student/mode_select.html', klass=klass, has_course=has_course)
+def section_home(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'student')
+    has_course = section.course_id is not None
+    return render_template('student/mode_select.html', section=section, has_course=has_course)
 
 
-@app.route('/class/<int:class_id>/modules')
+@app.route('/section/<int:section_id>/modules')
 @login_required
-def class_modules(class_id):
-    klass = Class.query.get_or_404(class_id)
-    is_member = current_user in klass.members
-    is_own_teacher = klass.teacher_id == current_user.id
-    if not is_member and not is_own_teacher and current_user.role != 'admin':
-        abort(403)
-    if not klass.course_id:
-        flash('This class has no course assigned yet.', 'info')
-        return redirect(url_for('class_home', class_id=class_id))
-    mods = cur.modules_with_progress(current_user.id, class_id, klass)
-    return render_template('student/module_list.html', klass=klass, mods=mods)
+def section_modules(section_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'student')
+    if not section.course_id:
+        flash('This course has no work assigned yet.', 'info')
+        return redirect(url_for('section_home', section_id=section_id))
+    mods = cur.modules_with_progress(current_user.id, section_id, section)
+    return render_template('student/module_list.html', section=section, mods=mods)
 
 
-@app.route('/class/<int:class_id>/modules/<int:module_id>')
+@app.route('/section/<int:section_id>/modules/<int:module_id>')
 @login_required
-def class_module_detail(class_id, module_id):
-    klass  = Class.query.get_or_404(class_id)
-    is_member = current_user in klass.members
-    is_own_teacher = klass.teacher_id == current_user.id
-    if not is_member and not is_own_teacher and current_user.role != 'admin':
-        abort(403)
+def section_module_detail(section_id, module_id):
+    section  = Section.query.get_or_404(section_id)
+    require_section_role(section, 'student')
     module = Module.query.get_or_404(module_id)
-    if klass.course_id is None or module.course_id != klass.course_id:
+    if section.course_id is None or module.course_id != section.course_id:
         abort(404)
-    exercises = cur.effective_exercises(klass, module)
-    done = cur.completion_map(current_user.id, class_id)
+    exercises = cur.effective_exercises(section, module)
+    done = cur.completion_map(current_user.id, section_id)
     ex_with_status = []
     for ex in exercises:
-        key = (ex['module_exercise_id'], ex['class_exercise_id'])
+        key = (ex['module_exercise_id'], ex['section_exercise_id'])
         completion = cur.get_completion(
-            current_user.id, class_id,
-            ex['module_exercise_id'], ex['class_exercise_id']
+            current_user.id, section_id,
+            ex['module_exercise_id'], ex['section_exercise_id']
         )
         ex_with_status.append({
             **ex,
@@ -2802,7 +3448,7 @@ def class_module_detail(class_id, module_id):
         # Start URL
         if ex['module_exercise_id']:
             ex['start_url'] = url_for('start_module_exercise',
-                                      class_id=class_id,
+                                      section_id=section_id,
                                       me_id=ex['module_exercise_id'])
         else:
             type_to_route = {
@@ -2811,37 +3457,34 @@ def class_module_detail(class_id, module_id):
                 'harmonic': ('harmonic_exercise', 'progression_id'),
                 'holistic': ('holistic_exercise', 'exercise_id'),
             }
-            route_name, param_name = type_to_route.get(ex['exercise_type'], ('class_home', 'class_id'))
+            route_name, param_name = type_to_route.get(ex['exercise_type'], ('section_home', 'section_id'))
             ex['start_url'] = url_for(route_name,
                                       **{param_name: ex['exercise_id']},
-                                      class_id=class_id,
-                                      me_id='', cme_id=ex['class_exercise_id'] or '')
+                                      section_id=section_id,
+                                      me_id='', sme_id=ex['section_exercise_id'] or '')
 
         # Progress
         me_obj2 = ModuleExercise.query.get(ex['module_exercise_id']) if ex['module_exercise_id'] else None
         criterion = me_obj2.completion_criterion if me_obj2 else {'attempts': 1}
         ex['progress'] = cur.get_progress(
-            current_user.id, class_id,
-            ex['module_exercise_id'], ex['class_exercise_id'],
+            current_user.id, section_id,
+            ex['module_exercise_id'], ex['section_exercise_id'],
             criterion
         )
     return render_template('student/module_detail.html',
-                           klass=klass,
+                           section=section,
                            module=module,
                            exercises=ex_with_status)
 
 
-@app.route('/class/<int:class_id>/module_exercise/<int:me_id>/start')
+@app.route('/section/<int:section_id>/module_exercise/<int:me_id>/start')
 @login_required
-def start_module_exercise(class_id, me_id):
-    klass = Class.query.get_or_404(class_id)
-    is_member = current_user in klass.members
-    is_own_teacher = klass.teacher_id == current_user.id
-    if not is_member and not is_own_teacher and current_user.role != 'admin':
-        abort(403)
+def start_module_exercise(section_id, me_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_role(section, 'student')
 
     me = ModuleExercise.query.get_or_404(me_id)
-    if me.module.course_id != klass.course_id:
+    if me.module.course_id != section.course_id:
         abort(404)
 
     params = me.params
@@ -2857,7 +3500,7 @@ def start_module_exercise(class_id, me_id):
     if me.exercise_type == 'holistic':
         return redirect(url_for('holistic_exercise',
                                 exercise_id=me.exercise_id,
-                                class_id=class_id, me_id=me_id, cme_id='',
+                                section_id=section_id, me_id=me_id, sme_id='',
                                 module_id=module_id, kp=kp))
 
     model_class, route_name, param_name = type_map[me.exercise_type]
@@ -2867,13 +3510,13 @@ def start_module_exercise(class_id, me_id):
 
     if not candidates:
         flash('No exercises match the filters for this module exercise. Ask your teacher to adjust the filters.', 'warning')
-        return redirect(url_for('class_module_detail',
-                                class_id=class_id, module_id=module_id))
+        return redirect(url_for('section_module_detail',
+                                section_id=section_id, module_id=module_id))
 
     chosen = random.choice(candidates)
     return redirect(url_for(route_name,
                             **{param_name: chosen.id},
-                            class_id=class_id, me_id=me_id, cme_id='',
+                            section_id=section_id, me_id=me_id, sme_id='',
                             module_id=module_id, kp=kp))
 
 

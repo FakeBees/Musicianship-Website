@@ -6,34 +6,47 @@
 <div class="row justify-content-center mt-4">
   <div class="col-lg-8">
 
-{% if user_classes and not sandbox_mode %}
-{# ── CLASS SELECTOR VIEW ─────────────────────────────────────────────────── #}
+{% if user_sections and not sandbox_mode %}
+{# ── SECTION SELECTOR VIEW ─────────────────────────────────────────────────── #}
     <div class="text-center mb-5">
       <h1 class="fw-bold display-5">Musicianship Trainer</h1>
-      <p class="text-muted lead">Select a class to practice assigned exercises, or go to Sandbox for free practice.</p>
+      <p class="text-muted lead">Select a {{ section_term }} to practice assigned exercises, or go to Sandbox for free practice.</p>
     </div>
 
-    <div class="row g-4 mb-4 {% if user_classes | length == 1 %}justify-content-center{% endif %}">
-      {% for klass in user_classes %}
+    <div class="row g-4 mb-4 {% if user_sections | length == 1 %}justify-content-center{% endif %}">
+      {% for section in user_sections %}
       <div class="col-md-6">
-        <a href="{{ url_for('class_modules', class_id=klass.id) }}" class="text-decoration-none">
+        <a href="{{ url_for('section_modules', section_id=section.id) }}" class="text-decoration-none">
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
-              <h2 class="h4 fw-bold mb-2">{{ klass.name }}</h2>
-              {% if klass.course %}
-              <p class="text-muted mb-0">{{ klass.course.name }}</p>
+              <h2 class="h4 fw-bold mb-2">{{ section.name }}</h2>
+              {% if section.course %}
+              <p class="text-muted mb-0">{{ section.course.name }}</p>
               {% else %}
-              <p class="text-muted mb-0">No course assigned</p>
+              <p class="text-muted mb-0">No work assigned</p>
               {% endif %}
             </div>
             <div class="card-footer bg-primary text-white text-center fw-semibold py-2">
-              Open Class &rarr;
+              Open {{ section_term_title }} &rarr;
             </div>
           </div>
         </a>
       </div>
       {% endfor %}
     </div>
+
+    {% if not user_sections %}
+      <div class="alert alert-secondary text-center" role="alert">
+        {% if in_perspective %}
+          You are not enrolled in any {{ section_terms }}, so there is nothing to show
+          from this perspective. A real {{ role_labels[active_role] | lower }} would see
+          the {{ section_terms }} they belong to here.
+        {% else %}
+          You are not enrolled in any {{ section_terms }} yet.
+          Join one from <a href="{{ url_for('my_sections') }}">My {{ section_terms_title }}</a>.
+        {% endif %}
+      </div>
+    {% endif %}
 
     <hr class="my-4">
 
@@ -60,11 +73,11 @@
     <div class="row g-4 mb-4 {% if teacher_courses | length == 1 %}justify-content-center{% endif %}">
       {% for course in teacher_courses %}
       <div class="col-md-6">
-        <a href="{{ url_for('admin_course_classes', course_id=course.id) }}" class="text-decoration-none">
+        <a href="{{ url_for('admin_course_sections', course_id=course.id) }}" class="text-decoration-none">
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
               <h2 class="h4 fw-bold mb-2">{{ course.name }}</h2>
-              <p class="text-muted mb-0">{{ course.classes | length }} class{{ 'es' if course.classes | length != 1 }}</p>
+              <p class="text-muted mb-0">{{ course.sections | length }} {{ section_term }}{{ 's' if course.sections | length != 1 }}</p>
             </div>
             <div class="card-footer bg-primary text-white text-center fw-semibold py-2">
               View &rarr;
@@ -83,7 +96,7 @@
     <div class="text-center mb-5">
       <h1 class="fw-bold display-5">Musicianship Trainer</h1>
       {% if sandbox_mode %}
-      <p class="text-muted lead">Choose a practice mode to get started. <a href="{{ url_for('home') }}" class="ms-2">← Back to classes</a></p>
+      <p class="text-muted lead">Choose a practice mode to get started. <a href="{{ url_for('home') }}" class="ms-2">← Back to {{ section_terms }}</a></p>
       {% else %}
       <p class="text-muted lead">Choose a practice mode to get started.</p>
       {% endif %}
@@ -97,10 +110,6 @@
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
               <h2 class="h4 fw-bold mb-2">Melodic Dictation</h2>
-              <p class="text-muted mb-0">
-                Listen to a melody and transcribe both the pitches and rhythms onto the staff.
-                Supports treble, bass, and tenor clef across a variety of keys and time signatures.
-              </p>
             </div>
             <div class="card-footer bg-primary text-white text-center fw-semibold py-2">
               Start &rarr;
@@ -114,10 +123,6 @@
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
               <h2 class="h4 fw-bold mb-2">Rhythmic Dictation</h2>
-              <p class="text-muted mb-0">
-                Listen to a rhythmic pattern and transcribe the durations onto a percussion staff.
-                Focus purely on rhythm — no pitches, no key signatures.
-              </p>
             </div>
             <div class="card-footer bg-success text-white text-center fw-semibold py-2">
               Start &rarr;
@@ -136,10 +141,6 @@
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
               <h2 class="h4 fw-bold mb-2">Harmonic Dictation</h2>
-              <p class="text-muted mb-0">
-                Identify and notate chord progressions by ear.
-                Practice recognizing harmonic function, quality, and voice leading.
-              </p>
             </div>
             <div class="card-footer bg-orange text-center fw-semibold py-2">
               Start &rarr;
@@ -153,10 +154,6 @@
           <div class="card shadow-sm h-100 border-0 home-card">
             <div class="card-body p-4 text-center">
               <h2 class="h4 fw-bold mb-2">Holistic Dictation</h2>
-              <p class="text-muted mb-0">
-                Full musical passage dictation combining melody, harmony, and rhythm
-                into a complete transcription exercise.
-              </p>
             </div>
             <div class="card-footer text-center fw-semibold py-2" style="background: #0dcaf0; color: #000 !important;">
               Start &rarr;

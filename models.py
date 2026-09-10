@@ -364,15 +364,33 @@ class User(UserMixin, db.Model):
         return f'<User {self.email} role={self.role}>'
 
 
-class_members = db.Table(
-    'class_members',
+# ─────────────────────────────────────────────────────────────────────────────
+# NAMING: "Section" in code, "class" in the database
+#
+# What staff call a Section (and students see as a Classroom) is still stored in
+# tables named `class`, `class_members` and `class_module_exercise`, with
+# `class_id` foreign keys. The Python layer was renamed to Section; the physical
+# schema deliberately was not, so no migration was needed against the existing
+# database.
+#
+# Every place the two diverge is pinned explicitly below via __tablename__ and
+# db.Column('class_id', ...) — SQLAlchemy maps the new attribute name onto the
+# old column. If you ever migrate the schema for real, the full mapping is
+# documented in docs/NAMING.md; renaming the physical columns then means
+# deleting these explicit overrides, nothing more.
+# ─────────────────────────────────────────────────────────────────────────────
+
+section_members = db.Table(
+    'class_members',                                   # DB name kept — see above
     db.Column('class_id', db.Integer, db.ForeignKey('class.id'), primary_key=True),
     db.Column('user_id',  db.Integer, db.ForeignKey('user.id'),  primary_key=True),
 )
 
 
-class Class(db.Model):
-    __tablename__ = 'class'
+class Section(db.Model):
+    """A group of students taught together. Staff UI calls this a Section;
+    student UI calls it a Classroom. Stored in the `class` table."""
+    __tablename__ = 'class'                            # DB name kept — see above
     id                   = db.Column(db.Integer, primary_key=True)
     name                 = db.Column(db.String(120), nullable=False)
     join_code            = db.Column(db.String(12), unique=True, nullable=False)
@@ -381,16 +399,16 @@ class Class(db.Model):
     created_at           = db.Column(db.DateTime, server_default=db.func.now())
 
     course_id  = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=True)
-    course     = db.relationship('Course', backref='classes')
+    course     = db.relationship('Course', backref='sections')
 
     teacher          = db.relationship('User', foreign_keys=[teacher_id],
-                                       backref='classes_taught')
+                                       backref='sections_taught')
     assigned_teacher = db.relationship('User', foreign_keys=[assigned_teacher_id],
-                                       backref='classes_assigned')
-    members = db.relationship('User', secondary=class_members, backref='classes')
+                                       backref='sections_assigned')
+    members = db.relationship('User', secondary=section_members, backref='sections')
 
     def __repr__(self):
-        return f'<Class {self.name}>'
+        return f'<Section {self.name}>'
 
 
 class School(db.Model):
@@ -476,10 +494,13 @@ class ModuleExercise(db.Model):
         return f'<ModuleExercise {self.name or self.exercise_type}>'
 
 
-class ClassModuleExercise(db.Model):
-    __tablename__ = 'class_module_exercise'
+class SectionModuleExercise(db.Model):
+    """Per-section override of the course curriculum. Stored in
+    `class_module_exercise`; `section_id` maps onto the `class_id` column."""
+    __tablename__ = 'class_module_exercise'            # DB name kept — see above
     id                 = db.Column(db.Integer, primary_key=True)
-    class_id           = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    section_id         = db.Column('class_id', db.Integer,      # column name kept
+                                   db.ForeignKey('class.id'), nullable=False)
     module_exercise_id = db.Column(db.Integer, db.ForeignKey('module_exercise.id'), nullable=True)
     action             = db.Column(db.String(20), nullable=False, default='add')
     exercise_type      = db.Column(db.String(20), nullable=True)
@@ -488,33 +509,36 @@ class ClassModuleExercise(db.Model):
     completion_criterion_json = db.Column(db.Text, nullable=True)
     module_id          = db.Column(db.Integer, db.ForeignKey('module.id'), nullable=True)
 
-    klass           = db.relationship('Class', backref='module_overrides')
-    module_exercise = db.relationship('ModuleExercise', backref='class_overrides')
+    section         = db.relationship('Section', backref='module_overrides')
+    module_exercise = db.relationship('ModuleExercise', backref='section_overrides')
 
     @property
     def completion_criterion(self):
         return json.loads(self.completion_criterion_json) if self.completion_criterion_json else None
 
     def __repr__(self):
-        return f'<ClassModuleExercise class={self.class_id} action={self.action}>'
+        return f'<SectionModuleExercise section={self.section_id} action={self.action}>'
 
 
 class ModuleCompletion(db.Model):
     __tablename__ = 'module_completion'
     id                 = db.Column(db.Integer, primary_key=True)
     user_id            = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    class_id           = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    section_id         = db.Column('class_id', db.Integer,      # column name kept
+                                   db.ForeignKey('class.id'), nullable=False)
     module_exercise_id = db.Column(db.Integer, db.ForeignKey('module_exercise.id'), nullable=True)
-    class_exercise_id  = db.Column(db.Integer, db.ForeignKey('class_module_exercise.id'), nullable=True)
+    section_exercise_id = db.Column('class_exercise_id', db.Integer,   # column kept
+                                    db.ForeignKey('class_module_exercise.id'), nullable=True)
     best_score         = db.Column(db.Float, nullable=True)
     attempt_count      = db.Column(db.Integer, nullable=False, default=0)
     passing_count      = db.Column(db.Integer, nullable=False, default=0)
     is_complete        = db.Column(db.Boolean, nullable=False, default=False)
     completed_at       = db.Column(db.DateTime, server_default=db.func.now())
 
-    user  = db.relationship('User', backref='module_completions')
-    klass = db.relationship('Class', backref='module_completions')
+    user    = db.relationship('User', backref='module_completions')
+    section = db.relationship('Section', backref='module_completions')
 
+    # Constraint args reference physical COLUMN names, which are still class_*.
     __table_args__ = (
         db.UniqueConstraint('user_id', 'class_id', 'module_exercise_id',
                             name='uq_completion_module_exercise'),
@@ -523,4 +547,4 @@ class ModuleCompletion(db.Model):
     )
 
     def __repr__(self):
-        return f'<ModuleCompletion user={self.user_id} class={self.class_id}>'
+        return f'<ModuleCompletion user={self.user_id} section={self.section_id}>'

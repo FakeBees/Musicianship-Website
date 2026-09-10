@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.name }} — {{ section_terms_title }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2>{{ course.name }} — {{ section_terms_title }}</h2>
+  <a href="{{ url_for('admin_courses', school_id=course.school_id) }}" class="btn btn-outline-secondary btn-sm mb-3">← Courses</a>
+  <table class="table table-sm">
+    <thead><tr><th>{{ section_term_title }}</th><th>Students</th><th>Teacher</th></tr></thead>
+    <tbody>
+    {% for section in sections %}
+    <tr>
+      <td>{{ section.name }} <code class="text-muted small">{{ section.join_code }}</code></td>
+      <td>{{ section.members | length }}</td>
+      <td>{{ section.teacher.display_name or section.teacher.email }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="text-muted">No {{ section_terms }} use this course.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

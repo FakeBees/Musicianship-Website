@@ -4,8 +4,8 @@
 <div class="container py-4">
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="{{ url_for('class_home', class_id=klass.id) }}">{{ klass.name }}</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('class_modules', class_id=klass.id) }}">Modules</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('section_home', section_id=section.id) }}">{{ section.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('section_modules', section_id=section.id) }}">Modules</a></li>
       <li class="breadcrumb-item active">{{ module.name }}</li>
     </ol>
   </nav>

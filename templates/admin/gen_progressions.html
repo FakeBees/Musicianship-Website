@@ -11,7 +11,7 @@
     {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
   {% endwith %}
 
-  {# Inline create form #}
+  {# Inline create form — chords built on the edit page after creation #}
   <div class="collapse mb-4" id="addForm">
     <div class="card card-body">
       <h5 class="mb-3">New GenProgression</h5>
@@ -29,11 +29,9 @@
             <select name="difficulty" class="form-select">
               {% for d in [1,2,3,4,5] %}<option>{{ d }}</option>{% endfor %}
             </select></div>
-          <div class="col-12"><label class="form-label">Chords JSON <span class="text-danger">*</span></label>
-            <textarea name="chords_json" class="form-control font-monospace" rows="3" placeholder='[{"degree":"I","quality":"maj","inversion":0,"beats":4}]' required></textarea>
-            <div class="form-text">List of chord objects: degree, quality, inversion, beats.</div></div>
         </div>
-        <button class="btn btn-success mt-3">Create</button>
+        <input type="hidden" name="chords_json" value="[]">
+        <button class="btn btn-success mt-3">Create → Build Chords</button>
       </form>
     </div>
   </div>

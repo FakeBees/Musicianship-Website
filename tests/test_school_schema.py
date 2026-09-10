@@ -1,6 +1,6 @@
 import pytest
 from app import app
-from models import db, User, School, SchoolMembership, Class
+from models import db, User, School, SchoolMembership, Section
 
 @pytest.fixture(autouse=True)
 def ctx():
@@ -31,8 +31,8 @@ def test_class_assigned_teacher():
     t = User(email='t@b.com', password_hash='x', role='class_teacher')
     db.session.add_all([s, t])
     db.session.flush()
-    c = Class(name='C', join_code='AAA111', teacher_id=t.id)
+    c = Section(name='C', join_code='AAA111', teacher_id=t.id)
     c.assigned_teacher_id = t.id
     db.session.add(c)
     db.session.commit()
-    assert Class.query.first().assigned_teacher.email == 't@b.com'
+    assert Section.query.first().assigned_teacher.email == 't@b.com'

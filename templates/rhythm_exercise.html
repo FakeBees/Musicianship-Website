@@ -13,7 +13,7 @@
     <nav aria-label="breadcrumb">
       <ol class="breadcrumb">
         {% if request.args.get('class_id') and request.args.get('module_id') %}
-        <li class="breadcrumb-item"><a href="{{ url_for('class_module_detail', class_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}">Module</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('section_module_detail', section_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}">Module</a></li>
         {% else %}
         <li class="breadcrumb-item"><a href="{{ url_for('rhythm_index') }}">Rhythmic Dictation</a></li>
         {% endif %}
@@ -102,7 +102,7 @@
 <!-- Submit -->
 <div class="d-flex justify-content-between align-items-center">
   {% if request.args.get('class_id') and request.args.get('module_id') %}
-  <a href="{{ url_for('class_module_detail', class_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}" class="btn btn-outline-secondary">
+  <a href="{{ url_for('section_module_detail', section_id=request.args.get('class_id'), module_id=request.args.get('module_id')) }}" class="btn btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Back to Module
   </a>
   {% else %}
@@ -121,7 +121,7 @@
   const RHYTHM_ID       = {{ rhythm.id }};
   const MODULE_CLASS_ID = "{{ request.args.get('class_id', '') }}";
   const MODULE_ME_ID    = "{{ request.args.get('me_id', '') }}";
-  const MODULE_CME_ID   = "{{ request.args.get('cme_id', '') }}";
+  const MODULE_CME_ID   = "{{ request.args.get('sme_id', '') }}";
   const RHYTHM_NOTES    = {{ rhythm.notes | tojson }};
   const RHYTHM_TEMPO    = {{ rhythm.tempo }};
   const NUM_MEASURES    = {{ rhythm.num_measures }};
