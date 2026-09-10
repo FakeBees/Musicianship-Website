@@ -116,13 +116,32 @@
     <input name="key_signature" id="{{ mode }}-key-sig" class="form-control form-control-sm" style="max-width:180px" placeholder="e.g. C, G, Bb">
   </div>
 
+  {# Topics are drawn from three separate libraries. A melody exercise tagged
+     with a harmonic-only topic can never match anything, because
+     _apply_exercise_filters ANDs the selected tags — so in the add form, where
+     the type is still being chosen, each topic carries the exercise types whose
+     library actually uses it and applyTagVisibility() shows only those. The
+     edit modal keeps the full list: its type is fixed, and a stored tag must
+     always have a control even if its library no longer carries it. #}
   <div class="mb-2">
     <label class="fw-semibold d-block mb-2">Topics</label>
     <div class="d-flex flex-wrap gap-2" id="{{ mode }}-tags-container">
       {% for t in all_tags %}
-      <input type="checkbox" class="btn-check" name="tag" id="{{ mode }}-tag-{{ t|replace(':','_') }}" value="{{ t }}" autocomplete="off">
+      {%- set tag_types = [
+            'melody'   if t in melody_tags_list   else '',
+            'rhythm'   if t in rhythm_tags_list   else '',
+            'harmonic' if t in harmonic_tags_list else ''
+          ] | select | join(' ') -%}
+      <input type="checkbox" class="btn-check" name="tag" id="{{ mode }}-tag-{{ t|replace(':','_') }}" value="{{ t }}" autocomplete="off"{% if mode == 'add' %} data-types="{{ tag_types }}"{% endif %}>
       <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-tag-{{ t|replace(':','_') }}">{{ t }}</label>
       {% endfor %}
     </div>
   </div>
+
+  {% if mode == 'add' %}
+  {# Live match count: how many library items the current filter combination
+     actually selects. Zero is a hazard — the exercise would have nothing to
+     serve — and this is the only warning an admin gets before saving. #}
+  <div class="small text-muted mt-2" id="add-match-count"></div>
+  {% endif %}
 </div>

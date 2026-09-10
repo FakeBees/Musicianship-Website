@@ -10,6 +10,8 @@ caught any of them, because every page still returned 200.
 These tests re-render the real pages with StrictUndefined, which turns that
 silent emptiness into a loud error.
 """
+import re
+
 import pytest
 from jinja2 import StrictUndefined
 
@@ -266,3 +268,54 @@ def test_module_exercise_add_and_edit_expose_the_same_fields(world, strict_undef
         if needle not in edit_region:
             failures.append(f'{field!r} missing from the edit modal')
     assert not failures, 'Add/edit field parity broken:\n  ' + '\n  '.join(failures)
+
+
+def _page_script(body):
+    """The page's own inline <script> — the longest one, since base.html's
+    other script tags carry src attributes or a line or two of glue."""
+    scripts = re.findall(r'<script>(.*?)</script>', body, re.S)
+    assert scripts, 'module_exercises.html renders no inline script'
+    return max(scripts, key=len)
+
+
+def test_add_form_cannot_leak_a_time_signature_across_exercise_types(world, strict_undefined):
+    """A time signature picked under one type must not ride along into another.
+
+    The whole add form posts as one request, so a 4/4 checked while the type
+    was Melodic used to end up in a *Harmonic* exercise's params_json: the
+    sync helper read the checkboxes regardless of type, ran again on submit,
+    and nothing cleared them when the type changed. The harmonic query then
+    filtered on a column its progressions do not meaningfully carry.
+
+    This is a source contract, not a behavioural test: the leak lives in
+    client-side JS and this suite has no JS runtime, so it asserts the two
+    structural guarantees that make the leak impossible rather than driving
+    the form. Both were verified behaviourally out-of-band, by executing this
+    exact rendered script against this exact rendered markup in node (red
+    before the fix, green after) — see the task report.
+    """
+    resp = client_as(world['admin']).get(f'/admin/modules/{world["module"]}/exercises')
+    assert resp.status_code == 200
+    script = _page_script(resp.data.decode())
+
+    # 1. Changing type wipes every add-form filter control, so nothing chosen
+    #    under the previous type survives into the next one's params_json.
+    type_switcher = script[script.index('function onTypeChange()'):]
+    type_switcher = type_switcher[:type_switcher.index('\n}')]
+    assert 'clearAddFilters()' in type_switcher, \
+        'onTypeChange must clear the add form\'s filters when the type changes'
+    clearer = script[script.index('function clearAddFilters()'):]
+    clearer = clearer[:clearer.index('\n}')]
+    assert "'add-time-sig-hidden').value = ''" in clearer, \
+        'clearAddFilters must blank the time_signature hidden field'
+    assert "input[type=\"checkbox\"]" in clearer and 'cb.checked  = false' in clearer, \
+        'clearAddFilters must uncheck the add form\'s filter checkboxes'
+
+    # 2. Belt and braces: the submit-time sync refuses to post a time
+    #    signature at all while its row is hidden — which is exactly when the
+    #    selected type has no time signature (harmonic, holistic, none yet).
+    sync = script[script.index('function syncTimeSigHidden(mode)'):]
+    sync = sync[:sync.index('\n}')]
+    assert "classList.contains('d-none')" in sync and "hidden.value = ''" in sync, \
+        ('syncTimeSigHidden must post nothing while the time-signature row is '
+         'hidden; reading the checkboxes regardless of type is the leak')

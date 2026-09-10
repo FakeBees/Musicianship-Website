@@ -137,6 +137,28 @@
 
 {% block scripts %}
 <script>
+// ── Library snapshots, for the add form's live match-count preview ────────────
+//    Only the add form previews. The edit modal edits an exercise whose type is
+//    already fixed, and the route ships these snapshots for the add form's sake.
+const LIB = {
+  melody:   {{ melodies_data     | tojson }},
+  rhythm:   {{ rhythms_data      | tojson }},
+  harmonic: {{ progressions_data | tojson }},
+};
+// Which filter dimensions each snapshot actually carries: [checkbox name, data key].
+// `difficulty` is previewable for harmonic only — melodies_data / rhythms_data do
+// not ship it, so it is left out of their counts rather than counted as a miss.
+const LIB_DIMS = {
+  melody:   [['time_signature_cb', 'time_signature'], ['min_dur_cb', 'min_duration'], ['clef_cb', 'clef']],
+  rhythm:   [['time_signature_cb', 'time_signature'], ['min_dur_cb', 'min_duration']],
+  harmonic: [['category', 'category'], ['difficulty', 'difficulty']],
+};
+const LIB_NOUN = {
+  melody:   ['melody', 'melodies'],
+  rhythm:   ['rhythm', 'rhythms'],
+  harmonic: ['progression', 'progressions'],
+};
+
 // ── Filter-row visibility, shared by the add form's live Type picker and the
 //    edit modal's fixed exercise type ──────────────────────────────────────────
 function applyFilterVisibility(mode, type) {
@@ -152,9 +174,94 @@ function applyFilterVisibility(mode, type) {
 // ── Keep each mode's single time_signature hidden field in sync with its
 //    checkbox group (the route reads one value, not a list) ───────────────────
 function syncTimeSigHidden(mode) {
-  const checked = [...document.querySelectorAll(
-    `#${mode}-time-sig-row input[name="time_signature_cb"]:checked`)].map(e => e.value);
-  document.getElementById(mode + '-time-sig-hidden').value = checked.length === 1 ? checked[0] : '';
+  const row    = document.getElementById(mode + '-time-sig-row');
+  const hidden = document.getElementById(mode + '-time-sig-hidden');
+  // A hidden row means the selected type has no time signature (harmonic,
+  // holistic, nothing picked yet). Never post one for those: reading the
+  // checkboxes regardless of type is how a 4/4 chosen under Melodic used to
+  // end up in a Harmonic exercise's params_json.
+  if (row.classList.contains('d-none')) { hidden.value = ''; return; }
+  const checked = [...row.querySelectorAll('input[name="time_signature_cb"]:checked')].map(e => e.value);
+  hidden.value = checked.length === 1 ? checked[0] : '';
+}
+
+// ── Live match count and zero-match guard (add form) ─────────────────────────
+//    A filter combination that matches nothing is a real defect, not a cosmetic
+//    one: the student hits "No exercises match the filters for this module
+//    exercise" at launch and cannot start it. Nothing else warns the admin.
+function addSelected(name) {
+  return [...document.querySelectorAll(
+    `#add-filter-settings input[name="${name}"]:checked`)].map(e => e.value);
+}
+function addSelection(type) {
+  const sel = { tags: addSelected('tag') };
+  (LIB_DIMS[type] || []).forEach(([cbName, key]) => { sel[key] = addSelected(cbName); });
+  return sel;
+}
+function countMatches(type, sel) {
+  return (LIB[type] || []).filter(row => {
+    for (const [, key] of (LIB_DIMS[type] || [])) {
+      const vals = sel[key] || [];
+      if (vals.length && !vals.map(String).includes(String(row[key]))) return false;
+    }
+    // _apply_exercise_filters ANDs tags, so a row must carry every one of them.
+    return !sel.tags.length || sel.tags.every(t => (row.tags || []).includes(t));
+  }).length;
+}
+function selectionIsEmpty(type, sel) {
+  return !sel.tags.length && !(LIB_DIMS[type] || []).some(([, key]) => sel[key].length);
+}
+// A topic checkbox only applies to the exercise types whose library uses it.
+function appliesToType(cb, type) {
+  return cb.dataset.types === undefined
+      || cb.dataset.types.split(' ').filter(Boolean).includes(type);
+}
+function updateMatchCount() {
+  const label = document.getElementById('add-match-count');
+  if (!label) return;
+  const type = typeSelect.value;
+  if (!LIB[type]) { label.textContent = ''; return; }   // holistic, or nothing picked
+
+  const sel      = addSelection(type);
+  const anyFilter = !selectionIsEmpty(type, sel);
+  const total    = countMatches(type, sel);
+  const [one, many] = LIB_NOUN[type];
+  label.textContent = anyFilter
+    ? `${total} matching ${total === 1 ? one : many}`
+    : `${LIB[type].length} ${many} available`;
+  label.className = 'small mt-2 ' + (!anyFilter || total > 0 ? 'text-muted' : 'text-danger fw-semibold');
+
+  // Disable and gray any unchecked option that would take the count to zero.
+  const groups = (LIB_DIMS[type] || []).concat([['tag', 'tags']]);
+  groups.forEach(([cbName, key]) => {
+    document.querySelectorAll(`#add-filter-settings input[name="${cbName}"]`).forEach(cb => {
+      if (cb.checked || !appliesToType(cb, type)) return;
+      const ok = countMatches(type, Object.assign({}, sel, { [key]: [...sel[key], cb.value] })) > 0;
+      cb.disabled = !ok;
+      document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
+    });
+  });
+}
+function applyTagVisibility(type) {
+  document.querySelectorAll('#add-tags-container input[name="tag"]').forEach(cb => {
+    const applies = appliesToType(cb, type);
+    cb.disabled = !applies;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('d-none', !applies);
+  });
+}
+
+// ── Clear every add-form filter control ──────────────────────────────────────
+//    The whole add form posts as one, and the same control means different
+//    things per type, so anything left checked under the previous type would
+//    ride along into the next one's params_json.
+function clearAddFilters() {
+  document.querySelectorAll('#add-filter-settings input[type="checkbox"]').forEach(cb => {
+    cb.checked  = false;
+    cb.disabled = false;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.remove('opacity-50');
+  });
+  document.getElementById('add-time-sig-hidden').value = '';
+  document.getElementById('add-key-sig').value = '';
 }
 
 // ── Type switcher (add form) ─────────────────────────────────────────────────
@@ -163,13 +270,16 @@ function onTypeChange() {
   const t = typeSelect.value;
   applyFilterVisibility('add', t);
   document.getElementById('holistic-field').classList.toggle('d-none', t !== 'holistic');
+  clearAddFilters();
+  applyTagVisibility(t);
   syncTimeSigHidden('add');
+  updateMatchCount();
 }
 typeSelect.addEventListener('change', onTypeChange);
 onTypeChange();
 
-document.querySelectorAll('#add-time-sig-row input[name="time_signature_cb"]')
-  .forEach(cb => cb.addEventListener('change', () => syncTimeSigHidden('add')));
+document.querySelectorAll('#add-filter-settings input[type="checkbox"]')
+  .forEach(cb => cb.addEventListener('change', () => { syncTimeSigHidden('add'); updateMatchCount(); }));
 document.querySelectorAll('#edit-time-sig-row input[name="time_signature_cb"]')
   .forEach(cb => cb.addEventListener('change', () => syncTimeSigHidden('edit')));
 document.getElementById('add-form').addEventListener('submit', () => syncTimeSigHidden('add'));
