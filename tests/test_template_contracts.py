@@ -170,3 +170,43 @@ def test_class_teacher_has_a_reachable_school_link(world, strict_undefined):
 def test_class_teacher_my_school_does_not_403(world, strict_undefined):
     resp = client_as(world['ct']).get('/admin/my-school', follow_redirects=True)
     assert resp.status_code == 200
+
+
+def test_my_sections_links_each_section(world, strict_undefined):
+    """A student's own section list must let them open a section.
+
+    The only affordance per row was a destructive Leave button — the section
+    name was plain text even though /section/<id>/modules exists and the
+    viewer is a member (D10).
+    """
+    resp = client_as(world['stu']).get('/my-sections')
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    modules_url = f"/section/{world['section']}/modules"
+    assert modules_url in body, \
+        'section row must link to its module list, not just offer Leave'
+    assert 'Leave' in body, 'the existing Leave affordance must stay'
+
+
+def test_teacher_dashboard_links_each_section(world, strict_undefined):
+    """A teacher's dashboard card title must itself link to the section detail
+    page, not rely solely on the footer's View roster button.
+
+    The footer's "View roster" link already points at teacher_section_detail,
+    so merely asserting that URL is present would pass today without the
+    title being clickable at all. The title link is a second, distinct
+    occurrence of the same href, so require at least two. Matching the full
+    `href="..."` attribute (not just the URL substring) avoids a false match
+    against the footer's Edit button, whose href is this same URL plus
+    "/edit" — the identical substring-collision trap the Leave button poses
+    for the my-sections test above.
+    """
+    resp = client_as(world['at']).get('/teacher')
+    assert resp.status_code == 200
+    assert b'teacher_section_detail' not in resp.data  # url_for is resolved
+    detail_href = f'href="/teacher/section/{world["section"]}"'
+    occurrences = resp.data.count(detail_href.encode())
+    assert occurrences >= 2, \
+        ('card title must also link to section detail (found the exact '
+         f'href {occurrences} time(s); the footer\'s "View roster" link '
+         'alone only accounts for one)')

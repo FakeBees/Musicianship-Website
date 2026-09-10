@@ -40,8 +40,10 @@
     {% for section in sections %}
     <div class="list-group-item d-flex justify-content-between align-items-center">
       <div>
-        <strong>{{ section.name }}</strong>
-        {% if section.course %}<span class="text-muted small ms-2">{{ section.course.name }}</span>{% endif %}
+        <a href="{{ url_for('section_modules', section_id=section.id) }}" class="text-decoration-none">
+          <strong>{{ section.name }}</strong>
+          {% if section.course %}<span class="text-muted small ms-2">{{ section.course.name }}</span>{% endif %}
+        </a>
       </div>
       <form method="post" action="{{ url_for('leave_section', section_id=section.id) }}"
             onsubmit="return confirm('Leave {{ section_term }} &quot;{{ section.name }}&quot;? You will lose access to its modules.')">

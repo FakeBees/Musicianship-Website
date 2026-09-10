@@ -19,7 +19,7 @@
     <div class="col-md-4">
       <div class="card h-100">
         <div class="card-body">
-          <h5 class="card-title">{{ section.name }}</h5>
+          <h5 class="card-title"><a href="{{ url_for('teacher_section_detail', section_id=section.id) }}" class="text-decoration-none">{{ section.name }}</a></h5>
           <p class="text-muted small mb-1">Join code: <code>{{ section.join_code }}</code></p>
           <p class="text-muted small">{{ section.members | length }} student{{ 's' if section.members | length != 1 }}</p>
         </div>
