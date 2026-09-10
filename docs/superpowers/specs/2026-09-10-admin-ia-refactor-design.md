@@ -52,6 +52,7 @@ school detail page. Same label, different mental model.
 | D7 | Four hardcoded `/admin/...` hrefs bypass `url_for`. | `templates/admin/index.html`, `templates/admin/melodies.html` |
 | D8 | `BUGS.md` lists BUG-001/002/003 as open. All three are fixed; BUG-003's fix is in `admin_my_school()` with a docstring explaining it. | `BUGS.md` vs `app.py:2993` |
 | D9 | URL segment style is inconsistent: `/admin/module_exercises` (underscore) vs `/admin/gen-progressions` (hyphen). | route table |
+| D10 | **Entities listed in lists are not clickable.** Worst case: on "Your Classrooms" the only affordance per row is a red **Leave** button — the classroom name is plain text, the course name is plain text, and `/section/<id>` exists and the viewer is a member. The sole action offered on your own classroom list is the destructive one. | `templates/student/my_sections.html:43`; see §2.6 for the full list |
 
 ## 2. Design
 
@@ -163,6 +164,43 @@ deliberately not added — it is a two-value field and the column plus search co
 A `breadcrumbs` block in `base.html` replaces ad-hoc "← Admin" links, closing D2. The
 curriculum tree (School → Course → Module → Exercises) genuinely needs it.
 
+### 2.6 Clickability (cross-cutting)
+
+**Principle: if the viewer has permission to reach an entity, its name in a list is a link
+to it.** This applies everywhere — admin lists, teacher lists, student lists.
+
+`templates/home.html` already implements this correctly by wrapping the whole card in an
+`<a>`. That is the precedent; propagate it rather than inventing a new pattern.
+
+Rules:
+
+1. **The entity name is the link** — or the whole card, following the `home.html` precedent.
+   Not merely a trailing button in a separate actions column.
+2. **The destination is the highest-privilege page the viewer can actually reach** for that
+   entity: can manage → its manage/edit page; can only participate → its detail page;
+   nothing reachable → **plain text, never a dead link**.
+3. **A destructive action must never be the only affordance on a row.** This is the D10 bug.
+4. Resolution lives in **one** template global, `primary_link(entity)`, returning a URL or
+   `None`, so the mapping cannot drift per-template the way the list pages did.
+
+Applies to:
+
+| Template | Entity | Destination |
+|---|---|---|
+| `student/my_sections.html` | section name | `/section/<id>`; course name → its module list |
+| `student/my_sections.html` | "Your schools:" names | school page if staff, else plain |
+| `teacher/dashboard.html` | section card title | section detail |
+| `admin/schools.html` | school name | `/manage/schools/<id>` |
+| `admin/courses.html` | course name | `/manage/courses/<id>/modules` |
+| `admin/modules.html` | module name | `/manage/modules/<id>/exercises` |
+| `admin/course_sections.html` | section name | `/manage/sections/<id>` |
+| `admin/{melodies,rhythms,harmonics,holistic_list,gen_progressions}` | name | its edit page |
+| `admin/module_exercises.html` | exercise name | its edit modal |
+| `admin/users.html`, `admin/school_detail.html` | user email | **stays plain — no user-detail page exists** |
+
+Creating a user-detail page is explicitly **out of scope**; those two stay plain text so
+the refactor introduces no dead links.
+
 ## 3. Phases
 
 Each phase is independently shippable and leaves the suite green.
@@ -171,12 +209,17 @@ Each phase is independently shippable and leaves the suite green.
   work branch. Remaining: reconcile `BUGS.md` (D8); decide whether to gitignore
   `static/melodic/_preview/`.
 - **Phase 1 — Real bugs, no restructuring.** D1 (module-exercise field parity via one
-  shared partial), D4 (melodies difficulty filter), D6 (`class_teacher` nav entry).
-- **Phase 2 — Unify the library pages.** The shared list template of §2.4. Closes D5, D7.
+  shared partial), D4 (melodies difficulty filter), D6 (`class_teacher` nav entry), and the
+  acute half of D10 — `my_sections.html` and `teacher/dashboard.html`, which need no new
+  routes and where a destructive button is currently the only affordance.
+- **Phase 2 — Unify the library pages.** The shared list template of §2.4. Closes D5, D7,
+  and the content-library rows of D10 (name → edit page).
 - **Phase 3 — The split.** Introduce `/manage/*`, move the routes of §2.2, update
   `screens.py` and `SCREEN_MAP.drawio` in the same commit. Closes D9.
-- **Phase 4 — Hubs, breadcrumbs, design languages.** Rebuild the `/admin` hub (D3), build
-  the `/manage` hub, add the breadcrumb block everywhere (D2), apply §2.5.
+- **Phase 4 — Hubs, breadcrumbs, design languages, clickability.** Rebuild the `/admin` hub
+  (D3), build the `/manage` hub, add the breadcrumb block everywhere (D2), apply §2.5, and
+  land the `primary_link()` global across the remaining lists (rest of D10 — deferred to
+  here because its admin destinations are the `/manage/*` routes Phase 3 creates).
 - **Phase 5 — Optional: blueprints.** `app.py` is 3538 lines and 97 routes. The blueprints
   map exactly onto the three prefixes, so Phase 3 does the hard thinking and this files it.
 
