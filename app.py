@@ -2057,6 +2057,7 @@ def admin_melodies():
     q = request.args.get('q', '').strip()
     tag_filter = request.args.get('tag', '').strip()
     container_filter = request.args.get('container', type=int)
+    diff_filter = request.args.get('difficulty', type=int)
     query = Melody.query
     if q:
         query = query.filter(db.or_(Melody.name.ilike(f'%{q}%'), Melody.public_id.ilike(f'%{q}%')))
@@ -2064,12 +2065,14 @@ def admin_melodies():
         query = query.filter(Melody.tags.any(Tag.name == tag_filter))
     if container_filter:
         query = query.filter_by(container_id=container_filter)
+    if diff_filter:
+        query = query.filter_by(difficulty=diff_filter)
     melodies = query.order_by(Melody.id.desc()).all()
     all_tags = Tag.query.order_by(Tag.name).all()
     containers = Container.query.order_by(Container.name).all()
     return render_template('admin/melodies.html', melodies=melodies, all_tags=all_tags,
                            containers=containers, q=q, tag_filter=tag_filter,
-                           container_filter=container_filter)
+                           container_filter=container_filter, diff_filter=diff_filter)
 
 
 @app.route('/admin/melodies/<int:mel_id>/edit', methods=['GET', 'POST'])

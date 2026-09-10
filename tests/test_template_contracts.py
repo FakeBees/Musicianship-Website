@@ -128,6 +128,17 @@ def test_no_page_reads_an_undefined_variable(world, strict_undefined):
     assert not failures, 'Pages failed to render:\n  ' + '\n  '.join(failures)
 
 
+def test_admin_melodies_supports_difficulty_filter(world, strict_undefined):
+    """Melodies must filter by difficulty like every other content type.
+
+    It was the only list page without this, despite rendering a Diff column.
+    """
+    resp = client_as(world['admin']).get('/admin/melodies?difficulty=3')
+    assert resp.status_code == 200
+    assert b'name="difficulty"' in resp.data, \
+        'melodies.html must render a difficulty filter control'
+
+
 def test_lists_actually_render_their_rows(world):
     """The specific symptom of the silent-undefined bug: a populated list that
     renders its empty state anyway."""
