@@ -153,3 +153,20 @@ def test_lists_actually_render_their_rows(world):
         body = client_as(world[role]).get(url).get_data(as_text=True)
         assert name in body, f'{label}: section missing from the page'
         assert empty_marker not in body, f'{label}: showed its empty state despite having rows'
+
+
+def test_class_teacher_has_a_reachable_school_link(world, strict_undefined):
+    """A class_teacher may view school detail, so the nav must offer a way in.
+
+    The permission existed with no path to it: /admin/schools/<id>/detail
+    allows class_teacher, but base.html gave the role no entry at all (D6).
+    """
+    resp = client_as(world['ct']).get('/')
+    assert resp.status_code == 200
+    assert b'/admin/my-school' in resp.data, \
+        'class_teacher nav must link to the school entry point'
+
+
+def test_class_teacher_my_school_does_not_403(world, strict_undefined):
+    resp = client_as(world['ct']).get('/admin/my-school', follow_redirects=True)
+    assert resp.status_code == 200

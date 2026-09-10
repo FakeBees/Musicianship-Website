@@ -2995,23 +2995,34 @@ def teacher_dashboard():
 
 @app.route('/admin/my-school')
 @login_required
-@role_required('admin_teacher', 'admin')
+@role_required('class_teacher', 'admin_teacher', 'admin')
 def admin_my_school():
-    """Entry point for the nav's "Admin" link.
+    """Entry point for the nav's "Manage School" link.
 
     BUG-003 lived here: this used to send an admin_teacher to admin_courses,
     which was site-admin-only, so they 403'd out of their own nav bar. It now
     lands on the school detail page — which they can actually use — and
     admin_courses is open to school admins anyway.
+
+    D6: /admin/schools/<id>/detail already allows class_teacher (it requires
+    only require_school_role(..., 'class_teacher')), but this route used to
+    look up an admin_teacher membership only, so a class_teacher fell through
+    to the "not an administrator" flash despite being allowed at the
+    destination. Preferring an admin_teacher membership first keeps existing
+    admin_teacher redirects identical; falling back to any membership makes
+    the class_teacher's existing permission reachable without granting
+    anything new.
     """
     mem = SchoolMembership.query.filter_by(
         user_id=current_user.id, role='admin_teacher'
     ).first()
+    if not mem:
+        mem = SchoolMembership.query.filter_by(user_id=current_user.id).first()
     if mem:
         return redirect(url_for('admin_school_detail', school_id=mem.school_id))
     if active_role() == 'admin':
         return redirect(url_for('admin_schools'))
-    # A staff member with no admin_teacher membership anywhere.
+    # A staff member with no membership anywhere.
     flash('You are not a school administrator of any school yet.', 'info')
     return redirect(url_for('home'))
 

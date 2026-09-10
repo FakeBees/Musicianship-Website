@@ -43,9 +43,7 @@
             {% elif active_role in ('admin_teacher', 'class_teacher') %}
               <li><a class="dropdown-item" href="{{ url_for('teacher_dashboard') }}">{{ section_terms_title }} I Teach</a></li>
               <li><a class="dropdown-item" href="{{ url_for('my_sections') }}">My {{ section_terms_title }}</a></li>
-              {% if active_role == 'admin_teacher' %}
-              <li><a class="dropdown-item" href="{{ url_for('admin_my_school') }}">Admin</a></li>
-              {% endif %}
+              <li><a class="dropdown-item" href="{{ url_for('admin_my_school') }}">Manage School</a></li>
               <li><a class="dropdown-item" href="{{ url_for('home') }}">Home</a></li>
               <li><a class="dropdown-item" href="{{ url_for('me') }}">My Progress</a></li>
             {% elif active_role == 'admin' %}
