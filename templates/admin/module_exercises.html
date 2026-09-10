@@ -11,11 +11,7 @@
     <div class="card-body">
       <form method="post" id="add-form">
         <div class="row g-3 mb-3">
-          <div class="col-md-5">
-            <label class="form-label fw-semibold">Name</label>
-            <input name="name" class="form-control" placeholder="e.g. Basic Melodic Dictation" required>
-          </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label fw-semibold">Type</label>
             <select name="exercise_type" class="form-select" id="ex-type" required>
               <option value="">Choose…</option>
@@ -25,42 +21,14 @@
               <option value="holistic">Holistic</option>
             </select>
           </div>
-          <div class="col-md-2">
-            <label class="form-label fw-semibold">Order</label>
-            <input name="order" type="number" class="form-control" value="0">
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <button class="btn btn-primary w-100">Add Exercise</button>
-          </div>
         </div>
 
-        {# ── COMPLETION CRITERION ────────────────────────────────────────── #}
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Completion</label>
-          <div class="d-flex flex-wrap gap-3 align-items-center">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="criterion_type" id="crit-attempts" value="attempts" checked>
-              <label class="form-check-label" for="crit-attempts">By attempts</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="criterion_type" id="crit-passing" value="passing">
-              <label class="form-check-label" for="crit-passing">By passing score</label>
-            </div>
-          </div>
-          <div id="crit-attempts-fields" class="mt-2 d-flex align-items-center gap-2">
-            <input name="completion_attempts" type="number" min="1" value="1" class="form-control" style="width:100px">
-            <span class="text-muted">attempt(s) to complete</span>
-          </div>
-          <div id="crit-passing-fields" class="mt-2 d-flex align-items-center gap-2 d-none">
-            <input name="completion_passing" type="number" min="1" value="1" class="form-control" style="width:80px">
-            <span class="text-muted">pass(es) at</span>
-            <input name="completion_min_score" type="number" min="0" max="100" value="70" class="form-control" style="width:80px">
-            <span class="text-muted">% minimum score</span>
-          </div>
-        </div>
+        {% set mode = 'add' %}
+        {% include 'admin/_module_exercise_fields.html' with context %}
 
-        {# ── HOLISTIC EXERCISE PICKER ────────────────────────────────────── #}
-        <div id="holistic-field" class="d-none">
+        {# ── HOLISTIC EXERCISE PICKER (add-only — you choose what an exercise
+             IS at creation and change its parameters later) ─────────────── #}
+        <div id="holistic-field" class="d-none mb-3">
           <label class="form-label fw-semibold">Exercise</label>
           <select name="exercise_id" class="form-select">
             <option value="">Choose a holistic exercise…</option>
@@ -70,149 +38,7 @@
           </select>
         </div>
 
-        {# ── MELODIC PRACTICE SETTINGS ───────────────────────────────────── #}
-        <div id="melody-settings" class="d-none mt-3">
-          <div class="card">
-            <div class="card-header bg-dark text-white fw-semibold">
-              <i class="bi bi-sliders me-2"></i>Practice Settings — Melodic
-            </div>
-            <div class="card-body p-3">
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Time Signature</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
-                  <input type="checkbox" class="btn-check mel-check" name="time_signature_cb" id="m-ts-{{ sig|replace('/','_') }}" value="{{ sig }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="m-ts-{{ sig|replace('/','_') }}">{{ sig }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Shortest Note Value</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for val, lbl in [('h','&#119134; Half'),('q','&#119135; Quarter'),('8','&#119136; Eighth'),('16','&#119137; Sixteenth')] %}
-                  <input type="checkbox" class="btn-check mel-check" name="min_dur_cb" id="m-md-{{ val }}" value="{{ val }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="m-md-{{ val }}">{{ lbl | safe }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Clef</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for val, lbl in [('treble','𝄞 Treble'),('bass','𝄢 Bass'),('tenor','𝄡 Tenor')] %}
-                  <input type="checkbox" class="btn-check mel-check" name="clef_cb" id="m-clef-{{ val }}" value="{{ val }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="m-clef-{{ val }}">{{ lbl }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="mb-2">
-                <label class="fw-semibold d-block mb-2">Topics</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for t in melody_tags_list %}
-                  <input type="checkbox" class="btn-check mel-check" name="tag" id="m-tag-{{ t }}" value="{{ t }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="m-tag-{{ t }}">{{ t }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="small text-muted mt-2" id="mel-match-count"></div>
-              {# Hidden fields so the single form value reaches the route #}
-              <input type="hidden" name="time_signature" id="mel-time-sig-hidden">
-            </div>
-          </div>
-        </div>
-
-        {# ── RHYTHMIC PRACTICE SETTINGS ──────────────────────────────────── #}
-        <div id="rhythm-settings" class="d-none mt-3">
-          <div class="card">
-            <div class="card-header bg-dark text-white fw-semibold">
-              <i class="bi bi-sliders me-2"></i>Practice Settings — Rhythmic
-            </div>
-            <div class="card-body p-3">
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Time Signature</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
-                  <input type="checkbox" class="btn-check rhy-check" name="time_signature_cb" id="r-ts-{{ sig|replace('/','_') }}" value="{{ sig }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="r-ts-{{ sig|replace('/','_') }}">{{ sig }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Shortest Note Value</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for val, lbl in [('h','♩½ Half'),('q','♩ Quarter'),('8','♪ Eighth'),('16','𝅘𝅥𝅯 Sixteenth')] %}
-                  <input type="checkbox" class="btn-check rhy-check" name="min_dur_cb" id="r-md-{{ val }}" value="{{ val }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="r-md-{{ val }}">{{ lbl }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="mb-2">
-                <label class="fw-semibold d-block mb-2">Topics</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for t in rhythm_tags_list %}
-                  <input type="checkbox" class="btn-check rhy-check" name="tag" id="r-tag-{{ t }}" value="{{ t }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="r-tag-{{ t }}">{{ t }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="small text-muted mt-2" id="rhy-match-count"></div>
-              <input type="hidden" name="time_signature" id="rhy-time-sig-hidden">
-            </div>
-          </div>
-        </div>
-
-        {# ── HARMONIC PRACTICE SETTINGS ──────────────────────────────────── #}
-        <div id="harmonic-settings" class="d-none mt-3">
-          <div class="card">
-            <div class="card-header bg-dark text-white fw-semibold">
-              <i class="bi bi-sliders me-2"></i>Practice Settings — Harmonic
-            </div>
-            <div class="card-body p-3">
-              {% if harmonic_categories %}
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Category</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for cat in harmonic_categories %}
-                  <input type="checkbox" class="btn-check har-check" name="category" id="h-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="h-cat-{{ cat }}">
-                    {% if cat == 'diatonic' %}Diatonic
-                    {% elif cat == 'chromatic' %}Chromatic
-                    {% elif cat == 'mode_mixture' %}Mode Mixture
-                    {% elif cat == 'modal' %}Modal
-                    {% else %}{{ cat }}{% endif %}
-                  </label>
-                  {% endfor %}
-                </div>
-              </div>
-              {% endif %}
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Difficulty</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for d in [1,2,3,4,5] %}
-                  <input type="checkbox" class="btn-check har-check" name="difficulty" id="h-diff-{{ d }}" value="{{ d }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="h-diff-{{ d }}">{{ '★' * d }}{{ '☆' * (5-d) }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              {% if harmonic_tags_list %}
-              <div class="mb-3">
-                <label class="fw-semibold d-block mb-2">Topics</label>
-                <div class="d-flex flex-wrap gap-2">
-                  {% for t in harmonic_tags_list %}
-                  <input type="checkbox" class="btn-check har-check" name="tag" id="h-tag-{{ t|replace(':','_') }}" value="{{ t }}" autocomplete="off">
-                  <label class="btn btn-outline-secondary btn-sm fw-normal" for="h-tag-{{ t|replace(':','_') }}">{{ t }}</label>
-                  {% endfor %}
-                </div>
-              </div>
-              {% endif %}
-              <div class="mb-2">
-                <label class="fw-semibold d-block mb-2">Key Signature <span class="text-muted fw-normal small">(optional)</span></label>
-                <input name="key_signature" class="form-control form-control-sm" style="max-width:180px" placeholder="e.g. C, G, Bb">
-              </div>
-              <div class="small text-muted mt-2" id="har-match-count"></div>
-            </div>
-          </div>
-        </div>
-
+        <button class="btn btn-primary">Add Exercise</button>
       </form>
     </div>
   </div>
@@ -292,92 +118,8 @@
       </div>
       <form method="post" id="edit-form">
         <div class="modal-body">
-          <div class="row g-3 mb-3">
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Name</label>
-              <input name="name" id="edit-name" class="form-control" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label fw-semibold">Order</label>
-              <input name="order" id="edit-order" type="number" class="form-control">
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Completion</label>
-            <div class="d-flex flex-wrap gap-3 align-items-center">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="criterion_type" id="edit-crit-attempts" value="attempts" checked>
-                <label class="form-check-label" for="edit-crit-attempts">By attempts</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="criterion_type" id="edit-crit-passing" value="passing">
-                <label class="form-check-label" for="edit-crit-passing">By passing score</label>
-              </div>
-            </div>
-            <div id="edit-crit-attempts-fields" class="mt-2 d-flex align-items-center gap-2">
-              <input name="completion_attempts" id="edit-attempts" type="number" min="1" value="1" class="form-control" style="width:100px">
-              <span class="text-muted">attempt(s) to complete</span>
-            </div>
-            <div id="edit-crit-passing-fields" class="mt-2 d-flex align-items-center gap-2 d-none">
-              <input name="completion_passing" id="edit-passing" type="number" min="1" value="1" class="form-control" style="width:80px">
-              <span class="text-muted">pass(es) at</span>
-              <input name="completion_min_score" id="edit-min-score" type="number" min="0" max="100" value="70" class="form-control" style="width:80px">
-              <span class="text-muted">% minimum score</span>
-            </div>
-          </div>
-
-          <div id="edit-filter-settings">
-            <div class="mb-3">
-              <label class="fw-semibold d-block mb-2">Difficulty</label>
-              <div class="d-flex flex-wrap gap-2">
-                {% for d in [1,2,3,4,5] %}
-                <input type="checkbox" class="btn-check" name="difficulty" id="edit-diff-{{ d }}" value="{{ d }}" autocomplete="off">
-                <label class="btn btn-outline-secondary btn-sm fw-normal" for="edit-diff-{{ d }}">{{ '★' * d }}{{ '☆' * (5-d) }}</label>
-                {% endfor %}
-              </div>
-            </div>
-            <div class="mb-3" id="edit-time-sig-row">
-              <label class="fw-semibold d-block mb-2">Time Signature</label>
-              <div class="d-flex flex-wrap gap-2">
-                {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
-                <input type="checkbox" class="btn-check" name="time_signature_cb" id="edit-ts-{{ sig|replace('/','_') }}" value="{{ sig }}" autocomplete="off">
-                <label class="btn btn-outline-secondary btn-sm fw-normal" for="edit-ts-{{ sig|replace('/','_') }}">{{ sig }}</label>
-                {% endfor %}
-              </div>
-              <input type="hidden" name="time_signature" id="edit-time-sig-hidden">
-            </div>
-            <div class="mb-3" id="edit-key-sig-row">
-              <label class="fw-semibold d-block mb-2">Key Signature <span class="text-muted fw-normal small">(harmonic only)</span></label>
-              <input name="key_signature" id="edit-key-sig" class="form-control form-control-sm" style="max-width:180px" placeholder="e.g. C, G, Bb">
-            </div>
-            {% if harmonic_categories %}
-            <div class="mb-3 d-none" id="edit-category-row">
-              <label class="fw-semibold d-block mb-2">Category <span class="text-muted fw-normal small">(harmonic only)</span></label>
-              <div class="d-flex flex-wrap gap-2">
-                {% for cat in harmonic_categories %}
-                <input type="checkbox" class="btn-check" name="category" id="edit-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
-                <label class="btn btn-outline-secondary btn-sm fw-normal" for="edit-cat-{{ cat }}">
-                  {% if cat == 'diatonic' %}Diatonic
-                  {% elif cat == 'chromatic' %}Chromatic
-                  {% elif cat == 'mode_mixture' %}Mode Mixture
-                  {% elif cat == 'modal' %}Modal
-                  {% else %}{{ cat }}{% endif %}
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-            {% endif %}
-            <div class="mb-2">
-              <label class="fw-semibold d-block mb-2">Topics</label>
-              <div class="d-flex flex-wrap gap-2" id="edit-tags-container">
-                {% for t in all_tags %}
-                <input type="checkbox" class="btn-check" name="tag" id="edit-tag-{{ t|replace(':','_') }}" value="{{ t }}" autocomplete="off">
-                <label class="btn btn-outline-secondary btn-sm fw-normal" for="edit-tag-{{ t|replace(':','_') }}">{{ t }}</label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
+          {% set mode = 'edit' %}
+          {% include 'admin/_module_exercise_fields.html' with context %}
 
           <div id="edit-holistic-info" class="d-none">
             <p class="text-muted">Holistic exercises cannot have their filters changed here. To change the exercise, remove and re-add it.</p>
@@ -395,27 +137,43 @@
 
 {% block scripts %}
 <script>
-// ── Exercise data for mutual exclusion ────────────────────────────────────────
-const MEL_DATA = {{ melodies_data | tojson }};
-const RHY_DATA = {{ rhythms_data  | tojson }};
-const HAR_DATA = {{ progressions_data | tojson }};
+// ── Filter-row visibility, shared by the add form's live Type picker and the
+//    edit modal's fixed exercise type ──────────────────────────────────────────
+function applyFilterVisibility(mode, type) {
+  document.getElementById(mode + '-filter-settings').classList.toggle('d-none', !type || type === 'holistic');
+  const isMelodyOrRhythm = (type === 'melody' || type === 'rhythm');
+  document.getElementById(mode + '-time-sig-row').classList.toggle('d-none', !isMelodyOrRhythm);
+  document.getElementById(mode + '-min-dur-row').classList.toggle('d-none', !isMelodyOrRhythm);
+  document.getElementById(mode + '-clef-row').classList.toggle('d-none', type !== 'melody');
+  document.getElementById(mode + '-category-row')?.classList.toggle('d-none', type !== 'harmonic');
+  document.getElementById(mode + '-key-sig-row').classList.toggle('d-none', type !== 'harmonic');
+}
 
-// ── Type switcher ─────────────────────────────────────────────────────────────
+// ── Keep each mode's single time_signature hidden field in sync with its
+//    checkbox group (the route reads one value, not a list) ───────────────────
+function syncTimeSigHidden(mode) {
+  const checked = [...document.querySelectorAll(
+    `#${mode}-time-sig-row input[name="time_signature_cb"]:checked`)].map(e => e.value);
+  document.getElementById(mode + '-time-sig-hidden').value = checked.length === 1 ? checked[0] : '';
+}
+
+// ── Type switcher (add form) ─────────────────────────────────────────────────
 const typeSelect = document.getElementById('ex-type');
 function onTypeChange() {
   const t = typeSelect.value;
-  document.getElementById('melody-settings').classList.toggle('d-none',   t !== 'melody');
-  document.getElementById('rhythm-settings').classList.toggle('d-none',   t !== 'rhythm');
-  document.getElementById('harmonic-settings').classList.toggle('d-none', t !== 'harmonic');
-  document.getElementById('holistic-field').classList.toggle('d-none',    t !== 'holistic');
-  // clear hidden time-sig fields when switching away
-  document.getElementById('mel-time-sig-hidden').value = '';
-  document.getElementById('rhy-time-sig-hidden').value = '';
-  if (t === 'melody')   updateMelody();
-  if (t === 'rhythm')   updateRhythm();
-  if (t === 'harmonic') updateHarmonic();
+  applyFilterVisibility('add', t);
+  document.getElementById('holistic-field').classList.toggle('d-none', t !== 'holistic');
+  syncTimeSigHidden('add');
 }
 typeSelect.addEventListener('change', onTypeChange);
+onTypeChange();
+
+document.querySelectorAll('#add-time-sig-row input[name="time_signature_cb"]')
+  .forEach(cb => cb.addEventListener('change', () => syncTimeSigHidden('add')));
+document.querySelectorAll('#edit-time-sig-row input[name="time_signature_cb"]')
+  .forEach(cb => cb.addEventListener('change', () => syncTimeSigHidden('edit')));
+document.getElementById('add-form').addEventListener('submit', () => syncTimeSigHidden('add'));
+document.getElementById('edit-form').addEventListener('submit', () => syncTimeSigHidden('edit'));
 
 // ── Completion criterion toggle ───────────────────────────────────────────────
 function wireCritToggle(prefix) {
@@ -428,137 +186,8 @@ function wireCritToggle(prefix) {
     pFields.classList.toggle('d-none', !isPass);
   }));
 }
-wireCritToggle('crit-');
+wireCritToggle('add-crit-');
 wireCritToggle('edit-crit-');
-
-// ── Melody mutual exclusion ───────────────────────────────────────────────────
-function getMelSel(attr) {
-  return [...document.querySelectorAll(`#melody-settings input[name="${attr}"]:checked`)].map(e => e.value);
-}
-function countMel(ts, md, cl, tags) {
-  return MEL_DATA.filter(m => {
-    if (ts.length   && !ts.includes(m.time_signature))   return false;
-    if (md.length   && !md.includes(m.min_duration))     return false;
-    if (cl.length   && !cl.includes(m.clef))             return false;
-    if (tags.length && !tags.some(t => m.tags.includes(t))) return false;
-    return true;
-  }).length;
-}
-function updateMelody() {
-  const ts = getMelSel('time_signature_cb'), md = getMelSel('min_dur_cb'),
-        cl = getMelSel('clef_cb'),           tg = getMelSel('tag');
-  const total = countMel(ts, md, cl, tg);
-  const lbl = document.getElementById('mel-match-count');
-  lbl.textContent = (ts.length||md.length||cl.length||tg.length)
-    ? `${total} matching ${total===1?'melody':'melodies'}`
-    : `${MEL_DATA.length} melodies available`;
-  lbl.className = 'small mt-2 ' + (total > 0 || !(ts.length||md.length||cl.length||tg.length) ? 'text-muted' : 'text-danger fw-semibold');
-  document.querySelectorAll('#melody-settings input[name="time_signature_cb"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countMel([...ts, cb.value], md, cl, tg) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.querySelectorAll('#melody-settings input[name="min_dur_cb"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countMel(ts, [...md, cb.value], cl, tg) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.querySelectorAll('#melody-settings input[name="clef_cb"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countMel(ts, md, [...cl, cb.value], tg) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.querySelectorAll('#melody-settings input[name="tag"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countMel(ts, md, cl, [cb.value]) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  // collapse multi-selected time_sig checkboxes to single hidden field value (first selected or empty)
-  document.getElementById('mel-time-sig-hidden').value = ts.length === 1 ? ts[0] : '';
-}
-document.querySelectorAll('#melody-settings .mel-check').forEach(cb => cb.addEventListener('change', updateMelody));
-
-// ── Rhythm mutual exclusion ───────────────────────────────────────────────────
-function getRhySel(attr) {
-  return [...document.querySelectorAll(`#rhythm-settings input[name="${attr}"]:checked`)].map(e => e.value);
-}
-function countRhy(ts, md, tags) {
-  return RHY_DATA.filter(m => {
-    if (ts.length   && !ts.includes(m.time_signature))      return false;
-    if (md.length   && !md.includes(m.min_duration))        return false;
-    if (tags.length && !tags.some(t => m.tags.includes(t))) return false;
-    return true;
-  }).length;
-}
-function updateRhythm() {
-  const ts = getRhySel('time_signature_cb'), md = getRhySel('min_dur_cb'), tg = getRhySel('tag');
-  const total = countRhy(ts, md, tg);
-  const lbl = document.getElementById('rhy-match-count');
-  lbl.textContent = (ts.length||md.length||tg.length)
-    ? `${total} matching ${total===1?'rhythm':'rhythms'}`
-    : `${RHY_DATA.length} rhythms available`;
-  lbl.className = 'small mt-2 ' + (total > 0 || !(ts.length||md.length||tg.length) ? 'text-muted' : 'text-danger fw-semibold');
-  document.querySelectorAll('#rhythm-settings input[name="time_signature_cb"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countRhy([...ts, cb.value], md, tg) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.querySelectorAll('#rhythm-settings input[name="min_dur_cb"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countRhy(ts, [...md, cb.value], tg) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.querySelectorAll('#rhythm-settings input[name="tag"]').forEach(cb => {
-    if (cb.checked) return;
-    const ok = countRhy(ts, md, [cb.value]) > 0;
-    cb.disabled = !ok;
-    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
-  });
-  document.getElementById('rhy-time-sig-hidden').value = ts.length === 1 ? ts[0] : '';
-}
-document.querySelectorAll('#rhythm-settings .rhy-check').forEach(cb => cb.addEventListener('change', updateRhythm));
-
-// ── Harmonic mutual exclusion ─────────────────────────────────────────────────
-function getHarSel(attr) {
-  return [...document.querySelectorAll(`#harmonic-settings input[name="${attr}"]:checked`)].map(e => e.value);
-}
-function countHar(cats, diffs, tags) {
-  return HAR_DATA.filter(p => {
-    if (cats.length  && !cats.includes(p.category))              return false;
-    if (diffs.length && !diffs.map(Number).includes(p.difficulty)) return false;
-    if (tags.length  && !tags.some(t => p.tags.includes(t)))     return false;
-    return true;
-  }).length;
-}
-function updateHarmonic() {
-  const cats = getHarSel('category'), diffs = getHarSel('difficulty'), tg = getHarSel('tag');
-  const total = countHar(cats, diffs, tg);
-  const lbl = document.getElementById('har-match-count');
-  lbl.textContent = (cats.length||diffs.length||tg.length)
-    ? `${total} matching ${total===1?'progression':'progressions'}`
-    : `${HAR_DATA.length} progressions available`;
-  lbl.className = 'small mt-2 ' + (total > 0 || !(cats.length||diffs.length||tg.length) ? 'text-muted' : 'text-danger fw-semibold');
-}
-document.querySelectorAll('#harmonic-settings .har-check').forEach(cb => cb.addEventListener('change', updateHarmonic));
-
-// ── Before add-form submit: sync time_signature hidden fields ─────────────────
-document.getElementById('add-form').addEventListener('submit', function() {
-  const t = typeSelect.value;
-  if (t === 'melody') {
-    const ts = [...document.querySelectorAll('#melody-settings input[name="time_signature_cb"]:checked')].map(e => e.value);
-    document.getElementById('mel-time-sig-hidden').value = ts.length === 1 ? ts[0] : (ts.length > 1 ? ts[0] : '');
-  }
-  if (t === 'rhythm') {
-    const ts = [...document.querySelectorAll('#rhythm-settings input[name="time_signature_cb"]:checked')].map(e => e.value);
-    document.getElementById('rhy-time-sig-hidden').value = ts.length === 1 ? ts[0] : '';
-  }
-});
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
 function openEditModal(ex) {
@@ -581,10 +210,8 @@ function openEditModal(ex) {
 
   // filter vs holistic
   const isHolistic = ex.exercise_type === 'holistic';
-  document.getElementById('edit-filter-settings').classList.toggle('d-none', isHolistic);
   document.getElementById('edit-holistic-info').classList.toggle('d-none', !isHolistic);
-  document.getElementById('edit-key-sig-row').classList.toggle('d-none', ex.exercise_type !== 'harmonic');
-  document.getElementById('edit-category-row')?.classList.toggle('d-none', ex.exercise_type !== 'harmonic');
+  applyFilterVisibility('edit', ex.exercise_type);
 
   // parse params
   let params = {};
@@ -606,6 +233,17 @@ function openEditModal(ex) {
     const cb = document.getElementById('edit-ts-' + params.time_signature.replace('/', '_'));
     if (cb) cb.checked = true;
   }
+  // clef / min_duration: the handlers don't persist these into params yet
+  // (see task report) — restored here under their most likely future keys
+  // so the edit modal picks them up automatically once that's fixed.
+  (params.clef || []).forEach(c => {
+    const cb = document.getElementById('edit-clef-' + c);
+    if (cb) cb.checked = true;
+  });
+  (params.min_duration || []).forEach(d => {
+    const cb = document.getElementById('edit-md-' + d);
+    if (cb) cb.checked = true;
+  });
   (params.tags || []).forEach(t => {
     const cb = document.getElementById('edit-tag-' + t.replace(':', '_').replace(' ', '_'));
     if (cb) cb.checked = true;
@@ -619,16 +257,5 @@ function openEditModal(ex) {
 
   new bootstrap.Modal(document.getElementById('editModal')).show();
 }
-
-// sync time_signature hidden on edit form submit
-document.getElementById('edit-form').addEventListener('submit', function() {
-  const ts = [...document.querySelectorAll('#edit-time-sig-row input[name="time_signature_cb"]:checked')].map(e => e.value);
-  document.getElementById('edit-time-sig-hidden').value = ts.length ? ts[0] : '';
-});
-
-// run initial mutual exclusion counts on load
-updateMelody();
-updateRhythm();
-updateHarmonic();
 </script>
 {% endblock %}

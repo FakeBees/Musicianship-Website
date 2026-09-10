@@ -1,0 +1,128 @@
+{# Shared field markup for a module exercise, included by both the add form
+   and the edit modal in module_exercises.html.
+
+   `mode` is 'add' or 'edit' — used ONLY to namespace element `id`s (and the
+   `for` attribute of their labels) so the two copies can coexist in the
+   same DOM without colliding. Every `name` attribute below is IDENTICAL in
+   both modes: admin_module_exercises and admin_edit_module_exercise read
+   the same form fields, so both forms must expose the same fields.
+
+   The exercise picker (name="exercise_id" / name="exercise_type") is not
+   here — you choose what an exercise *is* at creation and change its
+   parameters later, so it stays in the add form only.
+
+   Row visibility (which of the type-specific rows below apply) is driven
+   by the caller's script: `onTypeChange()` for the add form's live picker,
+   `openEditModal()` for the edit modal's fixed exercise type. #}
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <label class="form-label fw-semibold" for="{{ mode }}-name">Name</label>
+    <input name="name" id="{{ mode }}-name" class="form-control" placeholder="e.g. Basic Melodic Dictation" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label fw-semibold" for="{{ mode }}-order">Order</label>
+    <input name="order" id="{{ mode }}-order" type="number" class="form-control" value="0">
+  </div>
+</div>
+
+{# ── COMPLETION CRITERION ──────────────────────────────────────────────── #}
+<div class="mb-3">
+  <label class="form-label fw-semibold">Completion</label>
+  <div class="d-flex flex-wrap gap-3 align-items-center">
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="criterion_type" id="{{ mode }}-crit-attempts" value="attempts" checked>
+      <label class="form-check-label" for="{{ mode }}-crit-attempts">By attempts</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="criterion_type" id="{{ mode }}-crit-passing" value="passing">
+      <label class="form-check-label" for="{{ mode }}-crit-passing">By passing score</label>
+    </div>
+  </div>
+  <div id="{{ mode }}-crit-attempts-fields" class="mt-2 d-flex align-items-center gap-2">
+    <input name="completion_attempts" id="{{ mode }}-attempts" type="number" min="1" value="1" class="form-control" style="width:100px">
+    <span class="text-muted">attempt(s) to complete</span>
+  </div>
+  <div id="{{ mode }}-crit-passing-fields" class="mt-2 d-flex align-items-center gap-2 d-none">
+    <input name="completion_passing" id="{{ mode }}-passing" type="number" min="1" value="1" class="form-control" style="width:80px">
+    <span class="text-muted">pass(es) at</span>
+    <input name="completion_min_score" id="{{ mode }}-min-score" type="number" min="0" max="100" value="70" class="form-control" style="width:80px">
+    <span class="text-muted">% minimum score</span>
+  </div>
+</div>
+
+{# ── FILTER FIELDS (hidden entirely for holistic exercises) ─────────────── #}
+<div id="{{ mode }}-filter-settings">
+  <div class="mb-3">
+    <label class="fw-semibold d-block mb-2">Difficulty</label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for d in [1,2,3,4,5] %}
+      <input type="checkbox" class="btn-check" name="difficulty" id="{{ mode }}-diff-{{ d }}" value="{{ d }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-diff-{{ d }}">{{ '★' * d }}{{ '☆' * (5-d) }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mb-3" id="{{ mode }}-time-sig-row">
+    <label class="fw-semibold d-block mb-2">Time Signature <span class="text-muted fw-normal small">(melody / rhythm only)</span></label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for sig in ['4/4', '3/4', '2/4', '12/8', '9/8', '6/8'] %}
+      <input type="checkbox" class="btn-check" name="time_signature_cb" id="{{ mode }}-ts-{{ sig|replace('/','_') }}" value="{{ sig }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-ts-{{ sig|replace('/','_') }}">{{ sig }}</label>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="time_signature" id="{{ mode }}-time-sig-hidden">
+  </div>
+
+  <div class="mb-3" id="{{ mode }}-min-dur-row">
+    <label class="fw-semibold d-block mb-2">Shortest Note Value <span class="text-muted fw-normal small">(melody / rhythm only)</span></label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for val, lbl in [('h','&#119134; Half'),('q','&#119135; Quarter'),('8','&#119136; Eighth'),('16','&#119137; Sixteenth')] %}
+      <input type="checkbox" class="btn-check" name="min_dur_cb" id="{{ mode }}-md-{{ val }}" value="{{ val }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-md-{{ val }}">{{ lbl | safe }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mb-3" id="{{ mode }}-clef-row">
+    <label class="fw-semibold d-block mb-2">Clef <span class="text-muted fw-normal small">(melody only)</span></label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for val, lbl in [('treble','𝄞 Treble'),('bass','𝄢 Bass'),('tenor','𝄡 Tenor')] %}
+      <input type="checkbox" class="btn-check" name="clef_cb" id="{{ mode }}-clef-{{ val }}" value="{{ val }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-clef-{{ val }}">{{ lbl }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if harmonic_categories %}
+  <div class="mb-3 d-none" id="{{ mode }}-category-row">
+    <label class="fw-semibold d-block mb-2">Category <span class="text-muted fw-normal small">(harmonic only)</span></label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for cat in harmonic_categories %}
+      <input type="checkbox" class="btn-check" name="category" id="{{ mode }}-cat-{{ cat }}" value="{{ cat }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-cat-{{ cat }}">
+        {% if cat == 'diatonic' %}Diatonic
+        {% elif cat == 'chromatic' %}Chromatic
+        {% elif cat == 'mode_mixture' %}Mode Mixture
+        {% elif cat == 'modal' %}Modal
+        {% else %}{{ cat }}{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="mb-3 d-none" id="{{ mode }}-key-sig-row">
+    <label class="fw-semibold d-block mb-2">Key Signature <span class="text-muted fw-normal small">(harmonic only)</span></label>
+    <input name="key_signature" id="{{ mode }}-key-sig" class="form-control form-control-sm" style="max-width:180px" placeholder="e.g. C, G, Bb">
+  </div>
+
+  <div class="mb-2">
+    <label class="fw-semibold d-block mb-2">Topics</label>
+    <div class="d-flex flex-wrap gap-2" id="{{ mode }}-tags-container">
+      {% for t in all_tags %}
+      <input type="checkbox" class="btn-check" name="tag" id="{{ mode }}-tag-{{ t|replace(':','_') }}" value="{{ t }}" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm fw-normal" for="{{ mode }}-tag-{{ t|replace(':','_') }}">{{ t }}</label>
+      {% endfor %}
+    </div>
+  </div>
+</div>

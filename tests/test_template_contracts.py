@@ -15,7 +15,7 @@ from jinja2 import StrictUndefined
 
 from app import app
 from models import (db, User, School, SchoolMembership, Course, Module,
-                    ModuleExercise, Section)
+                    ModuleExercise, Section, ChordProgression, Tag)
 
 
 @pytest.fixture
@@ -210,3 +210,59 @@ def test_teacher_dashboard_links_each_section(world, strict_undefined):
         ('card title must also link to section detail (found the exact '
          f'href {occurrences} time(s); the footer\'s "View roster" link '
          'alone only accounts for one)')
+
+
+MODULE_EXERCISE_FIELDS = [
+    'name', 'order', 'criterion_type', 'completion_attempts',
+    'completion_min_score', 'completion_passing',
+    'time_signature_cb', 'time_signature', 'category', 'tag',
+    'difficulty', 'key_signature', 'clef_cb', 'min_dur_cb',
+]
+
+
+def test_module_exercise_add_and_edit_expose_the_same_fields(world, strict_undefined):
+    """The add form and the edit modal must accept the same fields.
+
+    They had complementary gaps: clef_cb and min_dur_cb could be set at
+    creation but never had a control to change them after, because the edit
+    modal never rendered them at all.
+
+    A raw whole-page occurrence count can't catch this: several fields
+    render inside more than one type-specific branch of the add form alone
+    (e.g. min_dur_cb appears once for melody and once for rhythm), so a
+    >=2 whole-page threshold is already satisfied without the edit modal
+    containing the field at all. This locates the add-form and edit-modal
+    regions separately and requires each field's name attribute in both.
+
+    A ChordProgression carrying a Tag is seeded so `category` and `tag`
+    (both sourced from existing harmonic progressions) actually render in
+    either region instead of both legitimately showing zero for lack of
+    data.
+    """
+    with app.app_context():
+        tag = Tag(name='probe-tag')
+        db.session.add(ChordProgression(name='Probe Progression',
+                                         midi_filename='probe.mid',
+                                         category='diatonic',
+                                         chords_json='[]',
+                                         tags=[tag]))
+        db.session.commit()
+        db.session.remove()
+
+    resp = client_as(world['admin']).get(f'/admin/modules/{world["module"]}/exercises')
+    assert resp.status_code == 200
+    body = resp.data.decode()
+
+    edit_form_start = body.index('id="edit-form"')
+    edit_form_end = body.index('Save Changes', edit_form_start) + len('Save Changes')
+    add_region  = body[:edit_form_start]
+    edit_region = body[edit_form_start:edit_form_end]
+
+    failures = []
+    for field in MODULE_EXERCISE_FIELDS:
+        needle = f'name="{field}"'
+        if needle not in add_region:
+            failures.append(f'{field!r} missing from the add form')
+        if needle not in edit_region:
+            failures.append(f'{field!r} missing from the edit modal')
+    assert not failures, 'Add/edit field parity broken:\n  ' + '\n  '.join(failures)
