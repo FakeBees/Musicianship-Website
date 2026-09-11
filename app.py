@@ -173,34 +173,6 @@ def require_section_role(section, minimum):
         abort(403)
 
 
-def section_authority(section):
-    """Effective role over one section, counting school-level authority.
-
-    section_access() answers "what am I *within* this section". This answers
-    "what may I do *to* this section", which additionally honours being an
-    admin_teacher of the school the section belongs to.
-
-    Management screens use this; student participation screens keep using
-    section_access(), because doing a section's coursework requires actually
-    being in it.
-    """
-    direct = section_access(section)
-    if direct is not None and role_rank(direct) >= role_rank('class_teacher'):
-        return direct
-    sid = section_school_id(section)
-    if sid is not None and \
-            role_rank(effective_school_role(sid) or '') >= role_rank('admin_teacher'):
-        return 'admin_teacher'
-    return direct
-
-
-def require_section_authority(section, minimum):
-    """403 unless section_authority() is at least `minimum`."""
-    role = section_authority(section)
-    if role is None or role_rank(role) < role_rank(minimum):
-        abort(403)
-
-
 def find_user_by_email(email):
     """Look up an account by email, case- and whitespace-insensitively.
 
@@ -276,6 +248,39 @@ def can_manage_section(section):
 
 def require_manage_section(section):
     if not can_manage_section(section):
+        abort(403)
+
+
+def section_authority(section):
+    """Effective role over one section, counting school-level authority.
+
+    section_access() answers "what am I *within* this section". This answers
+    "what may I do *to* this section", which additionally honours being an
+    admin_teacher of the school the section belongs to.
+
+    Management screens use this; student participation screens keep using
+    section_access(), because doing a section's coursework requires actually
+    being in it.
+    """
+    direct = section_access(section)
+    if direct is not None and role_rank(direct) >= role_rank('class_teacher'):
+        return direct
+    # can_manage_section() is the single source of truth for "does the caller
+    # administer the school this section belongs to" — its first branch
+    # (direct admin_teacher-or-above) is provably unreachable here, since
+    # anything ranking that high already returned above. Ask it rather than
+    # re-deriving the same threshold, and return the actual effective school
+    # role (which may outrank admin_teacher, e.g. a site admin) rather than a
+    # role that merely satisfies it.
+    if can_manage_section(section):
+        return effective_school_role(section_school_id(section))
+    return direct
+
+
+def require_section_authority(section, minimum):
+    """403 unless section_authority() is at least `minimum`."""
+    role = section_authority(section)
+    if role is None or role_rank(role) < role_rank(minimum):
         abort(403)
 
 

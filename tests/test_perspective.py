@@ -7,7 +7,7 @@ whichever route someone might try it.
 import pytest
 
 from app import app, ROLE_ORDER, role_rank
-from models import db, User, Section, Course, School
+from models import db, User, Section, Course, School, SchoolMembership
 
 
 @pytest.fixture(autouse=True)
@@ -301,3 +301,61 @@ def test_debug_state_reports_the_perspective():
     assert data['perspective'] == 'student'
     assert data['real_role'] == 'admin'
     assert 'Viewing as' in data['verdict']
+
+
+# ── D11: section_authority()'s school branch inherits the perspective cap ───
+#
+# Nothing above this point ever creates a SchoolMembership, so none of it
+# exercises section_authority()'s school branch (app.py's can_manage_section() /
+# effective_school_role() path) at all — only the direct-role path. These
+# tests close that gap: they prove the school branch is capped by the active
+# perspective exactly like the direct-role path already is, and that it grants
+# nothing for a section with no school to speak of.
+
+def test_school_admin_teacher_section_authority_is_capped_by_perspective():
+    """A school admin_teacher who owns no direct relationship to the section
+    reaches it only through section_authority()'s school branch. That branch
+    must still honour the active perspective: capped to class_teacher, the
+    caller's effective school role drops below the admin_teacher threshold
+    can_manage_section() requires, so access is denied — proving the cap
+    applies here too, not just to the direct-role path."""
+    sch = School(name='CapSchool', join_code='CAPSCH1')
+    db.session.add(sch)
+    db.session.commit()
+    crs = Course(name='C1', school_id=sch.id)
+    db.session.add(crs)
+    db.session.commit()
+    boss = make_user('admin_teacher', 'capboss@t.com')
+    db.session.add(SchoolMembership(school_id=sch.id, user_id=boss.id, role='admin_teacher'))
+    db.session.commit()
+    sec = _section('CappedSection', teacher_id=999)     # boss owns nothing directly
+    sec.course_id = crs.id
+    db.session.commit()
+
+    c = client_for(boss)
+    # Full role: the school branch grants admin_teacher-or-above authority.
+    assert c.get(f'/teacher/section/{sec.id}').status_code == 200
+    # Capped to class_teacher: still reaches section_authority (the route's
+    # role gate allows class_teacher), but the school branch's own cap now
+    # denies it — the decisive assertion for this test.
+    c.get('/perspective/class_teacher')
+    assert c.get(f'/teacher/section/{sec.id}').status_code == 403
+    # Capped to student: denied even earlier, by the route's own role gate.
+    c.get('/perspective/student')
+    assert c.get(f'/teacher/section/{sec.id}').status_code == 403
+
+
+def test_school_branch_grants_nothing_for_a_courseless_section():
+    """section_school_id() returns None for a section with no course, so the
+    school branch must not manufacture authority out of nowhere — even for a
+    genuine admin_teacher of some school."""
+    sch = School(name='NoCourseSchool', join_code='NOCRS1')
+    db.session.add(sch)
+    db.session.commit()
+    boss = make_user('admin_teacher', 'nocourseboss@t.com')
+    db.session.add(SchoolMembership(school_id=sch.id, user_id=boss.id, role='admin_teacher'))
+    db.session.commit()
+    sec = _section('Courseless', teacher_id=999)         # no course_id at all
+
+    c = client_for(boss)
+    assert c.get(f'/teacher/section/{sec.id}').status_code == 403

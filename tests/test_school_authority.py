@@ -602,3 +602,48 @@ def test_school_admin_of_another_school_still_cannot_open_the_section():
     db.session.add(sec); db.session.commit()
 
     assert client_for(outsider).get(f'/teacher/section/{sec.id}').status_code == 403
+
+
+# ── D11: school-admin authority extends to the other swapped routes too ─────
+#
+# Only teacher_section_detail got direct coverage above. These three cover
+# three more of the six other routes that switched from require_section_role
+# to require_section_authority, proving each one's school branch is actually
+# wired up and not just present in section_authority() unused.
+
+def test_school_admin_can_edit_a_section_they_do_not_own():
+    s = school('Mine')
+    crs = course(s)
+    owner = user('admin_teacher', 'owner6@x.com'); member(s, owner, 'admin_teacher')
+    boss  = user('admin_teacher', 'boss6@x.com');  member(s, boss,  'admin_teacher')
+    sec = Section(name='S6', join_code='SEC6', teacher_id=owner.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    c = client_for(boss)                      # administers the school, owns nothing
+    assert c.get(f'/teacher/section/{sec.id}/edit').status_code != 403
+
+
+def test_school_admin_can_hide_a_module_on_a_section_they_do_not_own():
+    s = school('Mine')
+    crs = course(s)
+    mod = Module(name='M1', course_id=crs.id, order=0)
+    db.session.add(mod); db.session.commit()
+    owner = user('admin_teacher', 'owner7@x.com'); member(s, owner, 'admin_teacher')
+    boss  = user('admin_teacher', 'boss7@x.com');  member(s, boss,  'admin_teacher')
+    sec = Section(name='S7', join_code='SEC7', teacher_id=owner.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    c = client_for(boss)
+    assert c.post(f'/teacher/sections/{sec.id}/modules/{mod.id}/hide').status_code != 403
+
+
+def test_school_admin_can_restore_a_module_on_a_section_they_do_not_own():
+    s = school('Mine')
+    crs = course(s)
+    owner = user('admin_teacher', 'owner8@x.com'); member(s, owner, 'admin_teacher')
+    boss  = user('admin_teacher', 'boss8@x.com');  member(s, boss,  'admin_teacher')
+    sec = Section(name='S8', join_code='SEC8', teacher_id=owner.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    c = client_for(boss)
+    assert c.post(f'/teacher/sections/{sec.id}/modules/999/restore').status_code != 403
