@@ -556,3 +556,49 @@ def test_school_admin_sees_the_school_join_code():
     at = user('admin_teacher', 'at@x.com'); member(s, at, 'admin_teacher')
     page = client_for(at).get(f'/admin/schools/{s.id}/detail')
     assert s.join_code.encode() in page.data
+
+
+# ── D11: school-admin authority over sections they do not own ───────────────
+
+def test_school_admin_can_open_a_section_they_do_not_own():
+    """D11: a school admin could delete a section but not view its roster.
+
+    teacher_delete_section already used require_manage_section (school-aware)
+    while teacher_section_detail used require_section_role (section-only), so
+    destructive power was granted where read access was denied.
+    """
+    s = school('Mine')
+    crs = course(s)
+    owner = user('admin_teacher', 'owner@x.com'); member(s, owner, 'admin_teacher')
+    boss  = user('admin_teacher', 'boss@x.com');  member(s, boss,  'admin_teacher')
+    sec = Section(name='S1', join_code='SEC1', teacher_id=owner.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    c = client_for(boss)                      # administers the school, owns nothing
+    assert c.get(f'/teacher/section/{sec.id}').status_code == 200
+
+
+def test_assigned_class_teacher_keeps_section_access():
+    """Guard against the obvious wrong fix: swapping to require_manage_section
+    would demand admin_teacher-level and lock this person out."""
+    s = school('Mine')
+    crs = course(s)
+    at = user('admin_teacher', 'at2@x.com'); member(s, at, 'admin_teacher')
+    ct = user('class_teacher', 'ct2@x.com'); member(s, ct, 'class_teacher')
+    sec = Section(name='S2', join_code='SEC2', teacher_id=at.id,
+                  assigned_teacher_id=ct.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    assert client_for(ct).get(f'/teacher/section/{sec.id}').status_code == 200
+
+
+def test_school_admin_of_another_school_still_cannot_open_the_section():
+    """The new authority is scoped to the section's own school."""
+    mine, theirs = school('Mine'), school('Theirs')
+    crs = course(mine)
+    owner    = user('admin_teacher', 'owner2@x.com'); member(mine,   owner,    'admin_teacher')
+    outsider = user('admin_teacher', 'out@x.com');    member(theirs, outsider, 'admin_teacher')
+    sec = Section(name='S3', join_code='SEC3', teacher_id=owner.id, course_id=crs.id)
+    db.session.add(sec); db.session.commit()
+
+    assert client_for(outsider).get(f'/teacher/section/{sec.id}').status_code == 403

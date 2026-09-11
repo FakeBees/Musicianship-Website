@@ -173,6 +173,33 @@ def require_section_role(section, minimum):
         abort(403)
 
 
+def section_authority(section):
+    """Effective role over one section, counting school-level authority.
+
+    section_access() answers "what am I *within* this section". This answers
+    "what may I do *to* this section", which additionally honours being an
+    admin_teacher of the school the section belongs to.
+
+    Management screens use this; student participation screens keep using
+    section_access(), because doing a section's coursework requires actually
+    being in it.
+    """
+    direct = section_access(section)
+    if direct is not None and role_rank(direct) >= role_rank('class_teacher'):
+        return direct
+    sid = section_school_id(section)
+    if sid is not None and \
+            role_rank(effective_school_role(sid) or '') >= role_rank('admin_teacher'):
+        return 'admin_teacher'
+    return direct
+
+
+def require_section_authority(section, minimum):
+    """403 unless section_authority() is at least `minimum`."""
+    role = section_authority(section)
+    if role is None or role_rank(role) < role_rank(minimum):
+        abort(403)
+
 
 def find_user_by_email(email):
     """Look up an account by email, case- and whitespace-insensitively.
@@ -2907,7 +2934,7 @@ def teacher_delete_section(section_id):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_kick_student(section_id, user_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     student = User.query.get_or_404(user_id)
     if request.method == 'GET':
         return render_template('teacher/confirm_kick_student.html', section=section, student=student)
@@ -3078,7 +3105,7 @@ def join_school():
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_edit_section(section_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     courses = administered_courses()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -3154,7 +3181,7 @@ def teacher_new_section():
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_section_detail(section_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
 
     roster = []
     for student in section.members:
@@ -3262,7 +3289,7 @@ def assignable_section_teachers(section):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_add_override(section_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     action    = request.form['action']
     module_id = request.form.get('module_id', type=int)
     me_id     = request.form.get('module_exercise_id', type=int)
@@ -3296,7 +3323,7 @@ def teacher_add_override(section_id):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_delete_override(section_id, sme_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     sme = SectionModuleExercise.query.get_or_404(sme_id)
     if sme.section_id != section_id:
         abort(403)
@@ -3311,7 +3338,7 @@ def teacher_delete_override(section_id, sme_id):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_hide_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     module = Module.query.get_or_404(module_id)
     for ex in module.exercises:
         exists = SectionModuleExercise.query.filter_by(
@@ -3334,7 +3361,7 @@ def teacher_hide_module(section_id, module_id):
 @role_required('admin_teacher', 'class_teacher', 'admin')
 def teacher_restore_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
-    require_section_role(section, 'class_teacher')
+    require_section_authority(section, 'class_teacher')
     SectionModuleExercise.query.filter_by(
         section_id=section_id, module_id=module_id, action='hide'
     ).delete()
