@@ -32,7 +32,7 @@
       {% for e in exercises %}
       <tr>
         <td><code class="small">{{ e.public_id or '—' }}</code></td>
-        <td>{{ e.name }}</td>
+        <td><a href="{{ url_for('admin_edit_holistic', ex_id=e.id) }}" class="text-decoration-none">{{ e.name }}</a></td>
         <td>{{ e.key_signature }}</td>
         <td>{{ e.time_signature }}</td>
         <td>{{ e.difficulty }}</td>

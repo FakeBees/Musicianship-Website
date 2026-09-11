@@ -23,7 +23,7 @@
     {% for s in schools %}
     {% set members = s.memberships.all() %}
     <tr>
-      <td>{{ s.name }}</td>
+      <td><a href="{{ url_for('admin_school_detail', school_id=s.id) }}" class="text-decoration-none">{{ s.name }}</a></td>
       <td>
         {{ s.courses.count() }}
         <a href="{{ url_for('admin_courses', school_id=s.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>

@@ -56,7 +56,7 @@
       {% for p in progressions %}
       <tr>
         <td class="text-muted small">{{ p.public_id or p.id }}</td>
-        <td>{{ p.name }}</td>
+        <td><a href="{{ url_for('admin_edit_harmonic', prog_id=p.id) }}" class="text-decoration-none">{{ p.name }}</a></td>
         <td>{{ p.key_signature }}</td>
         <td>{{ p.category }}</td>
         <td>{{ p.difficulty }}</td>

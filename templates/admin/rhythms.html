@@ -32,7 +32,7 @@
       {% for r in rhythms %}
       <tr>
         <td><code class="small">{{ r.public_id or '—' }}</code></td>
-        <td>{{ r.name }}</td>
+        <td><a href="{{ url_for('admin_edit_rhythm', rhythm_id=r.id) }}" class="text-decoration-none">{{ r.name }}</a></td>
         <td>{{ r.time_signature }}</td>
         <td>{{ r.min_duration }}</td>
         <td>{{ r.difficulty }}</td>

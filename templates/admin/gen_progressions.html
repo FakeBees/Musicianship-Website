@@ -68,7 +68,7 @@
       {% for gp in progressions %}
       <tr>
         <td><code>{{ gp.number }}</code></td>
-        <td>{{ gp.name or '—' }}</td>
+        <td><a href="{{ url_for('admin_edit_gen_progression', gp_id=gp.id) }}" class="text-decoration-none">{{ gp.name or '—' }}</a></td>
         <td><span class="badge {% if gp.mode == 'major' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ gp.mode }}</span></td>
         <td>{{ gp.difficulty }}</td>
         <td>{{ gp.length_bars }}</td>

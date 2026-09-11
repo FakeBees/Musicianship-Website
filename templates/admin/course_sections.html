@@ -9,7 +9,7 @@
     <tbody>
     {% for section in sections %}
     <tr>
-      <td>{{ section.name }} <code class="text-muted small">{{ section.join_code }}</code></td>
+      <td><a href="{{ url_for('teacher_section_detail', section_id=section.id) }}" class="text-decoration-none">{{ section.name }}</a> <code class="text-muted small">{{ section.join_code }}</code></td>
       <td>{{ section.members | length }}</td>
       <td>{{ section.teacher.display_name or section.teacher.email }}</td>
     </tr>

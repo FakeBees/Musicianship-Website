@@ -59,7 +59,7 @@
       {% for m in melodies %}
       <tr>
         <td><code class="small">{{ m.public_id or '—' }}</code></td>
-        <td>{{ m.name }}</td>
+        <td><a href="{{ url_for('admin_edit_melody', mel_id=m.id) }}" class="text-decoration-none">{{ m.name }}</a></td>
         <td>{{ m.key_signature }}</td>
         <td>{{ m.time_signature }}</td>
         <td>{{ m.clef }}</td>

@@ -13,11 +13,13 @@ silent emptiness into a loud error.
 import re
 
 import pytest
+from flask import url_for
 from jinja2 import StrictUndefined
 
 from app import app
 from models import (db, User, School, SchoolMembership, Course, Module,
-                    ModuleExercise, Section, ChordProgression, Tag)
+                    ModuleExercise, Section, ChordProgression, Tag,
+                    Melody, Rhythm, HolisticExercise, GenProgression)
 
 
 @pytest.fixture
@@ -365,3 +367,118 @@ def test_add_form_cannot_leak_a_time_signature_across_exercise_types(world, stri
     assert "classList.contains('d-none')" in sync and "hidden.value = ''" in sync, \
         ('syncTimeSigHidden must post nothing while the time-signature row is '
          'hidden; reading the checkboxes regardless of type is the leak')
+
+
+# ── D10: every admin list entity the viewer can reach must be clickable ─────
+
+ADMIN_LIST_LINKS = [
+    ('/admin/schools',          'admin_school_detail',        'school_id', 'school'),
+    ('/admin/melodies',         'admin_edit_melody',          'mel_id',    'melody'),
+    ('/admin/rhythms',          'admin_edit_rhythm',          'rhythm_id', 'rhythm'),
+    ('/admin/harmonics',        'admin_edit_harmonic',        'prog_id',   'progression'),
+    ('/admin/holistic',         'admin_edit_holistic',        'ex_id',     'holistic'),
+    ('/admin/gen-progressions', 'admin_edit_gen_progression', 'gp_id',     'gen_progression'),
+]
+
+
+@pytest.mark.parametrize('path,endpoint,kwarg,content_key', ADMIN_LIST_LINKS,
+                         ids=[c[3] for c in ADMIN_LIST_LINKS])
+def test_admin_lists_link_their_entities(world, strict_undefined, path, endpoint,
+                                         kwarg, content_key):
+    """Every listed entity the viewer can reach must be clickable (D10).
+
+    Each of these rows already carries an Edit/Details action button whose
+    href is this exact same endpoint, so a bare "href is present" assertion
+    would pass before the name itself is linked at all — the same
+    substring-collision trap test_teacher_dashboard_links_each_section
+    guards against. Require a second, distinct occurrence of the same href.
+    """
+    with app.app_context():
+        melody   = Melody(name='Probe Melody', midi_filename='probe.mid', notes_json='[]')
+        rhythm   = Rhythm(name='Probe Rhythm', notes_json='[]')
+        prog     = ChordProgression(name='Probe Progression', midi_filename='probe.mid',
+                                    chords_json='[]')
+        holistic = HolisticExercise(name='Probe Holistic', folder='holistic/probe/')
+        gp       = GenProgression(number=9001, chords_json='[]')
+        db.session.add_all([melody, rhythm, prog, holistic, gp])
+        db.session.commit()
+        content_ids = {
+            'school':          world['school'],
+            'melody':          melody.id,
+            'rhythm':          rhythm.id,
+            'progression':     prog.id,
+            'holistic':        holistic.id,
+            'gen_progression': gp.id,
+        }
+        db.session.remove()
+
+    resp = client_as(world['admin']).get(path)
+    assert resp.status_code == 200
+    with app.test_request_context():
+        expected_href = f'href="{url_for(endpoint, **{kwarg: content_ids[content_key]})}"'
+    occurrences = resp.data.count(expected_href.encode())
+    assert occurrences >= 2, (
+        f'{path}: name cell must also link to {endpoint} (found the exact '
+        f'href {occurrences} time(s); the existing action button alone '
+        'only accounts for one)')
+
+
+def test_admin_courses_links_each_course(world, strict_undefined):
+    """A course's name in the admin course list must link to its modules.
+
+    The Modules column's own "Manage" button already points at admin_modules,
+    so a bare presence check would pass today without the name being
+    clickable — require a second, distinct occurrence of the same href.
+    """
+    resp = client_as(world['admin']).get(f"/admin/schools/{world['school']}/courses")
+    assert resp.status_code == 200
+    with app.test_request_context():
+        modules_href = f'href="{url_for("admin_modules", course_id=world["course"])}"'
+    occurrences = resp.data.count(modules_href.encode())
+    assert occurrences >= 2, (
+        'course name must also link to admin_modules (found the exact href '
+        f'{occurrences} time(s); the Modules column\'s "Manage" button alone '
+        'only accounts for one)')
+
+
+def test_admin_modules_links_each_module(world, strict_undefined):
+    """A module's name in the admin module list must link to its exercises.
+
+    The row's own "Exercises →" button already points at
+    admin_module_exercises, so a bare presence check would pass today
+    without the name being clickable — require a second, distinct
+    occurrence of the same href.
+    """
+    resp = client_as(world['admin']).get(f"/admin/courses/{world['course']}/modules")
+    assert resp.status_code == 200
+    with app.test_request_context():
+        exercises_href = f'href="{url_for("admin_module_exercises", module_id=world["module"])}"'
+    occurrences = resp.data.count(exercises_href.encode())
+    assert occurrences >= 2, (
+        'module name must also link to admin_module_exercises (found the '
+        f'exact href {occurrences} time(s); the "Exercises →" button alone '
+        'only accounts for one)')
+
+
+def test_admin_course_sections_links_each_section(world, strict_undefined):
+    """A section's name in the admin course-sections list must link to its
+    teacher detail page, and the join code must stay outside that anchor.
+
+    Unlike the other eight templates in this sweep, this row currently has
+    no link at all, so a plain presence check is sufficient here — there is
+    no pre-existing occurrence of this href to collide with.
+    """
+    resp = client_as(world['admin']).get(f"/admin/courses/{world['course']}/sections")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    with app.test_request_context():
+        detail_href = f'href="{url_for("teacher_section_detail", section_id=world["section"])}"'
+    assert detail_href in body, 'section name must link to its teacher detail page'
+
+    anchor_start = body.index(detail_href)
+    anchor_open_end = body.index('>', anchor_start) + 1
+    anchor_close = body.index('</a>', anchor_open_end)
+    anchor_inner = body[anchor_open_end:anchor_close]
+    assert '<code' not in anchor_inner, \
+        'join code must stay outside the name anchor, per the brief'
+    assert 'SEC001' in body, 'join code must still render on the page'

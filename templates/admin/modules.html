@@ -15,7 +15,7 @@
     {% for m in modules %}
     <tr>
       <td>{{ m.order }}</td>
-      <td>{{ m.name }}</td>
+      <td><a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="text-decoration-none">{{ m.name }}</a></td>
       <td>{{ m.exercises.count() }}</td>
       <td class="d-flex gap-1">
         <a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="btn btn-sm btn-outline-secondary">Exercises →</a>
