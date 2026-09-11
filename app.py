@@ -3009,15 +3009,26 @@ def admin_my_school():
     look up an admin_teacher membership only, so a class_teacher fell through
     to the "not an administrator" flash despite being allowed at the
     destination. Preferring an admin_teacher membership first keeps existing
-    admin_teacher redirects identical; falling back to any membership makes
-    the class_teacher's existing permission reachable without granting
-    anything new.
+    admin_teacher redirects identical; falling back to a class_teacher
+    membership makes the class_teacher's existing permission reachable
+    without granting anything new.
+
+    The fallback used to accept ANY membership at all, with no role filter
+    and no ordering — so a class_teacher who also holds a plain student
+    membership in some other school (trivial via /join-school) could be
+    routed to that unrelated school instead, where require_school_role()
+    correctly denies them: the nav link dead-ended in a 403 for exactly the
+    users it exists to serve. Restricting the fallback to class_teacher
+    memberships only means which school it lands on no longer depends on
+    row order.
     """
     mem = SchoolMembership.query.filter_by(
         user_id=current_user.id, role='admin_teacher'
     ).first()
     if not mem:
-        mem = SchoolMembership.query.filter_by(user_id=current_user.id).first()
+        mem = SchoolMembership.query.filter_by(
+            user_id=current_user.id, role='class_teacher'
+        ).first()
     if mem:
         return redirect(url_for('admin_school_detail', school_id=mem.school_id))
     if active_role() == 'admin':

@@ -73,9 +73,32 @@ def world():
         db.session.add(sec)
         db.session.commit()
 
+        # A second school where a class_teacher-elsewhere holds only a plain
+        # student membership — trivial to acquire via /join-school. The
+        # unrelated membership is committed BEFORE the class_teacher one
+        # below so an unordered `.first()` query would surface this row
+        # first, reproducing the row-order-dependent bug in
+        # admin_my_school()'s fallback (see test_school_authority.py naming
+        # convention: 'ct2' mirrors 'ct').
+        other_school = School(name='Other School', join_code='OTHER01')
+        db.session.add(other_school)
+        db.session.commit()
+
+        ct2 = User(email='ct2@t.com', password_hash='x', role='class_teacher')
+        db.session.add(ct2)
+        db.session.commit()
+
+        db.session.add(SchoolMembership(school_id=other_school.id, user_id=ct2.id,
+                                         role='student'))
+        db.session.commit()
+        db.session.add(SchoolMembership(school_id=school.id, user_id=ct2.id,
+                                         role='class_teacher'))
+        db.session.commit()
+
         ids = {'admin': admin.id, 'at': at.id, 'ct': ct.id, 'stu': stu.id,
                'school': school.id, 'course': course.id, 'module': module.id,
-               'section': sec.id}
+               'section': sec.id,
+               'ct2': ct2.id, 'other_school': other_school.id}
         db.session.remove()
 
     # Context deliberately closed here — see the docstring.
@@ -172,6 +195,29 @@ def test_class_teacher_has_a_reachable_school_link(world, strict_undefined):
 def test_class_teacher_my_school_does_not_403(world, strict_undefined):
     resp = client_as(world['ct']).get('/admin/my-school', follow_redirects=True)
     assert resp.status_code == 200
+
+
+def test_my_school_lands_on_the_school_actually_taught_not_a_membership_elsewhere(
+        world, strict_undefined):
+    """A class_teacher who ALSO holds a plain student membership in some other
+    school (trivial via /join-school) must land on the school they actually
+    teach in, not wherever an unordered, unfiltered fallback happens to land.
+
+    Regression for the "Manage School" link dead-ending in a 403 for exactly
+    the class_teachers it was added to serve: the old fallback accepted ANY
+    membership with no role filter and no ordering, so it could just as
+    easily surface the unrelated student membership first — landing on a
+    school where require_school_role() correctly denies them.
+    """
+    resp = client_as(world['ct2']).get('/admin/my-school')
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == f"/admin/schools/{world['school']}/detail", \
+        ('must redirect to the school actually taught '
+         f"({world['school']}), not the unrelated one ({world['other_school']})")
+
+    resp2 = client_as(world['ct2']).get(resp.headers['Location'])
+    assert resp2.status_code == 200, \
+        'the destination must not deny the class_teacher who was routed there'
 
 
 def test_my_sections_links_each_section(world, strict_undefined):
