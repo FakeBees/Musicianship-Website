@@ -54,6 +54,37 @@ school detail page. Same label, different mental model.
 | D9 | URL segment style is inconsistent: `/admin/module_exercises` (underscore) vs `/admin/gen-progressions` (hyphen). | route table |
 | D10 | **Entities listed in lists are not clickable.** Worst case: on "Your Classrooms" the only affordance per row is a red **Leave** button — the classroom name is plain text, the course name is plain text, and `/section/<id>` exists and the viewer is a member. The sole action offered on your own classroom list is the destructive one. | `templates/student/my_sections.html:43`; see §2.6 for the full list |
 
+### 1.4 Defects found while writing the admin guides (2026-09-14)
+
+Writing `docs/guides/` meant checking every admin screen against the running code, which surfaced these.
+**Method** says how each was established: *execution* means reproduced through the real routes against
+an in-memory database (the dev database was checksummed before and after every run and never changed);
+*code* means the behaviour follows deterministically from reading the source.
+
+| # | Defect | Method |
+|---|---|---|
+| D11 | *(fixed in Phase 1b)* School admins could delete a section but not open it. | execution |
+| D12 | **Hide / Hide module do nothing for students.** `teacher_hide_module` and the per-exercise override form both write `action='hide'`, but `curriculum.effective_exercises()` only recognises `remove`, `override` and `add`. No UI path writes `remove` or `override` at all. The teacher sees "hidden"; students still see and complete the work. | execution |
+| D13 | The section Edit page shows School-Admin-only controls to Section Teachers: the **Assign Section Teacher** card and the **Delete Section** link. Both lead to 403. | execution |
+| D14 | **A Section Teacher saving Section Settings removes the section's course.** The course `<select>` is built from `administered_courses()`, which is empty for a Section Teacher, so the form posts no course and `teacher_edit_section` sets `course_id = None`. Every student loses their modules. Completion records survive, so re-choosing the course restores it. | execution |
+| D15 | "+ Add exercise to this section only" requires a numeric exercise ID that no page shows — admin lists show the public ID (`MEL-0012`), a different value. | code |
+| D16 | Internal role strings (`class_teacher`, `admin_teacher`) are rendered on the users and school pages, and the school page calls School Admins "administrative teachers" while `ROLE_LABELS` says "School Admin". | code |
+| D17 | "← Schools" on `admin/courses.html` links to `admin_schools` (site-admin only), so it 403s for School Admins. (`school_detail.html` gates its equivalent link correctly.) | execution |
+| D18 | Visibility offers `public` / `private`, but `_visible_exercise_filter` only admits `public` and `school`. `private` therefore hides content from every student and from every filter-based module exercise; `school` is unreachable from the UI. | code |
+| D19 | **Deleting a school with members returns 500.** `db.session.delete(school)` tries to null `school_membership.school_id` (NOT NULL). The transaction rolls back, so nothing is lost. | execution |
+| D20 | **Deleting a typical user returns 500** — reproduced for both a section owner and a plain student with a school membership. Nothing is deleted. | execution |
+| D21 | Deleting a course permanently deletes every `ModuleCompletion` on it and leaves sections with `course_id = None`. The confirmation reads only *"and all its modules?"* | execution |
+| D22 | Nav **Sections I Teach** opens a page titled *My Sections*, and nav **My Sections** opens a different page with the same title. | code |
+| D23 | Module-exercise **Clef** and **Shortest Note Value** filters are read by no handler, and `_apply_exercise_filters` has no branch for them. *(Phase 1 follow-up.)* | code |
+| D24 | The module-exercise live match counter ignores Difficulty for melody/rhythm (`LIB_DIMS` omits it) and honours the ignored Clef / Shortest Note Value filters. *(Phase 1 follow-up.)* | execution (jsdom) |
+| D25 | Ticking more than one Time Signature posts no time-signature filter at all, while the counter shows the union. | execution (jsdom) |
+| D26 | New schools are created with no join code (`School(name=name)`), so nobody can join until someone presses Regenerate. | code |
+| D27 | A student joining a section before its school is told *"Ask your teacher for the school join code"*, but Section Teachers are never shown it. | execution |
+
+Also stale: several `condition` notes in `screens.py` predate Phase 1/1b — `SCHOOL_ADMIN_ENTRY` still describes
+BUG-003, and `TEACHER_SECTION_DETAIL` / `TEACHER_SECTION_DELETE` predate D11. `tests/test_screens.py` checks
+names and access levels, not condition text, so nothing caught the drift.
+
 ## 2. Design
 
 ### 2.1 Three prefixes, one per job
