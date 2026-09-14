@@ -75,17 +75,6 @@ def world():
         db.session.add(sec)
         db.session.commit()
 
-        # A second course that no section is attached to. `sec` above is
-        # attached to `course`, so the admin course-modules page ("{{
-        # course.name }} — Modules") and the student's per-section module
-        # list ("{{ section.course.name }} — Modules") would otherwise
-        # render as the exact same row's name — not two seeded rows
-        # coincidentally sharing a name, but literally one row viewed two
-        # ways. See _pages_for_uniqueness in the titles-sweep tests below.
-        course2 = Course(name='Theory II', school_id=school.id)
-        db.session.add(course2)
-        db.session.commit()
-
         # A second school where a class_teacher-elsewhere holds only a plain
         # student membership — trivial to acquire via /join-school. The
         # unrelated membership is committed BEFORE the class_teacher one
@@ -110,7 +99,7 @@ def world():
 
         ids = {'admin': admin.id, 'at': at.id, 'ct': ct.id, 'stu': stu.id,
                'school': school.id, 'course': course.id, 'module': module.id,
-               'section': sec.id, 'course2': course2.id,
+               'section': sec.id,
                'ct2': ct2.id, 'other_school': other_school.id}
         db.session.remove()
 
@@ -538,28 +527,21 @@ def _endpoint_for(url):
 
 def _pages_for_uniqueness(w):
     """pages_for(w), plus the sandbox and melody-upload pages it doesn't
-    cover, with the admin course-modules entry repointed at a second course
-    (world['course2']) that no section uses.
+    cover.
 
-    Without this, the admin course-modules page ("{{ course.name }} —
-    Modules") and the student's per-section module list ("{{
-    section.course.name }} — Modules") render the identical heading and tab
-    title for two different endpoints once both are fixed per the brief —
-    not because two rows happen to share a name, but because world's only
-    Section IS on world['course'], so they're the same row rendered two
-    ways. Comparing the admin page against a differently-named course
-    instead follows the brief's "give them distinct names" guidance,
-    without touching the shared pages_for() that
-    test_no_page_reads_an_undefined_variable and
-    test_lists_actually_render_their_rows also depend on.
+    pages_for's 'modules' (admin course-modules, on world['course']) and
+    'section modules' (the student's per-section module list, on
+    world['section']) already exercise the real case this rule has to
+    hold for: world['section'].course_id IS world['course'], so these two
+    pages render the SAME underlying course from a School Admin's view and
+    from a student's view. Their headings/titles must still differ — that's
+    exactly why student/module_list.html anchors on the section's own name
+    rather than its course's name.
     """
-    pages = [p for p in pages_for(w) if p[0] != 'modules']
-    pages.append(('modules', f"/admin/courses/{w['course2']}/modules", ['admin', 'at']))
-    pages += [
+    return pages_for(w) + [
         ('sandbox',       '/sandbox',                ['admin']),
         ('melody upload', '/admin/melodies/upload',  ['admin']),
     ]
-    return pages
 
 
 def test_no_two_pages_share_a_heading(world):
