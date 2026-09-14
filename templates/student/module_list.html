@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ section.name }} — Modules{% endblock %}
+{% block title %}{{ section.course.name }} — Modules{% endblock %}
 {% block content %}
 <div class="container py-4">
   <nav aria-label="breadcrumb" class="mb-3">
@@ -8,7 +8,7 @@
       <li class="breadcrumb-item active">Modules</li>
     </ol>
   </nav>
-  <h2>{{ section.course.name }}</h2>
+  <h2>{{ section.course.name }} — Modules</h2>
   <div class="list-group mt-3">
   {% for m in mods %}
     {% set pct = (m.completed / m.total * 100) | int if m.total else 0 %}

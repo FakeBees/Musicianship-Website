@@ -75,6 +75,17 @@ def world():
         db.session.add(sec)
         db.session.commit()
 
+        # A second course that no section is attached to. `sec` above is
+        # attached to `course`, so the admin course-modules page ("{{
+        # course.name }} — Modules") and the student's per-section module
+        # list ("{{ section.course.name }} — Modules") would otherwise
+        # render as the exact same row's name — not two seeded rows
+        # coincidentally sharing a name, but literally one row viewed two
+        # ways. See _pages_for_uniqueness in the titles-sweep tests below.
+        course2 = Course(name='Theory II', school_id=school.id)
+        db.session.add(course2)
+        db.session.commit()
+
         # A second school where a class_teacher-elsewhere holds only a plain
         # student membership — trivial to acquire via /join-school. The
         # unrelated membership is committed BEFORE the class_teacher one
@@ -99,7 +110,7 @@ def world():
 
         ids = {'admin': admin.id, 'at': at.id, 'ct': ct.id, 'stu': stu.id,
                'school': school.id, 'course': course.id, 'module': module.id,
-               'section': sec.id,
+               'section': sec.id, 'course2': course2.id,
                'ct2': ct2.id, 'other_school': other_school.id}
         db.session.remove()
 
@@ -482,3 +493,187 @@ def test_admin_course_sections_links_each_section(world, strict_undefined):
     assert '<code' not in anchor_inner, \
         'join code must stay outside the name anchor, per the brief'
     assert 'SEC001' in body, 'join code must still render on the page'
+
+
+# ── Titles sweep: every page says clearly what it is (D22) ──────────────────
+#
+# The nav item "Sections I Teach" used to open a page titled "My Sections",
+# and the different nav item "My Sections" opened another page also titled
+# "My Sections". These five tests enforce, everywhere:
+#   1. A menu item opens a page with the same name.
+#   2. No two different pages share a main heading, or a browser-tab title.
+#   3. A page's heading says what the page is.
+
+def _collapse(html_fragment):
+    """Strip tags and collapse whitespace."""
+    return ' '.join(re.sub(r'<[^>]+>', '', html_fragment).split())
+
+
+def main_heading(body):
+    """The first <h1> or <h2> in the page body, outside the <nav> element
+    (so the navbar brand — "Musicianship Trainer" on every page — is never
+    picked up as the page's own heading), tags stripped and whitespace
+    collapsed. None if the page has neither: e.g. the delete-section confirm
+    dialog heads itself with an <h5> instead — out of scope here, see the
+    task report's "also found".
+    """
+    nav_end = body.index('</nav>')
+    m = re.search(r'<(h1|h2)\b[^>]*>(.*?)</\1>', body[nav_end:], re.S)
+    return _collapse(m.group(2)) if m else None
+
+
+def tab_title(body):
+    """The <title> contents, tags stripped and whitespace collapsed."""
+    m = re.search(r'<title>(.*?)</title>', body, re.S)
+    assert m is not None, 'page has no <title>'
+    return _collapse(m.group(1))
+
+
+def _endpoint_for(url):
+    """Resolve a path (query string ignored) to its Flask endpoint name."""
+    adapter = app.url_map.bind('localhost')
+    endpoint, _args = adapter.match(url.split('?', 1)[0], method='GET')
+    return endpoint
+
+
+def _pages_for_uniqueness(w):
+    """pages_for(w), plus the sandbox and melody-upload pages it doesn't
+    cover, with the admin course-modules entry repointed at a second course
+    (world['course2']) that no section uses.
+
+    Without this, the admin course-modules page ("{{ course.name }} —
+    Modules") and the student's per-section module list ("{{
+    section.course.name }} — Modules") render the identical heading and tab
+    title for two different endpoints once both are fixed per the brief —
+    not because two rows happen to share a name, but because world's only
+    Section IS on world['course'], so they're the same row rendered two
+    ways. Comparing the admin page against a differently-named course
+    instead follows the brief's "give them distinct names" guidance,
+    without touching the shared pages_for() that
+    test_no_page_reads_an_undefined_variable and
+    test_lists_actually_render_their_rows also depend on.
+    """
+    pages = [p for p in pages_for(w) if p[0] != 'modules']
+    pages.append(('modules', f"/admin/courses/{w['course2']}/modules", ['admin', 'at']))
+    pages += [
+        ('sandbox',       '/sandbox',                ['admin']),
+        ('melody upload', '/admin/melodies/upload',  ['admin']),
+    ]
+    return pages
+
+
+def test_no_two_pages_share_a_heading(world):
+    seen = {}  # heading, lowercased -> (endpoint, label)
+    failures = []
+    for label, url, roles in _pages_for_uniqueness(world):
+        resp = client_as(world[roles[0]]).get(url)
+        assert resp.status_code == 200, f'{label}: HTTP {resp.status_code} ({url})'
+        heading = main_heading(resp.data.decode())
+        if heading is None:
+            continue
+        endpoint = _endpoint_for(url)
+        key = heading.lower()
+        prior = seen.get(key)
+        if prior and prior[0] != endpoint:
+            failures.append(
+                f'{heading!r} shared by {prior[1]!r} ({prior[0]}) and {label!r} ({endpoint})')
+        seen[key] = (endpoint, label)
+    assert not failures, 'Shared main headings:\n  ' + '\n  '.join(failures)
+
+
+def test_no_two_pages_share_a_tab_title(world):
+    seen = {}  # title, lowercased -> (endpoint, label)
+    failures = []
+    for label, url, roles in _pages_for_uniqueness(world):
+        resp = client_as(world[roles[0]]).get(url)
+        assert resp.status_code == 200, f'{label}: HTTP {resp.status_code} ({url})'
+        title = tab_title(resp.data.decode())
+        endpoint = _endpoint_for(url)
+        key = title.lower()
+        prior = seen.get(key)
+        if prior and prior[0] != endpoint:
+            failures.append(
+                f'{title!r} shared by {prior[1]!r} ({prior[0]}) and {label!r} ({endpoint})')
+        seen[key] = (endpoint, label)
+    assert not failures, 'Shared tab titles:\n  ' + '\n  '.join(failures)
+
+
+ACCOUNT_MENU_TEST_ROLES = ['ct', 'at', 'admin']  # Section Teacher, School Admin, Site Admin
+
+
+def _account_menu_items(body):
+    """(label, href) pairs from the account-menu dropdown, in document
+    order. The "View as" perspective links carry extra classes
+    (`dropdown-item d-flex ...`), so matching the exact class
+    `"dropdown-item"` already excludes them without filtering by label.
+    """
+    start = body.index('dropdown-menu-end')
+    end = body.index('</ul>', start)
+    menu = body[start:end]
+    items = re.findall(r'<a class="dropdown-item" href="([^"]+)">([^<]*)</a>', menu)
+    return [(label.strip(), href) for href, label in items]
+
+
+def test_menu_items_open_a_page_with_the_same_name(world):
+    skip_labels = {'home', 'log out'}
+    failures = []
+    for role in ACCOUNT_MENU_TEST_ROLES:
+        c = client_as(world[role])
+        resp = c.get('/')
+        assert resp.status_code == 200
+        items = _account_menu_items(resp.data.decode())
+        remaining = [label for label, _ in items if label.lower() not in skip_labels]
+        assert remaining, f'{role}: no account-menu items found to check'
+        for label, href in items:
+            if label.lower() in skip_labels:
+                continue
+            page = c.get(href, follow_redirects=True)
+            assert page.status_code == 200, \
+                f'{role}: {label!r} ({href}) -> HTTP {page.status_code}'
+            heading = main_heading(page.data.decode())
+            if not heading or label.lower() not in heading.lower():
+                failures.append(
+                    f'{role}: menu item {label!r} ({href}) opens a page headed {heading!r}')
+    assert not failures, 'Menu items open mismatched pages:\n  ' + '\n  '.join(failures)
+
+
+def _dashboard_manage_cards(body):
+    """(label, href) for every /admin dashboard card whose own block
+    contains a "Manage ->" link — skips the Users and
+    {{ section_terms_title }} cards (no link at all) and the Schools card's
+    second "Users ->" link, by matching within each card's own block only.
+    """
+    cards = re.findall(r'<div class="card text-center p-3">(.*?)</div>\s*</div>',
+                        body, re.S)
+    result = []
+    for card in cards:
+        label_m = re.search(r'<div class="text-muted">([^<]*)</div>', card)
+        link_m = re.search(r'<a href="([^"]+)"[^>]*>\s*Manage\s*→\s*</a>', card)
+        if label_m and link_m:
+            result.append((label_m.group(1).strip(), link_m.group(1)))
+    return result
+
+
+def test_dashboard_cards_match_the_pages_they_open(world):
+    c = client_as(world['admin'])
+    resp = c.get('/admin')
+    assert resp.status_code == 200
+    cards = _dashboard_manage_cards(resp.data.decode())
+    assert cards, 'no dashboard cards with a Manage → link found'
+    failures = []
+    for label, href in cards:
+        page = c.get(href)
+        assert page.status_code == 200, f'{label}: HTTP {page.status_code} ({href})'
+        heading = main_heading(page.data.decode()) or ''
+        heading = re.sub(r'\s*\(\d+\)\s*$', '', heading)
+        if heading.lower() != label.lower():
+            failures.append(f'card {label!r} ({href}) opens a page headed {heading!r}')
+    assert not failures, 'Dashboard cards mismatched:\n  ' + '\n  '.join(failures)
+
+
+def test_melody_upload_page_says_it_uploads_melodies(world):
+    resp = client_as(world['admin']).get('/admin/melodies/upload')
+    assert resp.status_code == 200
+    heading = main_heading(resp.data.decode())
+    assert heading and 'melody' in heading.lower(), \
+        f'melody upload page heading was {heading!r}'

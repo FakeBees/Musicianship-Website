@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}My {{ section_terms_title }}{% endblock %}
+{% block title %}{{ section_terms_title }} I Teach{% endblock %}
 {% block content %}
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>My {{ section_terms_title }}</h2>
+    <h2>{{ section_terms_title }} I Teach</h2>
     {# can_create_section already implies admin_teacher over some school, and it
        follows the active perspective — unlike a raw current_user.role check. #}
     {% if can_create_section %}
