@@ -31,7 +31,7 @@ planned admin reorganisation lands; the tasks themselves won't. The other two gu
 14. [The melody generator](#14-the-melody-generator)
 15. [GenProgressions](#15-genprogressions)
 16. [Rhythms](#16-rhythms)
-17. [Harmonic progressions](#17-harmonic-progressions)
+17. [Chord progressions](#17-chord-progressions)
 18. [Holistic exercises](#18-holistic-exercises)
 19. [Visibility, tags and containers](#19-visibility-tags-and-containers)
 
@@ -114,7 +114,7 @@ Section                       e.g. MUS201-002         (students see: Classroom)
  ├─ Owner + optional Section Teacher
  └─ Students
 
-Exercise library              Melodies · Rhythms · Harmonic progressions · Holistic
+Exercise library              Melodies · Rhythms · Chord progressions · Holistic exercises
  └─ GenProgressions           templates the melody generator builds on
 ```
 
@@ -135,7 +135,7 @@ Everything starts from the **account menu** in the top-right corner of every pag
 | **Log out** | |
 
 > **There's no "Manage School" item for Site Admins.** School Admins and Section Teachers have one; you
-> reach any school through **Admin** → *Schools* → **Manage →** → **Details**.
+> reach any school through **Admin** → *Schools* → **Manage →** → **Manage School**.
 
 ---
 
@@ -150,10 +150,10 @@ Account menu → **Admin**.
 | **Users** — how many accounts exist | *None on this card — see the Schools card* |
 | **Schools** — how many schools | **Manage →** (the schools list) and **Users →** (the user list) |
 | **Sections** — how many sections exist | *None* |
-| **Gen Progressions** — how many | **Manage →** |
+| **GenProgressions** — how many | **Manage →** |
 
-**Exercise Library** — one card each for **Melodies**, **Harmonics**, **Rhythms** and **Holistic**, with
-a count and **Manage →**.
+**Exercise Library** — one card each for **Melodies**, **Chord Progressions**, **Rhythms** and
+**Holistic Exercises**, with a count and **Manage →**. Each card is named after the page it opens.
 
 > The link to the user list lives on the **Schools** card, not the Users card.
 
@@ -165,19 +165,20 @@ Admin → *Schools* → **Manage →**. The page is titled *Schools*.
 
 The table shows each school's **Name** (click it for the school page), how many **Courses** it has
 (with **Manage** to open them), how many **Students** and **Teachers**, its **Join Code**, and
-**Details** and **Delete** buttons.
+**Manage School** and **Delete** buttons.
 
 ### Creating a school
 
 1. Type the name into **New school name** and press **Add**. School names must be unique. You'll see
    *"School created."*
 2. **Give it a join code.** New schools start with **no join code** — the *Join Code* column shows
-   **—** — and nobody can join until one exists. Press **Details** → **Regenerate** → confirm.
+   **—** — and nobody can join until one exists. Press **Manage School** → **Regenerate** → confirm.
 3. **Appoint a School Admin.** See [section 6](#6-school-admins).
 
 ### The school page
 
-Press **Details**, or click the school's name. It shows:
+Press **Manage School**, or click the school's name. The page is titled *<school> — Manage School* and
+shows:
 
 | Card | What it's for |
 |---|---|
@@ -214,7 +215,7 @@ of its courses.
 
 The person must already have an account.
 
-1. Open the school's page (*Schools* → **Details**).
+1. Open the school's page (*Schools* → **Manage School**).
 2. On the **Administrative teachers** card, type their email and press **Make administrative teacher**.
 
 *"Works whether or not they are already a member — they will be added or promoted."* Their account
@@ -285,7 +286,7 @@ Once set, nothing in the app — including school membership changes — will lo
 
 # Part 2 — Running a school
 
-You can act inside any school. Open it from Admin → *Schools* → **Details**. Everything School Admins do,
+You can act inside any school. Open it from Admin → *Schools* → **Manage School**. Everything School Admins do,
 you can do too; the **School Admin Guide** walks through each task in more detail, and the essentials
 are here.
 
@@ -452,7 +453,7 @@ The library holds four types of content, shared by every school:
 |---|---|---|---|
 | **Melodies** | hear a melody and notate it | `MEL-0001` | Uploading MIDI, or the melody generator |
 | **Rhythms** | hear a rhythm and notate it | `RHY-0001` | Uploading MIDI |
-| **Harmonic progressions** | hear chords and identify them | `HRM-0001` | Uploading MIDI |
+| **Chord progressions** | hear chords and identify them | `HRM-0001` | Uploading MIDI |
 | **Holistic** | hear a recording and transcribe several parts | `HOL-0001` | Uploading WAV, then adding a MIDI file per part |
 
 **Where content shows up:** in free practice (**Sandbox**), and in module exercises — drawn at random by
@@ -543,7 +544,7 @@ Press **Generate →**. The **Sheet Music Preview** shows the melody with a sugg
 
 GenProgressions are chord-progression templates for the melody generator. Students never see them.
 
-Admin → *Gen Progressions* → **Manage →**. The page is titled *GenProgressions (N)*.
+Admin → *GenProgressions* → **Manage →**. The page is titled *GenProgressions (N)*.
 
 ### Creating one
 
@@ -583,9 +584,9 @@ Fields: **Name**, **Description**, **Time Signature**, **Min Duration**, **Diffi
 
 ---
 
-## 17. Harmonic progressions
+## 17. Chord progressions
 
-Admin → *Harmonics* → **Manage →**.
+Admin → *Chord Progressions* → **Manage →**.
 
 ### Uploading a progression from MIDI
 
@@ -608,7 +609,7 @@ Fields: **Name**, **Description**, **Key**, **Tempo (BPM)**, **Difficulty**, **V
 A holistic exercise is a recording with several parts, such as a melody, a bass line and chords.
 Students transcribe each part. Creating one takes **two steps**.
 
-Admin → *Holistic* → **Manage →**.
+Admin → *Holistic Exercises* → **Manage →**.
 
 ### Step 1 — Upload the recording
 
@@ -723,7 +724,6 @@ Problems in the current version, with the IDs used in
 | **D15** | Section-only exercises need a numeric ID that isn't shown anywhere | School Admins | Use the number in the page address |
 | **D27** | Students are told to ask their teacher for the school join code, which Section Teachers can't see | Section Teachers | School Admins share the code with teachers |
 | **D16** | Internal role names (`class_teacher`, `admin_teacher`) appear on the users and school pages; School Admins are also called "administrative teachers" | Everyone | See [section 2](#2-key-ideas) |
-| **D22** | Two different pages are both titled *My Sections*, one of them reached from **Sections I Teach** | Staff | — |
 
 ### Limitations
 
@@ -745,15 +745,15 @@ These aren't bugs, but they're worth knowing:
 | To… | Go to |
 |---|---|
 | Open the Admin dashboard | Account menu → **Admin** |
-| Create a school | Admin → *Schools* **Manage →** → **Add**, then **Details** → **Regenerate** |
-| Open a school | *Schools* → **Details** |
+| Create a school | Admin → *Schools* **Manage →** → **Add**, then **Manage School** → **Regenerate** |
+| Open a school | *Schools* → **Manage School** |
 | Appoint a School Admin | School page → *Administrative teachers* → **Make administrative teacher** |
 | Step a School Admin down | School page → *Members* → role → **Set** |
 | See all users | Admin → *Schools* card → **Users →** |
 | Reset a password | Server: `.venv/bin/python reset_password.py their@email.com` |
 | Upload a melody, rhythm or progression | Its list page → **Upload MIDI** |
 | Generate a melody | Melodies → **Generate →** |
-| Create a GenProgression | Admin → *Gen Progressions* **Manage →** → **+ New** |
+| Create a GenProgression | Admin → *GenProgressions* **Manage →** → **+ New** |
 | Create a holistic exercise | Holistic → **Upload WAV**, then add lines on the Edit page |
 | Hide content from students | Edit → **Visibility** → `private` (see D18 first) |
 | Preview another role | Account menu → **View as** |

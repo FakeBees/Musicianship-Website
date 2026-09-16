@@ -74,7 +74,26 @@ an in-memory database (the dev database was checksummed before and after every r
 | D19 | **Deleting a school with members returns 500.** `db.session.delete(school)` tries to null `school_membership.school_id` (NOT NULL). The transaction rolls back, so nothing is lost. | execution |
 | D20 | **Deleting a typical user returns 500** — reproduced for both a section owner and a plain student with a school membership. Nothing is deleted. | execution |
 | D21 | Deleting a course permanently deletes every `ModuleCompletion` on it and leaves sections with `course_id = None`. The confirmation reads only *"and all its modules?"* | execution |
-| D22 | Nav **Sections I Teach** opens a page titled *My Sections*, and nav **My Sections** opens a different page with the same title. | code |
+| D22 | *(fixed 2026-09-16)* Nav **Sections I Teach** opened a page titled *My Sections*, and nav **My Sections** opened a different page with the same title. A site-wide audit found the same class of problem in several more places. All fixed, and generalised into the **page identity rule** below. | execution |
+
+**Page identity rule** (owner's words: *"the web pages should be clear about what they are"*). Enforced by
+five tests in `tests/test_template_contracts.py`:
+
+1. A menu item opens a page with the same name.
+2. No two different pages share a main heading (`<h1>`/`<h2>`) or a browser-tab title.
+3. Every page has a main heading — a page without one fails the check rather than being skipped. Use
+   `<h2 class="h5">` for a heading that should look small.
+4. Each Admin dashboard card is named after the page its **Manage →** opens.
+
+Pages renamed to satisfy it: *Sections I Teach*; *<section> — Roster*; *Sandbox*; the Melodic Dictation
+library tab; *<school> — Manage School* (and the schools list's **Details** button became **Manage School**);
+*Upload Melody from MIDI*; *Melodic Exercise*; the dashboard's *Chord Progressions*, *Holistic Exercises* and
+*GenProgressions* cards; a classroom's *<section> — Modules*; courses/modules/exercises tab titles now name
+their school/course/module; the three confirm dialogs gained real headings; *Melodic Results* and *Rhythm
+Results*.
+
+Deliberately unchanged: the harmonic and holistic results pages have distinct tab titles but no top heading,
+and adding one would be a visible layout change on the student side. They aren't in the tests' page set.
 | D23 | Module-exercise **Clef** and **Shortest Note Value** filters are read by no handler, and `_apply_exercise_filters` has no branch for them. *(Phase 1 follow-up.)* | code |
 | D24 | The module-exercise live match counter ignores Difficulty for melody/rhythm (`LIB_DIMS` omits it) and honours the ignored Clef / Shortest Note Value filters. *(Phase 1 follow-up.)* | execution (jsdom) |
 | D25 | Ticking more than one Time Signature posts no time-signature filter at all, while the counter shows the union. | execution (jsdom) |

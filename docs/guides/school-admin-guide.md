@@ -129,10 +129,6 @@ Everything starts from the **account menu** in the top-right corner of every pag
 > row, **Manage** in the *Sections* column → click the section's name. The course cards on **Home**
 > (**View →**) lead to the same list.
 
-> **Heads-up.** The page you reach from **Sections I Teach** is titled *My Sections* at the top — and so
-> is the different page you reach from **My Sections**. If you can see **+ New section** and section
-> cards with **View roster**, you're in the right place.
-
 ---
 
 ## 4. Setting up a school: the checklist
@@ -156,7 +152,7 @@ The first time you set up your school, work through these in order.
 
 ## 5. Your school page
 
-Open the account menu → **Manage School**.
+Open the account menu → **Manage School**. The page is titled *<school> — Manage School*.
 
 | Card | What it's for |
 |---|---|
@@ -512,7 +508,7 @@ address.
 
 ## 12. Rosters and progress
 
-Open a section's name, or **View roster** on its card.
+Open a section's name, or **View roster** on its card. The page is titled *<section> — Roster*.
 
 The roster lists one row per student, with their average score in each mode:
 
@@ -617,7 +613,6 @@ updated as they're fixed.
   Forbidden page.
 - **Internal role names** such as `class_teacher` appear on the school page, and School Admins are also
   called "administrative teachers".
-- **Two different pages are both titled "My Sections"** ([section 3](#3-getting-around)).
 
 ---
 

@@ -97,9 +97,7 @@ name, or your email address if you haven't set a name.
 | **View as** | Preview the site as a student. See [section 9](#9-seeing-the-site-as-a-student). |
 | **Log out** | |
 
-> **Heads-up.** The page you reach from **Sections I Teach** is titled *My Sections* at the top — and
-> so is the different page you reach from **My Sections**. If you can see section cards with
-> **View roster** buttons, you're in the right place.
+Each page is titled to match the menu item that opens it.
 
 ---
 
@@ -123,8 +121,8 @@ from the section's Edit page.
 
 Click a section's name, or **View roster** on its card.
 
-The top of the page shows the section's name, its **Join code**, an **Edit Section** button, and the
-number of students. Below that is one row per student:
+The page is titled *<section> — Roster*. It shows the section's **Join code**, an **Edit Section**
+button, and the number of students. Below that is one row per student:
 
 | Column | What it shows |
 |---|---|
@@ -286,7 +284,6 @@ updated as they're fixed.
 - **Students are told to ask their teacher for the school join code**, but Section Teachers can't see
   it. Keep a copy from your School Admin.
 - **Internal role names** such as `class_teacher` appear on the school page.
-- **Two different pages are both titled "My Sections."** See [section 3](#3-getting-around).
 
 ---
 
