@@ -502,9 +502,9 @@ def main_heading(body):
     """The first <h1> or <h2> in the page body, outside the <nav> element
     (so the navbar brand — "Musicianship Trainer" on every page — is never
     picked up as the page's own heading), tags stripped and whitespace
-    collapsed. None if the page has neither: e.g. the delete-section confirm
-    dialog heads itself with an <h5> instead — out of scope here, see the
-    task report's "also found".
+    collapsed. None if the page has neither — which the uniqueness tests treat
+    as a failure, not a skip. Pages that want a smaller-looking heading use
+    <h2 class="h5">, as the confirm dialogs do.
     """
     nav_end = body.index('</nav>')
     m = re.search(r'<(h1|h2)\b[^>]*>(.*?)</\1>', body[nav_end:], re.S)
@@ -552,6 +552,9 @@ def test_no_two_pages_share_a_heading(world):
         assert resp.status_code == 200, f'{label}: HTTP {resp.status_code} ({url})'
         heading = main_heading(resp.data.decode())
         if heading is None:
+            # Never skip: a page with no heading would pass this test vacuously,
+            # and a page that doesn't say what it is breaks the rule anyway.
+            failures.append(f'{label!r} ({url}) has no <h1> or <h2>')
             continue
         endpoint = _endpoint_for(url)
         key = heading.lower()
