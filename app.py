@@ -3177,6 +3177,11 @@ def teacher_edit_section(section_id):
     # Build module/exercise data for override management
     modules_with_exercises = []
     hidden_ids = {sme.module_exercise_id for sme in section.module_overrides if sme.action == 'hide' and sme.module_exercise_id}
+    # Module-level hides are one row with module_exercise_id NULL — the
+    # per-exercise hidden_ids set above deliberately excludes those.
+    hidden_module_ids = {sme.module_id for sme in section.module_overrides
+                          if sme.action == 'hide' and sme.module_exercise_id is None
+                          and sme.module_id}
     if section.course_id and section.course:
         for mod in section.course.modules.order_by(Module.order).all():
             exercises = list(mod.exercises.order_by(ModuleExercise.order).all())
@@ -3187,6 +3192,7 @@ def teacher_edit_section(section_id):
     return render_template('teacher/edit_section.html', section=section, courses=courses,
                            modules_with_exercises=modules_with_exercises,
                            hidden_ids=hidden_ids,
+                           hidden_module_ids=hidden_module_ids,
                            overrides=section.module_overrides,
                            assignable_count=len(assignable_section_teachers(section)),
                            school_name=school.name if school else None,
@@ -3398,17 +3404,22 @@ def teacher_hide_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
     require_section_authority(section, 'class_teacher')
     module = Module.query.get_or_404(module_id)
-    for ex in module.exercises:
-        exists = SectionModuleExercise.query.filter_by(
-            section_id=section_id, module_exercise_id=ex.id, action='hide'
-        ).first()
-        if not exists:
-            db.session.add(SectionModuleExercise(
-                section_id=section_id,
-                module_id=module_id,
-                module_exercise_id=ex.id,
-                action='hide'
-            ))
+    # One module-level row (module_exercise_id NULL) represents "this whole
+    # module is hidden" — not one row per exercise, which silently wrote
+    # nothing for an empty module and couldn't be told apart from a set of
+    # individually-hidden exercises. Idempotent: hiding twice must not add
+    # a second row.
+    exists = SectionModuleExercise.query.filter_by(
+        section_id=section_id, module_id=module_id,
+        module_exercise_id=None, action='hide'
+    ).first()
+    if not exists:
+        db.session.add(SectionModuleExercise(
+            section_id=section_id,
+            module_id=module_id,
+            module_exercise_id=None,
+            action='hide'
+        ))
     db.session.commit()
     flash(f'Module "{module.name}" hidden for this {section_word()}.', 'success')
     return redirect(url_for('teacher_edit_section', section_id=section_id))
@@ -3420,8 +3431,12 @@ def teacher_hide_module(section_id, module_id):
 def teacher_restore_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
     require_section_authority(section, 'class_teacher')
+    # module_exercise_id=None scopes this to the module-level hide row only —
+    # exercises hidden individually within this module are a separate
+    # decision and must survive restoring the module itself.
     SectionModuleExercise.query.filter_by(
-        section_id=section_id, module_id=module_id, action='hide'
+        section_id=section_id, module_id=module_id,
+        module_exercise_id=None, action='hide'
     ).delete()
     db.session.commit()
     flash('Module restored.', 'success')
@@ -3523,6 +3538,8 @@ def section_module_detail(section_id, module_id):
     module = Module.query.get_or_404(module_id)
     if section.course_id is None or module.course_id != section.course_id:
         abort(404)
+    if cur.is_module_hidden(section, module_id):
+        abort(404)
     exercises = cur.effective_exercises(section, module)
     done = cur.completion_map(current_user.id, section_id)
     ex_with_status = []
@@ -3595,6 +3612,8 @@ def start_module_exercise(section_id, me_id):
 
     me = ModuleExercise.query.get_or_404(me_id)
     if me.module.course_id != section.course_id:
+        abort(404)
+    if cur.is_exercise_hidden(section, me_id) or cur.is_module_hidden(section, me.module_id):
         abort(404)
 
     params = me.params

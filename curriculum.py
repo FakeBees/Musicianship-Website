@@ -20,17 +20,28 @@ def effective_exercises(section, module):
         'completion_criterion': dict,
       }
     """
-    removed_ids = set()
-    overrides   = {}  # module_exercise_id -> SectionModuleExercise
-    additions   = []
+    removed_ids   = set()
+    overrides     = {}  # module_exercise_id -> SectionModuleExercise
+    additions     = []
+    module_hidden = False
 
     for sme in SectionModuleExercise.query.filter_by(section_id=section.id).all():
-        if sme.action == 'remove' and sme.module_exercise_id:
+        if sme.action == 'hide' and sme.module_exercise_id is None:
+            # Module-level hide: one row, module_exercise_id NULL.
+            if sme.module_id == module.id:
+                module_hidden = True
+        elif sme.action == 'hide' and sme.module_exercise_id:
+            # Exercise-level hide, independent of any module-level hide.
+            removed_ids.add(sme.module_exercise_id)
+        elif sme.action == 'remove' and sme.module_exercise_id:
             removed_ids.add(sme.module_exercise_id)
         elif sme.action == 'override' and sme.module_exercise_id:
             overrides[sme.module_exercise_id] = sme
         elif sme.action == 'add' and sme.module_id == module.id:
             additions.append(sme)
+
+    if module_hidden:
+        return []
 
     result = []
     for me in module.exercises.order_by(ModuleExercise.order).all():
@@ -71,6 +82,25 @@ def effective_exercises(section, module):
 
     result.sort(key=lambda x: x['order'])
     return result
+
+
+def is_module_hidden(section, module_id):
+    """True if `module_id` has a module-level hide row (module_exercise_id
+    NULL) for this section. Used by the student launcher routes to 404 on
+    hidden work instead of relying on callers to notice an empty list."""
+    return SectionModuleExercise.query.filter_by(
+        section_id=section.id, module_id=module_id,
+        module_exercise_id=None, action='hide'
+    ).first() is not None
+
+
+def is_exercise_hidden(section, module_exercise_id):
+    """True if this specific module_exercise_id has an exercise-level hide
+    row for this section — independent of whether its module is hidden."""
+    return SectionModuleExercise.query.filter_by(
+        section_id=section.id, module_exercise_id=module_exercise_id,
+        action='hide'
+    ).first() is not None
 
 
 def get_completion(user_id, section_id, module_exercise_id=None, section_exercise_id=None):
@@ -184,7 +214,14 @@ def modules_with_progress(user_id, section_id, section):
         return []
     result = []
     done = completion_map(user_id, section_id)
+    hidden_module_ids = {
+        sme.module_id for sme in
+        SectionModuleExercise.query.filter_by(section_id=section.id, action='hide').all()
+        if sme.module_exercise_id is None and sme.module_id is not None
+    }
     for module in section.course.modules.order_by(Module.order).all():
+        if module.id in hidden_module_ids:
+            continue
         exs = effective_exercises(section, module)
         completed_count = sum(
             1 for ex in exs

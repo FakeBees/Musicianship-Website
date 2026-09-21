@@ -96,8 +96,8 @@
         {% for item in modules_with_exercises %}
         <div class="d-flex align-items-center justify-content-between mt-3 mb-2">
           <h6 class="fw-semibold mb-0">{{ item.module.name }}</h6>
-          {% set all_hidden = item.exercises | length > 0 and item.exercises | selectattr('id', 'in', hidden_ids) | list | length == item.exercises | length %}
-          {% if all_hidden %}
+          {% set module_hidden = item.module.id in hidden_module_ids %}
+          {% if module_hidden %}
           <form method="post" action="{{ url_for('teacher_restore_module', section_id=section.id, module_id=item.module.id) }}">
             <button class="btn btn-sm btn-outline-success">Restore module</button>
           </form>
