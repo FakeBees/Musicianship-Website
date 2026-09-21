@@ -512,8 +512,18 @@ def test_can_create_a_section_against_your_own_course():
 
 def test_adding_an_exercise_affects_only_this_section():
     """It used to write a ModuleExercise onto the shared course module, which
-    changed the curriculum for every other section using that course."""
-    from models import ModuleExercise, SectionModuleExercise
+    changed the curriculum for every other section using that course.
+
+    Task 5 retired the raw-ID route this test used to POST to
+    (`/teacher/sections/<id>/module_exercises/add`) in favour of the
+    section's own Curriculum module page, which saves a real
+    `ModuleExercise` tagged with `section_id` — not a `SectionModuleExercise`
+    'add' override row. The invariant under test is unchanged: adding an
+    exercise to one section's curriculum must never touch the shared course,
+    and must never be visible to a different section following the very
+    same course.
+    """
+    from models import ModuleExercise
     s = school('Mine')
     crs = course(s)
     mod = Module(name='M1', course_id=crs.id, order=0)
@@ -523,14 +533,26 @@ def test_adding_an_exercise_affects_only_this_section():
     sec = Section(name='S1', join_code='S1CODE', teacher_id=at.id, course_id=crs.id)
     db.session.add(sec)
     db.session.commit()
+    # A second section following the SAME course — the addition below must
+    # not leak into it.
+    other_sec = Section(name='S2', join_code='S2CODE', teacher_id=at.id, course_id=crs.id)
+    db.session.add(other_sec)
+    db.session.commit()
 
-    before = ModuleExercise.query.count()
-    client_for(at).post(f'/teacher/sections/{sec.id}/module_exercises/add',
-                        data={'module_id': mod.id, 'exercise_type': 'melody',
-                              'exercise_id': 1, 'name': 'X'})
-    assert ModuleExercise.query.count() == before          # course untouched
-    override = SectionModuleExercise.query.filter_by(section_id=sec.id).first()
-    assert override is not None and override.action == 'add'
+    before = ModuleExercise.query.filter_by(section_id=None).count()
+    client_for(at).post(f'/teacher/section/{sec.id}/curriculum/modules/{mod.id}',
+                        data={'exercise_type': 'melody', 'exercise_id': 1, 'name': 'X'})
+
+    assert ModuleExercise.query.filter_by(section_id=None).count() == before, \
+        "the course's own (shared) exercises must be unchanged"
+    added = ModuleExercise.query.filter_by(name='X').first()
+    assert added is not None and added.section_id == sec.id, \
+        'the new exercise must be a real ModuleExercise tagged with this section'
+
+    other_body = client_for(at).get(
+        f'/teacher/section/{other_sec.id}/curriculum/modules/{mod.id}').data.decode()
+    assert 'X' not in other_body, \
+        "a second section following the same course must not see the first section's addition"
 
 
 # ── Requirement 3: join codes ────────────────────────────────────────────────

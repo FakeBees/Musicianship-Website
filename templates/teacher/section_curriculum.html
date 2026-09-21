@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{{ section.name }} — Curriculum{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link p-0 text-decoration-none">← {{ section_terms_title }}</a>
+    <h2 class="mb-0">{{ section.name }} — Curriculum</h2>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('teacher_section_detail', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Roster</a>
+      <a href="{{ url_for('teacher_edit_section', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Edit {{ section_term_title }}</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  {% if not section.course_id %}
+  <p class="text-muted">This {{ section_term }} has no course assigned yet. Ask a School Admin to
+    assign one before building its curriculum.</p>
+  {% else %}
+  <table class="table table-sm align-middle">
+    <thead><tr><th>#</th><th>Module</th><th>Source</th><th>Exercises</th><th></th></tr></thead>
+    <tbody>
+    {% for item in modules %}
+    <tr>
+      <td>{{ item.module.order }}</td>
+      <td><a href="{{ url_for('teacher_section_curriculum_module', section_id=section.id, module_id=item.module.id) }}">{{ item.module.name }}</a></td>
+      <td>
+        {% if item.own %}
+        <span class="badge bg-info text-dark">This {{ section_term_title }} only</span>
+        {% else %}
+        <span class="badge bg-secondary">From course</span>
+        {% endif %}
+        {% if item.hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
+      </td>
+      <td class="curriculum-count">{{ item.count }}</td>
+      <td class="d-flex gap-1">
+        {% if item.own %}
+        <form method="post" action="{{ url_for('teacher_delete_curriculum_module', section_id=section.id, module_id=item.module.id) }}"
+              onsubmit="return confirm('Delete module &quot;{{ item.module.name }}&quot; and all its exercises? This cannot be undone.')">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+        {% elif item.hidden %}
+        <form method="post" action="{{ url_for('teacher_restore_module', section_id=section.id, module_id=item.module.id) }}">
+          <button class="btn btn-sm btn-outline-success">Restore module</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('teacher_hide_module', section_id=section.id, module_id=item.module.id) }}">
+          <button class="btn btn-sm btn-outline-warning">Hide module</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">No modules yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="card mt-4" style="max-width:520px">
+    <div class="card-header fw-semibold">Add a module for this {{ section_term }} only</div>
+    <div class="card-body">
+      <form method="post" class="d-flex gap-2">
+        <input name="name" class="form-control" placeholder="Module name" required>
+        <input name="order" type="number" class="form-control" style="max-width:80px" placeholder="Order" value="0">
+        <button class="btn btn-primary">Add</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

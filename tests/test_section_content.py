@@ -357,15 +357,18 @@ def test_section_content_dormant_when_section_switches_course_then_restored():
 # ── Section-facing management pages ────────────────────────────────────────
 
 def test_edit_section_page_lists_own_module_only_for_its_own_section():
+    """Task 5 moved module/exercise management off the section Edit page
+    (now a short card linking to Curriculum) onto the new Curriculum list
+    page — this checks the same per-section scoping invariant there."""
     w = world()
-    body_a = client_as(w['at']).get(f'/teacher/section/{w["sec_a"]}/edit').data.decode()
+    body_a = client_as(w['at']).get(f'/teacher/section/{w["sec_a"]}/curriculum').data.decode()
     assert 'Section A Module' in body_a, \
-        "section A's Edit page must list its own module for override management"
+        "section A's Curriculum page must list its own module"
 
-    body_b = client_as(w['at']).get(f'/teacher/section/{w["sec_b"]}/edit').data.decode()
+    body_b = client_as(w['at']).get(f'/teacher/section/{w["sec_b"]}/curriculum').data.decode()
     assert 'Shared Module' in body_b
     assert 'Section A Module' not in body_b, \
-        "section B's Edit page must not list section A's own module, even " \
+        "section B's Curriculum page must not list section A's own module, even " \
         "though both sections share the same course"
 
 

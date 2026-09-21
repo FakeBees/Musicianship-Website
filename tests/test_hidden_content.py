@@ -310,15 +310,19 @@ def test_hiding_an_exercise_keeps_progress_and_restoring_shows_it_again():
 def test_edit_page_shows_restore_after_hiding_an_empty_module():
     """An empty module has no exercises to loop over — the old
     write-one-row-per-exercise scheme silently wrote nothing for it, so the
-    Edit page kept offering "Hide module" after a teacher hid it even though
-    the flash said it worked. The toggle must read the module-level hide
-    row, not the count of per-exercise rows."""
+    page kept offering "Hide module" after a teacher hid it even though the
+    flash said it worked. The toggle must read the module-level hide row,
+    not the count of per-exercise rows.
+
+    Task 5 moved module hide/restore off the section Edit page (now a short
+    card linking to Curriculum) onto the new Curriculum list page — this
+    checks the toggle there instead, same invariant."""
     w = world()
     empty = module(w['course'], 'Empty Module', 2)
     assert hide_module(w, empty.id).status_code == 302
 
-    page = client_as(w['at']).get(f'/teacher/section/{w["section"]}/edit')
+    page = client_as(w['at']).get(f'/teacher/section/{w["section"]}/curriculum')
     body = page.data.decode()
     assert body.count('Restore module') == 1, \
-        'hiding an empty module must flip its Edit-page toggle to "Restore module"'
+        'hiding an empty module must flip its Curriculum-page toggle to "Restore module"'
     assert 'Hide module' in body, 'the untouched modules must still offer "Hide module"'

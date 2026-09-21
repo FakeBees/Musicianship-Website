@@ -9,7 +9,10 @@
     {% if school %}
     <span class="badge bg-secondary fs-6">School code: {{ school.join_code or '—' }}</span>
     {% endif %}
-    <a href="{{ url_for('teacher_edit_section', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary ms-auto">Edit {{ section_term_title }}</a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('teacher_section_curriculum', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Curriculum</a>
+      <a href="{{ url_for('teacher_edit_section', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Edit {{ section_term_title }}</a>
+    </div>
   </div>
   {% if school %}
   <p class="text-muted small mb-1">

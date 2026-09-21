@@ -810,6 +810,95 @@ def _module_exercise_fields_from_form(form, exercise_type, fallback_name, fallba
     }
 
 
+def _module_exercise_library_data():
+    """Melody/rhythm/harmonic/holistic library snapshots and tag lists that
+    admin/_module_exercise_editor.html (and its companion JS) need for the
+    add form's live match-count preview and filter checkboxes. Shared by
+    every page that includes that editor — the course editor
+    (admin_module_exercises, which inlines this itself — it predates this
+    helper) and the section editor (teacher_section_curriculum_module,
+    Task 5).
+    """
+    melodies     = Melody.query.order_by(Melody.name).all()
+    rhythms      = Rhythm.query.order_by(Rhythm.name).all()
+    progressions = ChordProgression.query.order_by(ChordProgression.name).all()
+    holistics    = HolisticExercise.query.order_by(HolisticExercise.name).all()
+    all_tags = [t.name for t in Tag.query.order_by(Tag.name).all()]
+    melody_tags_list   = sorted({t.name for m in melodies     for t in m.tags})
+    rhythm_tags_list   = sorted({t.name for r in rhythms      for t in r.tags})
+    harmonic_tags_list = sorted({t.name for p in progressions for t in p.tags})
+    harmonic_categories = sorted({p.category for p in progressions if p.category})
+    melodies_data = [{'time_signature': m.time_signature, 'min_duration': m.min_duration,
+                      'clef': m.clef, 'difficulty': m.difficulty,
+                      'tags': [t.name for t in m.tags]} for m in melodies]
+    rhythms_data  = [{'time_signature': r.time_signature, 'min_duration': r.min_duration,
+                      'difficulty': r.difficulty, 'tags': [t.name for t in r.tags]} for r in rhythms]
+    progressions_data = [{'category': p.category, 'difficulty': p.difficulty,
+                          'tags': [t.name for t in p.tags]} for p in progressions]
+    return dict(
+        holistics=holistics, all_tags=all_tags,
+        melody_tags_list=melody_tags_list, rhythm_tags_list=rhythm_tags_list,
+        harmonic_tags_list=harmonic_tags_list, harmonic_categories=harmonic_categories,
+        melodies_data=melodies_data, rhythms_data=rhythms_data,
+        progressions_data=progressions_data,
+    )
+
+
+def _section_curriculum_module_or_404(section, module_id):
+    """A module reachable through `section`'s Curriculum pages: it must sit
+    on the course the section currently follows, and be either shared course
+    content or this section's own — curriculum.visible_modules()'s rule,
+    checked here explicitly so a section can never reach another section's
+    own module even when both sit on the very same course.
+
+    Also the fix for the Task 4 review's Minor finding: teacher_hide_module /
+    teacher_restore_module used to skip this check entirely and could echo a
+    foreign module's name into a flash message.
+    """
+    module = Module.query.get_or_404(module_id)
+    if module.course_id != section.course_id or \
+            (module.section_id is not None and module.section_id != section.id):
+        abort(404)
+    return module
+
+
+def _section_owned_exercise_or_404(section, me_id):
+    """A ModuleExercise this section may edit / duplicate / remove: must be
+    this section's own row — never a shared course exercise (section_id
+    NULL) and never another section's own exercise."""
+    me = ModuleExercise.query.get_or_404(me_id)
+    if me.section_id != section.id:
+        abort(404)
+    return me
+
+
+def _delete_section_exercise(me):
+    """Remove a section's own ModuleExercise, plus the rows that would
+    otherwise dangle: completion records against it, and any
+    SectionModuleExercise row that targets it (an exercise-level hide is the
+    realistic case, but nothing stops a stale/forged one). Task 6 will fold
+    this into its shared cascade helpers (`_delete_module_exercise`); until
+    then, per the brief, this is the whole cascade for one section-owned
+    exercise. Does not commit — callers commit once after their own changes.
+    """
+    ModuleCompletion.query.filter_by(module_exercise_id=me.id).delete()
+    SectionModuleExercise.query.filter_by(module_exercise_id=me.id).delete()
+    db.session.delete(me)
+
+
+def _delete_section_module(module):
+    """Remove a section's own Module: cascades to every exercise on it (via
+    _delete_section_exercise) and any module-level SectionModuleExercise row
+    that targets the module itself. Task 6 will fold this into its shared
+    cascade helpers (`_delete_module`). Does not commit — callers commit
+    once after their own changes.
+    """
+    for me in ModuleExercise.query.filter_by(module_id=module.id).all():
+        _delete_section_exercise(me)
+    SectionModuleExercise.query.filter_by(module_id=module.id, module_exercise_id=None).delete()
+    db.session.delete(module)
+
+
 # ---------------------------------------------------------------------------
 # Screen registry / debug mode
 # ---------------------------------------------------------------------------
@@ -3207,26 +3296,12 @@ def teacher_edit_section(section_id):
             flash(f'{section_word(title=True)} updated.', 'success')
         return redirect(url_for('teacher_edit_section', section_id=section_id))
 
-    # Build module/exercise data for override management
-    modules_with_exercises = []
-    hidden_ids = {sme.module_exercise_id for sme in section.module_overrides if sme.action == 'hide' and sme.module_exercise_id}
-    # Module-level hides are one row with module_exercise_id NULL — the
-    # per-exercise hidden_ids set above deliberately excludes those.
-    hidden_module_ids = {sme.module_id for sme in section.module_overrides
-                          if sme.action == 'hide' and sme.module_exercise_id is None
-                          and sme.module_id}
-    if section.course_id and section.course:
-        for mod in cur.visible_modules(section):
-            exercises = cur.visible_exercises(section, mod)
-            modules_with_exercises.append({'module': mod, 'exercises': exercises})
-
+    # Task 5: module/exercise management (hide/restore, add, the raw-ID
+    # add-exercise form) moved off this page onto the Curriculum pages —
+    # this page no longer needs to build that data at all.
     school_id = section_school_id(section)
     school = db.session.get(School, school_id) if school_id else None
     return render_template('teacher/edit_section.html', section=section, courses=courses,
-                           modules_with_exercises=modules_with_exercises,
-                           hidden_ids=hidden_ids,
-                           hidden_module_ids=hidden_module_ids,
-                           overrides=section.module_overrides,
                            assignable_count=len(assignable_section_teachers(section)),
                            school_name=school.name if school else None,
                            can_manage=can_manage_section(section))
@@ -3412,7 +3487,12 @@ def teacher_add_override(section_id):
     db.session.add(sme)
     db.session.commit()
     flash('Override added.', 'success')
-    return redirect(url_for('teacher_edit_section', section_id=section_id))
+    # Task 5: the Hide button that posts here now lives on the Curriculum
+    # module page, not the (now-gutted) section Edit page — return there.
+    if module_id:
+        return redirect(url_for('teacher_section_curriculum_module',
+                                section_id=section_id, module_id=module_id))
+    return redirect(url_for('teacher_section_curriculum', section_id=section_id))
 
 
 @app.route('/teacher/sections/<int:section_id>/overrides/<int:sme_id>/delete', methods=['POST'])
@@ -3424,10 +3504,15 @@ def teacher_delete_override(section_id, sme_id):
     sme = SectionModuleExercise.query.get_or_404(sme_id)
     if sme.section_id != section_id:
         abort(403)
+    module_id = sme.module_id
     db.session.delete(sme)
     db.session.commit()
     flash('Override removed.', 'success')
-    return redirect(url_for('teacher_edit_section', section_id=section_id))
+    # Task 5: same page-return rule as teacher_add_override above.
+    if module_id:
+        return redirect(url_for('teacher_section_curriculum_module',
+                                section_id=section_id, module_id=module_id))
+    return redirect(url_for('teacher_section_curriculum', section_id=section_id))
 
 
 @app.route('/teacher/sections/<int:section_id>/modules/<int:module_id>/hide', methods=['POST'])
@@ -3436,7 +3521,7 @@ def teacher_delete_override(section_id, sme_id):
 def teacher_hide_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
     require_section_authority(section, 'class_teacher')
-    module = Module.query.get_or_404(module_id)
+    module = _section_curriculum_module_or_404(section, module_id)
     # One module-level row (module_exercise_id NULL) represents "this whole
     # module is hidden" — not one row per exercise, which silently wrote
     # nothing for an empty module and couldn't be told apart from a set of
@@ -3455,7 +3540,8 @@ def teacher_hide_module(section_id, module_id):
         ))
     db.session.commit()
     flash(f'Module "{module.name}" hidden for this {section_word()}.', 'success')
-    return redirect(url_for('teacher_edit_section', section_id=section_id))
+    # Task 5: this button now lives on the Curriculum list page.
+    return redirect(url_for('teacher_section_curriculum', section_id=section_id))
 
 
 @app.route('/teacher/sections/<int:section_id>/modules/<int:module_id>/restore', methods=['POST'])
@@ -3464,6 +3550,9 @@ def teacher_hide_module(section_id, module_id):
 def teacher_restore_module(section_id, module_id):
     section = Section.query.get_or_404(section_id)
     require_section_authority(section, 'class_teacher')
+    # Task 4 review's Minor finding: this route used to skip the ownership
+    # check entirely — a module_id from any course, any section, would do.
+    _section_curriculum_module_or_404(section, module_id)
     # module_exercise_id=None scopes this to the module-level hide row only —
     # exercises hidden individually within this module are a separate
     # decision and must survive restoring the module itself.
@@ -3473,37 +3562,194 @@ def teacher_restore_module(section_id, module_id):
     ).delete()
     db.session.commit()
     flash('Module restored.', 'success')
-    return redirect(url_for('teacher_edit_section', section_id=section_id))
+    # Task 5: this button now lives on the Curriculum list page.
+    return redirect(url_for('teacher_section_curriculum', section_id=section_id))
 
 
-@app.route('/teacher/sections/<int:section_id>/module_exercises/add', methods=['POST'])
+# ---------------------------------------------------------------------------
+# Section curriculum pages (Task 5)
+#
+# Section Teachers build their own section's curriculum with the same tools
+# a School Admin uses for a course: a list page (modules — the course's and
+# this section's own) and, per module, the full exercise editor from Task 2.
+# Every route here shares the same gate: any role in
+# ('class_teacher', 'admin_teacher', 'admin') who holds at least
+# class_teacher authority over THIS section — no manager-only restriction,
+# unlike the retired teacher_add_module_exercise this replaces, since the
+# whole point of this feature is that a plain Section Teacher gets full
+# curriculum control over their own section.
+# ---------------------------------------------------------------------------
+
+@app.route('/teacher/section/<int:section_id>/curriculum', methods=['GET', 'POST'])
 @login_required
-@role_required('admin_teacher', 'admin')
-def teacher_add_module_exercise(section_id):
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_section_curriculum(section_id):
     section = Section.query.get_or_404(section_id)
-    require_manage_section(section)
-    module_id = request.form.get('module_id', type=int)
-    exercise_type = request.form.get('exercise_type', '').strip()
-    exercise_id = request.form.get('exercise_id', type=int)
-    name = request.form.get('name', '').strip()
-    order = request.form.get('order', type=int) or 0
-    if not all([module_id, exercise_type, exercise_id]):
-        flash('All fields required.', 'danger')
-        return redirect(url_for('teacher_edit_section', section_id=section_id))
-    # Per-SECTION addition. Writing a ModuleExercise here would edit the shared
-    # course and change the curriculum for every other section using it.
-    sme = SectionModuleExercise(
-        section_id=section_id,
-        action='add',
-        module_id=module_id,
-        exercise_type=exercise_type,
-        exercise_id=exercise_id,
-        order=order,
-    )
-    db.session.add(sme)
+    require_section_authority(section, 'class_teacher')
+
+    if request.method == 'POST':
+        if not section.course_id:
+            flash(f'Assign a course to this {section_word()} before adding modules.', 'warning')
+            return redirect(url_for('teacher_section_curriculum', section_id=section_id))
+        name  = request.form.get('name', '').strip()
+        order = int(request.form.get('order', 0) or 0)
+        if name:
+            db.session.add(Module(name=name, course_id=section.course_id,
+                                  order=order, section_id=section_id))
+            db.session.commit()
+            flash('Module added.', 'success')
+        return redirect(url_for('teacher_section_curriculum', section_id=section_id))
+
+    modules = []
+    if section.course_id:
+        for m in cur.visible_modules(section):
+            modules.append({
+                'module': m,
+                'own':    m.section_id == section.id,
+                'hidden': cur.is_module_hidden(section, m.id),
+                'count':  len(cur.visible_exercises(section, m)),
+            })
+    return render_template('teacher/section_curriculum.html', section=section, modules=modules)
+
+
+@app.route('/teacher/section/<int:section_id>/curriculum/modules/<int:module_id>',
+          methods=['GET', 'POST'])
+@login_required
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_section_curriculum_module(section_id, module_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_authority(section, 'class_teacher')
+    module = _section_curriculum_module_or_404(section, module_id)
+
+    if request.method == 'POST':
+        ex_type = request.form['exercise_type']
+        if ex_type == 'holistic':
+            ex_id = int(request.form['exercise_id'])
+        else:
+            ex_id = 0  # sentinel — not used for filter-based exercises
+        fields = _module_exercise_fields_from_form(
+            request.form, ex_type, fallback_name=ex_type.capitalize())
+
+        # A section's own addition — even onto a shared course module, per
+        # curriculum.py's per-row ownership model — never edits the course
+        # itself, so no other section following it is ever affected.
+        db.session.add(ModuleExercise(
+            module_id=module_id,
+            section_id=section_id,
+            name=fields['name'],
+            exercise_type=ex_type,
+            exercise_id=ex_id,
+            order=fields['order'],
+            completion_criterion_json=fields['completion_criterion_json'],
+            params_json=fields['params_json'],
+        ))
+        db.session.commit()
+        flash('Exercise added.', 'success')
+        return redirect(url_for('teacher_section_curriculum_module',
+                                section_id=section_id, module_id=module_id))
+
+    # Course exercises only exist to show on a COURSE module — a section-own
+    # module can never physically have one (the course editor already
+    # refuses to add course content into a section-owned module).
+    course_exercises = None
+    if module.section_id is None:
+        hides = {sme.module_exercise_id: sme.id
+                for sme in SectionModuleExercise.query.filter_by(
+                    section_id=section_id, action='hide').all()
+                if sme.module_exercise_id}
+        course_exercises = []
+        for me in module.exercises.filter_by(section_id=None).order_by(ModuleExercise.order).all():
+            course_exercises.append({
+                'id': me.id, 'name': me.name, 'exercise_type': me.exercise_type,
+                'order': me.order, 'hidden': me.id in hides, 'sme_id': hides.get(me.id),
+            })
+
+    exercises = module.exercises.filter_by(section_id=section_id).order_by(ModuleExercise.order).all()
+    return render_template('teacher/section_curriculum_module.html',
+                           section=section, module=module,
+                           course_exercises=course_exercises, exercises=exercises,
+                           **_module_exercise_library_data())
+
+
+@app.route('/teacher/section/<int:section_id>/curriculum/modules/<int:module_id>/delete',
+          methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_delete_curriculum_module(section_id, module_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_authority(section, 'class_teacher')
+    module = _section_curriculum_module_or_404(section, module_id)
+    # Stricter than the general check above: only this section's OWN module
+    # may be deleted here — shared course content is never touched by this
+    # route (mirrors admin_delete_module, which is course-content-only).
+    if module.section_id != section.id:
+        abort(404)
+    _delete_section_module(module)
     db.session.commit()
-    flash(f'Exercise added to this {section_word()} only.', 'success')
-    return redirect(url_for('teacher_edit_section', section_id=section_id))
+    flash('Module deleted.', 'success')
+    return redirect(url_for('teacher_section_curriculum', section_id=section_id))
+
+
+@app.route('/teacher/section/<int:section_id>/curriculum/exercises/<int:me_id>/edit',
+          methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_edit_curriculum_exercise(section_id, me_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_authority(section, 'class_teacher')
+    me = _section_owned_exercise_or_404(section, me_id)
+    fields = _module_exercise_fields_from_form(
+        request.form, me.exercise_type, fallback_name=me.name, fallback_order=me.order)
+    me.name  = fields['name']
+    me.order = fields['order']
+    me.completion_criterion_json = fields['completion_criterion_json']
+    if me.exercise_type != 'holistic':
+        me.params_json = fields['params_json']
+    db.session.commit()
+    flash('Exercise updated.', 'success')
+    return redirect(url_for('teacher_section_curriculum_module',
+                            section_id=section_id, module_id=me.module_id))
+
+
+@app.route('/teacher/section/<int:section_id>/curriculum/exercises/<int:me_id>/duplicate',
+          methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_duplicate_curriculum_exercise(section_id, me_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_authority(section, 'class_teacher')
+    src = _section_owned_exercise_or_404(section, me_id)
+    copy = ModuleExercise(
+        module_id=src.module_id,
+        section_id=section_id,
+        name=src.name + ' (copy)',
+        exercise_type=src.exercise_type,
+        exercise_id=src.exercise_id,
+        order=src.order + 1,
+        completion_criterion_json=src.completion_criterion_json,
+        params_json=src.params_json,
+    )
+    db.session.add(copy)
+    db.session.commit()
+    flash('Exercise duplicated.', 'success')
+    return redirect(url_for('teacher_section_curriculum_module',
+                            section_id=section_id, module_id=src.module_id))
+
+
+@app.route('/teacher/section/<int:section_id>/curriculum/exercises/<int:me_id>/remove',
+          methods=['POST'])
+@login_required
+@role_required('admin_teacher', 'class_teacher', 'admin')
+def teacher_remove_curriculum_exercise(section_id, me_id):
+    section = Section.query.get_or_404(section_id)
+    require_section_authority(section, 'class_teacher')
+    me = _section_owned_exercise_or_404(section, me_id)
+    module_id = me.module_id
+    _delete_section_exercise(me)
+    db.session.commit()
+    flash('Exercise removed.', 'success')
+    return redirect(url_for('teacher_section_curriculum_module',
+                            section_id=section_id, module_id=module_id))
 
 
 @app.route('/section/join', methods=['POST'])

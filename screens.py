@@ -165,11 +165,39 @@ SCREENS = {
     'teacher_delete_override': _s('TEACHER_OVERRIDE_DELETE', 'teacher', 'Teacher',
                                   kind='action'),
     'teacher_hide_module':     _s('TEACHER_MODULE_HIDE',     'teacher', 'Teacher',
-                                  kind='action'),
+                                  kind='action',
+                                  condition='Task 5: also 404s unless the module belongs to '
+                                            "this section's current course and is either "
+                                            'course content or this section\'s own '
+                                            '(Task 4 review Minor finding — this used to be '
+                                            'unchecked). Returns to TEACHER_SECTION_CURRICULUM.'),
     'teacher_restore_module':  _s('TEACHER_MODULE_RESTORE',  'teacher', 'Teacher',
-                                  kind='action'),
-    'teacher_add_module_exercise': _s('TEACHER_MODULE_EXERCISE_ADD', 'school_admin',
-                                      'Teacher', kind='action'),
+                                  kind='action',
+                                  condition='Same ownership check and return page as '
+                                            'TEACHER_MODULE_HIDE.'),
+    'teacher_section_curriculum': _s('TEACHER_SECTION_CURRICULUM', 'teacher', 'Teacher'),
+    'teacher_section_curriculum_module': _s('TEACHER_SECTION_CURRICULUM_MODULE', 'teacher',
+                                            'Teacher',
+                                            condition='Module must belong to this section\'s '
+                                                      'current course and be either course '
+                                                      "content or this section's own — "
+                                                      'otherwise 404.'),
+    'teacher_delete_curriculum_module': _s('TEACHER_CURRICULUM_MODULE_DELETE', 'teacher',
+                                           'Teacher', kind='action',
+                                           condition='Only this section\'s own module — '
+                                                     '404 for shared course content.'),
+    'teacher_edit_curriculum_exercise': _s('TEACHER_CURRICULUM_EXERCISE_EDIT', 'teacher',
+                                           'Teacher', kind='action',
+                                           condition='Only this section\'s own exercise — '
+                                                     '404 otherwise.'),
+    'teacher_duplicate_curriculum_exercise': _s('TEACHER_CURRICULUM_EXERCISE_DUPLICATE',
+                                                'teacher', 'Teacher', kind='action',
+                                                condition='Only this section\'s own exercise '
+                                                          '— 404 otherwise.'),
+    'teacher_remove_curriculum_exercise': _s('TEACHER_CURRICULUM_EXERCISE_REMOVE', 'teacher',
+                                             'Teacher', kind='action',
+                                             condition='Only this section\'s own exercise — '
+                                                       '404 otherwise.'),
 
     # ---- School admin -------------------------------------------------------
     'admin_my_school':       _s('SCHOOL_ADMIN_ENTRY', 'teacher', 'School admin',
@@ -315,6 +343,8 @@ TEMPLATES = {
     'teacher_edit_section': 'teacher/edit_section.html',
     'teacher_delete_section': 'teacher/confirm_delete_section.html',
     'teacher_kick_student': 'teacher/confirm_kick_student.html',
+    'teacher_section_curriculum': 'teacher/section_curriculum.html',
+    'teacher_section_curriculum_module': 'teacher/section_curriculum_module.html',
 
     'admin_school_detail': 'admin/school_detail.html',
     'admin_course_sections': 'admin/course_sections.html',

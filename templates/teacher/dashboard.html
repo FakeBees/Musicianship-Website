@@ -25,6 +25,7 @@
         </div>
         <div class="card-footer d-flex gap-2">
           <a href="{{ url_for('teacher_section_detail', section_id=section.id) }}" class="btn btn-sm btn-outline-primary">View roster</a>
+          <a href="{{ url_for('teacher_section_curriculum', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Curriculum</a>
           <a href="{{ url_for('teacher_edit_section', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
           {% if can_create_section %}
           <a href="{{ url_for('teacher_delete_section', section_id=section.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>

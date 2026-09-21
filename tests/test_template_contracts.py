@@ -541,6 +541,10 @@ def _pages_for_uniqueness(w):
     return pages_for(w) + [
         ('sandbox',       '/sandbox',                ['admin']),
         ('melody upload', '/admin/melodies/upload',  ['admin']),
+        ('section curriculum',
+         f"/teacher/section/{w['section']}/curriculum",             ['admin', 'at', 'ct']),
+        ('section curriculum module',
+         f"/teacher/section/{w['section']}/curriculum/modules/{w['module']}", ['admin', 'at', 'ct']),
     ]
 
 

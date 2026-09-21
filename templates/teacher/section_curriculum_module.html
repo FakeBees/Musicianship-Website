@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}{{ section.name }} — {{ module.name }}{% endblock %}
+
+{# Set at the top level (not inside a block) so both blocks below can see
+   them: a {% set %} made inside one {% block %} is NOT visible from a
+   sibling block in Jinja — see admin/module_exercises.html's own note. #}
+{% set add_action_url        = url_for('teacher_section_curriculum_module', section_id=section.id, module_id=module.id) %}
+{% set edit_url_template      = url_for('teacher_edit_curriculum_exercise', section_id=section.id, me_id=0) %}
+{% set duplicate_url_template = url_for('teacher_duplicate_curriculum_exercise', section_id=section.id, me_id=0) %}
+{% set remove_url_template    = url_for('teacher_remove_curriculum_exercise', section_id=section.id, me_id=0) %}
+
+{% block content %}
+<div class="container py-4">
+  <a href="{{ url_for('teacher_section_curriculum', section_id=section.id) }}" class="btn btn-link p-0 text-decoration-none mb-2 d-inline-block">← {{ section.name }} — Curriculum</a>
+  <h2 class="mb-4">{{ section.name }} — {{ module.name }}</h2>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="alert alert-{{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  {% if course_exercises is not none %}
+  <h5 class="mb-2">Course exercises</h5>
+  <table class="table table-sm align-middle mb-4">
+    <thead><tr><th>#</th><th>Name</th><th>Type</th><th></th></tr></thead>
+    <tbody>
+    {% for ex in course_exercises %}
+    <tr>
+      <td>{{ ex.order }}</td>
+      <td>
+        <span {% if ex.hidden %}class="text-muted text-decoration-line-through"{% endif %}>{{ ex.name or ex.exercise_type }}</span>
+        {% if ex.hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
+      </td>
+      <td><span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }}">{{ ex.exercise_type }}</span></td>
+      <td>
+        {% if ex.hidden %}
+        <form method="post" action="{{ url_for('teacher_delete_override', section_id=section.id, sme_id=ex.sme_id) }}">
+          <button class="btn btn-sm btn-outline-success">Restore</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('teacher_add_override', section_id=section.id) }}">
+          <input type="hidden" name="action" value="hide">
+          <input type="hidden" name="module_exercise_id" value="{{ ex.id }}">
+          <input type="hidden" name="module_id" value="{{ module.id }}">
+          <button class="btn btn-sm btn-outline-warning">Hide</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">No course exercises in this module.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h5 class="mb-2">This {{ section_term_title }}'s own exercises</h5>
+  {% include 'admin/_module_exercise_editor.html' with context %}
+</div>
+{% endblock %}
+
+{# The editor's script goes in {% block scripts %}, which base.html renders
+   after Bootstrap's JS bundle — see _module_exercise_editor_js.html's own
+   header comment for why. #}
+{% block scripts %}
+{% include 'admin/_module_exercise_editor_js.html' with context %}
+{% endblock %}

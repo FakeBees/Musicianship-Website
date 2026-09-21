@@ -83,94 +83,13 @@
   </div>
   {% endif %}
 
-  <!-- Override management -->
+  <!-- Curriculum -->
   <div class="card mb-4">
-    <div class="card-header fw-semibold">{{ section_term_title }}-Specific Overrides</div>
+    <div class="card-header fw-semibold">Curriculum</div>
     <div class="card-body">
-      {% if not section.course_id %}
-        <p class="text-muted mb-0">Assign a course above to manage which exercises are visible to students in this {{ section_term }}.</p>
-      {% elif not modules_with_exercises %}
-        <p class="text-muted mb-0">This course has no modules yet. Add modules and exercises in the admin panel.</p>
-      {% else %}
-        <p class="text-muted small mb-3">By default students see all exercises from the course. Hide individual exercises to customize what this {{ section_term }} sees.</p>
-        {% for item in modules_with_exercises %}
-        <div class="d-flex align-items-center justify-content-between mt-3 mb-2">
-          <h6 class="fw-semibold mb-0">{{ item.module.name }}</h6>
-          {% set module_hidden = item.module.id in hidden_module_ids %}
-          {% if module_hidden %}
-          <form method="post" action="{{ url_for('teacher_restore_module', section_id=section.id, module_id=item.module.id) }}">
-            <button class="btn btn-sm btn-outline-success">Restore module</button>
-          </form>
-          {% else %}
-          <form method="post" action="{{ url_for('teacher_hide_module', section_id=section.id, module_id=item.module.id) }}">
-            <button class="btn btn-sm btn-outline-warning">Hide module</button>
-          </form>
-          {% endif %}
-        </div>
-        {% if item.exercises %}
-        <ul class="list-group mb-2">
-          {% for ex in item.exercises %}
-          {% set is_hidden = ex.id in hidden_ids %}
-          <li class="list-group-item d-flex justify-content-between align-items-center
-                      {% if is_hidden %}list-group-item-secondary{% endif %}">
-            <div>
-              <span {% if is_hidden %}class="text-muted text-decoration-line-through"{% endif %}>
-                {{ ex.name or ex.exercise_type }}
-              </span>
-              <span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }} ms-2">{{ ex.exercise_type }}</span>
-              {% if is_hidden %}<span class="badge bg-warning text-dark ms-1">Hidden</span>{% endif %}
-            </div>
-            {% if is_hidden %}
-              {% set sme = overrides | selectattr('module_exercise_id', 'equalto', ex.id) | selectattr('action', 'equalto', 'hide') | first %}
-              {% if sme %}
-              <form method="post" action="{{ url_for('teacher_delete_override', section_id=section.id, sme_id=sme.id) }}">
-                <button class="btn btn-sm btn-outline-success">Restore</button>
-              </form>
-              {% endif %}
-            {% else %}
-              <form method="post" action="{{ url_for('teacher_add_override', section_id=section.id) }}">
-                <input type="hidden" name="action" value="hide">
-                <input type="hidden" name="module_exercise_id" value="{{ ex.id }}">
-                <input type="hidden" name="module_id" value="{{ item.module.id }}">
-                <button class="btn btn-sm btn-outline-warning">Hide</button>
-              </form>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted small">No exercises in this module.</p>
-        {% endif %}
-        {% if can_manage %}
-        <details class="mt-2 mb-3">
-          <summary class="text-muted small" style="cursor:pointer">+ Add exercise to this {{ section_term }} only</summary>
-          <form method="post" action="{{ url_for('teacher_add_module_exercise', section_id=section.id) }}" class="mt-2 p-3 border rounded bg-light">
-            <input type="hidden" name="module_id" value="{{ item.module.id }}">
-            <div class="row g-2">
-              <div class="col-md-3">
-                <select name="exercise_type" class="form-select form-select-sm" required>
-                  <option value="">Type</option>
-                  <option value="melody">Melody</option>
-                  <option value="rhythm">Rhythm</option>
-                  <option value="harmonic">Harmonic</option>
-                  <option value="holistic">Holistic</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <input type="number" name="exercise_id" class="form-control form-control-sm" placeholder="Exercise ID" required>
-              </div>
-              <div class="col-md-4">
-                <input type="text" name="name" class="form-control form-control-sm" placeholder="Display name (optional)">
-              </div>
-              <div class="col-md-2">
-                <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
-              </div>
-            </div>
-          </form>
-        </details>
-        {% endif %}
-        {% endfor %}
-      {% endif %}
+      <p class="text-muted small mb-3">Manage this {{ section_term }}'s modules and exercises —
+        hide or restore course content, or add modules and exercises of your own.</p>
+      <a href="{{ url_for('teacher_section_curriculum', section_id=section.id) }}" class="btn btn-outline-primary">Curriculum →</a>
     </div>
   </div>
 
