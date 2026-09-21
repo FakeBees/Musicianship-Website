@@ -709,11 +709,28 @@ def _visible_exercise_filter(model):
 
 
 def _apply_exercise_filters(query, model, params):
-    """Apply params_json filter dict to a SQLAlchemy query for melody/rhythm/harmonic."""
+    """Apply params_json filter dict to a SQLAlchemy query for melody/rhythm/harmonic.
+
+    time_signature (D25): rows saved before multi-select support store a
+    plain string; the edit form can now tick several boxes and stores a
+    list. Accept both — a string filters by equality, a list by IN.
+
+    clef / min_duration (D23): filtered only when the model actually has
+    the column — melody has both, rhythm has min_duration only, harmonic
+    has neither. Mirrors the sandbox /random route (random_melody).
+    """
     if params.get('difficulty'):
         query = query.filter(model.difficulty.in_(params['difficulty']))
-    if params.get('time_signature'):
-        query = query.filter(model.time_signature == params['time_signature'])
+    if params.get('time_signature') and hasattr(model, 'time_signature'):
+        time_sig = params['time_signature']
+        if isinstance(time_sig, (list, tuple)):
+            query = query.filter(model.time_signature.in_(time_sig))
+        else:
+            query = query.filter(model.time_signature == time_sig)
+    if params.get('clef') and hasattr(model, 'clef'):
+        query = query.filter(model.clef.in_(params['clef']))
+    if params.get('min_duration') and hasattr(model, 'min_duration'):
+        query = query.filter(model.min_duration.in_(params['min_duration']))
     if params.get('key_signature') and hasattr(model, 'key_signature'):
         query = query.filter(model.key_signature == params['key_signature'])
     if params.get('category') and hasattr(model, 'category'):
@@ -722,6 +739,71 @@ def _apply_exercise_filters(query, model, params):
         for tag_name in params['tags']:
             query = query.filter(model.tags.any(Tag.name == tag_name))
     return query
+
+
+def _module_exercise_fields_from_form(form, exercise_type, fallback_name, fallback_order=0):
+    """Turn a submitted module-exercise add/edit form into the fields the
+    two course handlers (admin_module_exercises' POST branch and
+    admin_edit_module_exercise) both need: name, order,
+    completion_criterion_json and, for filter-based types, params_json.
+
+    `exercise_type` must already be known — read from the form for add,
+    taken from the existing row for edit, since a saved exercise's type
+    never changes there. `fallback_name`/`fallback_order` are what a blank
+    submission falls back to: add falls back to the type name, edit falls
+    back to the row's own current value — so a blank edit reuses what was
+    already saved instead of losing it.
+
+    The exercise picker (exercise_id, holistic only) is add-only — you
+    choose what an exercise *is* at creation, per _module_exercise_fields.html
+    — and stays out of this helper.
+    """
+    name  = form.get('name', '').strip() or fallback_name
+    order = int(form.get('order', fallback_order))
+
+    criterion_type = form.get('criterion_type', 'attempts')
+    if criterion_type == 'passing':
+        passing   = int(form.get('completion_passing', 1))
+        min_score = int(form.get('completion_min_score', 70))
+        criterion_json = json.dumps({'passing': passing, 'min_score': min_score})
+    else:
+        attempts = int(form.get('completion_attempts', 1))
+        criterion_json = json.dumps({'attempts': attempts})
+
+    params_json = None
+    if exercise_type != 'holistic':
+        difficulties  = form.getlist('difficulty')
+        tags_list     = form.getlist('tag')
+        category_list = form.getlist('category')
+        time_sigs     = form.getlist('time_signature_cb')
+        clefs         = form.getlist('clef_cb')
+        min_durs      = form.getlist('min_dur_cb')
+        key_sig       = form.get('key_signature', '').strip()
+        params = {}
+        if difficulties:
+            params['difficulty'] = [int(d) for d in difficulties]
+        if tags_list:
+            params['tags'] = [t for t in tags_list if t]
+        if category_list and exercise_type == 'harmonic':
+            params['category'] = [c for c in category_list if c]
+        if time_sigs:
+            # D25: store a bare string for one pick (unchanged shape for the
+            # common case), a list when several are ticked.
+            params['time_signature'] = time_sigs[0] if len(time_sigs) == 1 else time_sigs
+        if clefs and exercise_type == 'melody':
+            params['clef'] = clefs
+        if min_durs and exercise_type in ('melody', 'rhythm'):
+            params['min_duration'] = min_durs
+        if key_sig and exercise_type == 'harmonic':
+            params['key_signature'] = key_sig
+        params_json = json.dumps(params) if params else None
+
+    return {
+        'name': name,
+        'order': order,
+        'completion_criterion_json': criterion_json,
+        'params_json': params_json,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1577,49 +1659,22 @@ def admin_module_exercises(module_id):
     module = Module.query.get_or_404(module_id)
     require_school_role(module.course.school_id, 'admin_teacher')
     if request.method == 'POST':
-        ex_type   = request.form['exercise_type']
-        name      = request.form.get('name', '').strip() or ex_type.capitalize()
-        order     = int(request.form.get('order', 0))
-        criterion_type = request.form.get('criterion_type', 'attempts')
-        if criterion_type == 'passing':
-            passing   = int(request.form.get('completion_passing', 1))
-            min_score = int(request.form.get('completion_min_score', 70))
-            criterion = json.dumps({'passing': passing, 'min_score': min_score})
-        else:
-            attempts  = int(request.form.get('completion_attempts', 1))
-            criterion = json.dumps({'attempts': attempts})
-
+        ex_type = request.form['exercise_type']
         if ex_type == 'holistic':
-            ex_id      = int(request.form['exercise_id'])
-            params_val = None
+            ex_id = int(request.form['exercise_id'])
         else:
             ex_id = 0  # sentinel — not used for filter-based exercises
-            difficulties = request.form.getlist('difficulty')
-            tags_list    = request.form.getlist('tag')
-            category_list = request.form.getlist('category')
-            time_sig     = request.form.get('time_signature', '').strip()
-            key_sig      = request.form.get('key_signature', '').strip()
-            params_dict  = {}
-            if difficulties:
-                params_dict['difficulty'] = [int(d) for d in difficulties]
-            if tags_list:
-                params_dict['tags'] = [t for t in tags_list if t]
-            if category_list and ex_type == 'harmonic':
-                params_dict['category'] = [c for c in category_list if c]
-            if time_sig:
-                params_dict['time_signature'] = time_sig
-            if key_sig and ex_type == 'harmonic':
-                params_dict['key_signature'] = key_sig
-            params_val = json.dumps(params_dict) if params_dict else None
+        fields = _module_exercise_fields_from_form(
+            request.form, ex_type, fallback_name=ex_type.capitalize())
 
         db.session.add(ModuleExercise(
             module_id=module_id,
-            name=name,
+            name=fields['name'],
             exercise_type=ex_type,
             exercise_id=ex_id,
-            order=order,
-            completion_criterion_json=criterion,
-            params_json=params_val,
+            order=fields['order'],
+            completion_criterion_json=fields['completion_criterion_json'],
+            params_json=fields['params_json'],
         ))
         db.session.commit()
         flash('Exercise added to module.', 'success')
@@ -1635,9 +1690,10 @@ def admin_module_exercises(module_id):
     harmonic_tags_list = sorted({t.name for p in progressions for t in p.tags})
     harmonic_categories = sorted({p.category for p in progressions if p.category})
     melodies_data = [{'time_signature': m.time_signature, 'min_duration': m.min_duration,
-                      'clef': m.clef, 'tags': [t.name for t in m.tags]} for m in melodies]
+                      'clef': m.clef, 'difficulty': m.difficulty,
+                      'tags': [t.name for t in m.tags]} for m in melodies]
     rhythms_data  = [{'time_signature': r.time_signature, 'min_duration': r.min_duration,
-                      'tags': [t.name for t in r.tags]} for r in rhythms]
+                      'difficulty': r.difficulty, 'tags': [t.name for t in r.tags]} for r in rhythms]
     progressions_data = [{'category': p.category, 'difficulty': p.difficulty,
                           'tags': [t.name for t in p.tags]} for p in progressions]
     return render_template('admin/module_exercises.html',
@@ -1673,34 +1729,13 @@ def admin_delete_module_exercise(me_id):
 def admin_edit_module_exercise(me_id):
     me = ModuleExercise.query.get_or_404(me_id)
     require_school_role(me.module.course.school_id, 'admin_teacher')
-    me.name  = request.form.get('name', me.name).strip() or me.name
-    me.order = int(request.form.get('order', me.order))
-    criterion_type = request.form.get('criterion_type', 'attempts')
-    if criterion_type == 'passing':
-        passing   = int(request.form.get('completion_passing', 1))
-        min_score = int(request.form.get('completion_min_score', 70))
-        me.completion_criterion_json = json.dumps({'passing': passing, 'min_score': min_score})
-    else:
-        attempts = int(request.form.get('completion_attempts', 1))
-        me.completion_criterion_json = json.dumps({'attempts': attempts})
+    fields = _module_exercise_fields_from_form(
+        request.form, me.exercise_type, fallback_name=me.name, fallback_order=me.order)
+    me.name  = fields['name']
+    me.order = fields['order']
+    me.completion_criterion_json = fields['completion_criterion_json']
     if me.exercise_type != 'holistic':
-        difficulties = request.form.getlist('difficulty')
-        tags_list    = request.form.getlist('tag')
-        category_list = request.form.getlist('category')
-        time_sig     = request.form.get('time_signature', '').strip()
-        key_sig      = request.form.get('key_signature', '').strip()
-        params_dict  = {}
-        if difficulties:
-            params_dict['difficulty'] = [int(d) for d in difficulties]
-        if tags_list:
-            params_dict['tags'] = [t for t in tags_list if t]
-        if category_list and me.exercise_type == 'harmonic':
-            params_dict['category'] = [c for c in category_list if c]
-        if time_sig:
-            params_dict['time_signature'] = time_sig
-        if key_sig and me.exercise_type == 'harmonic':
-            params_dict['key_signature'] = key_sig
-        me.params_json = json.dumps(params_dict) if params_dict else None
+        me.params_json = fields['params_json']
     db.session.commit()
     flash('Exercise updated.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=me.module_id))

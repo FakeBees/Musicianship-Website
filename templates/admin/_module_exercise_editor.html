@@ -1,0 +1,385 @@
+{# The module-exercise editor: add form, exercises table, edit modal, and
+   the script that drives them. Included by both admin/module_exercises.html
+   (course curriculum) and, eventually, a section-level equivalent — nothing
+   here is admin-route-specific, so every URL it posts to is passed in by
+   the including page rather than hardcoded:
+
+     add_action_url          — where the add form posts (its own page URL)
+     edit_url_template        \
+     duplicate_url_template    } url_for(..., me_id=0) from the including
+     remove_url_template      /  page — the '0' is substituted per-row below
+
+   Besides those four, the caller must supply everything
+   admin_module_exercises already renders this template with: module,
+   exercises, holistics, all_tags, melody_tags_list, rhythm_tags_list,
+   harmonic_tags_list, harmonic_categories, melodies_data, rhythms_data,
+   progressions_data. #}
+
+{# ── ADD EXERCISE FORM ─────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header fw-semibold">Add Exercise</div>
+  <div class="card-body">
+    <form method="post" id="add-form" action="{{ add_action_url }}">
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Type</label>
+          <select name="exercise_type" class="form-select" id="ex-type" required>
+            <option value="">Choose…</option>
+            <option value="melody">Melodic</option>
+            <option value="rhythm">Rhythmic</option>
+            <option value="harmonic">Harmonic</option>
+            <option value="holistic">Holistic</option>
+          </select>
+        </div>
+      </div>
+
+      {% set mode = 'add' %}
+      {% include 'admin/_module_exercise_fields.html' with context %}
+
+      {# ── HOLISTIC EXERCISE PICKER (add-only — you choose what an exercise
+           IS at creation and change its parameters later) ─────────────── #}
+      <div id="holistic-field" class="d-none mb-3">
+        <label class="form-label fw-semibold">Exercise</label>
+        <select name="exercise_id" class="form-select">
+          <option value="">Choose a holistic exercise…</option>
+          {% for ex in holistics %}
+          <option value="{{ ex.id }}">{{ ex.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button class="btn btn-primary">Add Exercise</button>
+    </form>
+  </div>
+</div>
+
+{# ── EXERCISE TABLE ────────────────────────────────────────────────────── #}
+<table class="table table-sm align-middle">
+  <thead>
+    <tr><th>#</th><th>Name</th><th>Type</th><th>Filters / Exercise</th><th>Completion</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for ex in exercises %}
+  {% set params = ex.params %}
+  {% set crit   = ex.completion_criterion %}
+  <tr>
+    <td>{{ ex.order }}</td>
+    <td>{{ ex.name }}</td>
+    <td><span class="badge {{ {'melody': 'bg-primary', 'rhythm': 'bg-warning text-dark', 'harmonic': 'bg-success', 'holistic': 'bg-purple'}.get(ex.exercise_type, 'bg-secondary') }}">{{ ex.exercise_type }}</span></td>
+    <td class="small">
+      {% if ex.exercise_type == 'holistic' %}
+        {% set hol = holistics | selectattr('id', 'equalto', ex.exercise_id) | first %}
+        <i class="bi bi-music-note-beamed me-1"></i>{{ hol.name if hol else 'ID ' ~ ex.exercise_id }}
+      {% elif params %}
+        {% if params.get('difficulty') %}
+          <span class="me-2">Difficulty: {{ params.difficulty | join(', ') }}</span>
+        {% endif %}
+        {% if params.get('time_signature') %}
+          <span class="me-2">{{ params.time_signature if params.time_signature is string else params.time_signature | join(', ') }}</span>
+        {% endif %}
+        {% if params.get('key_signature') %}
+          <span class="me-2">Key: {{ params.key_signature }}</span>
+        {% endif %}
+        {% if params.get('tags') %}
+          {% for t in params.tags %}<span class="badge bg-light text-dark border me-1">{{ t }}</span>{% endfor %}
+        {% endif %}
+        {% if not params.get('difficulty') and not params.get('time_signature') and not params.get('tags') and not params.get('key_signature') %}
+          <span class="text-muted">Any</span>
+        {% endif %}
+      {% else %}
+        <span class="text-muted">Any</span>
+      {% endif %}
+    </td>
+    <td class="small">
+      {% if crit.get('passing') %}
+        {{ crit.passing }} pass{{ 'es' if crit.passing != 1 }} at {{ crit.get('min_score', 70) }}%
+      {% else %}
+        {{ crit.get('attempts', 1) }} attempt{{ 's' if crit.get('attempts', 1) != 1 }}
+      {% endif %}
+    </td>
+    <td>
+      <div class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-secondary"
+                onclick='openEditModal({{ {"id": ex.id, "name": ex.name, "order": ex.order, "exercise_type": ex.exercise_type, "params_json": ex.params_json, "completion_criterion_json": ex.completion_criterion_json} | tojson }})'>Edit</button>
+        <form method="post" action="{{ duplicate_url_template | replace('/0/', '/' ~ ex.id ~ '/') }}">
+          <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
+        </form>
+        <form method="post" action="{{ remove_url_template | replace('/0/', '/' ~ ex.id ~ '/') }}"
+              onsubmit="return confirm('Remove this exercise from the module?')">
+          <button class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+      </div>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="text-muted">No exercises yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{# ── EDIT MODAL ────────────────────────────────────────────────────────────── #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Exercise</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="edit-form">
+        <div class="modal-body">
+          {% set mode = 'edit' %}
+          {% include 'admin/_module_exercise_fields.html' with context %}
+
+          <div id="edit-holistic-info" class="d-none">
+            <p class="text-muted">Holistic exercises cannot have their filters changed here. To change the exercise, remove and re-add it.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// URL templates rendered server-side with a me_id=0 placeholder — the '0' is
+// swapped for the real id below, so this page never hardcodes its own path
+// (the whole point of pulling this editor into an include: the same script
+// works unchanged for any page that supplies its own templates).
+const EDIT_URL_TEMPLATE = {{ edit_url_template | tojson }};
+
+// ── Library snapshots, for the add form's live match-count preview ────────────
+//    Only the add form previews. The edit modal edits an exercise whose type is
+//    already fixed, and the route ships these snapshots for the add form's sake.
+const LIB = {
+  melody:   {{ melodies_data     | tojson }},
+  rhythm:   {{ rhythms_data      | tojson }},
+  harmonic: {{ progressions_data | tojson }},
+};
+// Which filter dimensions each snapshot actually carries: [checkbox name, data key].
+const LIB_DIMS = {
+  melody:   [['time_signature_cb', 'time_signature'], ['min_dur_cb', 'min_duration'], ['clef_cb', 'clef'], ['difficulty', 'difficulty']],
+  rhythm:   [['time_signature_cb', 'time_signature'], ['min_dur_cb', 'min_duration'], ['difficulty', 'difficulty']],
+  harmonic: [['category', 'category'], ['difficulty', 'difficulty']],
+};
+const LIB_NOUN = {
+  melody:   ['melody', 'melodies'],
+  rhythm:   ['rhythm', 'rhythms'],
+  harmonic: ['progression', 'progressions'],
+};
+
+// ── Filter-row visibility, shared by the add form's live Type picker and the
+//    edit modal's fixed exercise type ──────────────────────────────────────────
+function applyFilterVisibility(mode, type) {
+  document.getElementById(mode + '-filter-settings').classList.toggle('d-none', !type || type === 'holistic');
+  const isMelodyOrRhythm = (type === 'melody' || type === 'rhythm');
+  document.getElementById(mode + '-time-sig-row').classList.toggle('d-none', !isMelodyOrRhythm);
+  document.getElementById(mode + '-min-dur-row').classList.toggle('d-none', !isMelodyOrRhythm);
+  document.getElementById(mode + '-clef-row').classList.toggle('d-none', type !== 'melody');
+  document.getElementById(mode + '-category-row')?.classList.toggle('d-none', type !== 'harmonic');
+  document.getElementById(mode + '-key-sig-row').classList.toggle('d-none', type !== 'harmonic');
+}
+
+// ── Keep each mode's single time_signature hidden field in sync with its
+//    checkbox group (belt and braces — see clearAddFilters below; the route
+//    itself now reads the time_signature_cb checkboxes directly) ─────────────
+function syncTimeSigHidden(mode) {
+  const row    = document.getElementById(mode + '-time-sig-row');
+  const hidden = document.getElementById(mode + '-time-sig-hidden');
+  // A hidden row means the selected type has no time signature (harmonic,
+  // holistic, nothing picked yet). Never post one for those: reading the
+  // checkboxes regardless of type is how a 4/4 chosen under Melodic used to
+  // end up in a Harmonic exercise's params_json.
+  if (row.classList.contains('d-none')) { hidden.value = ''; return; }
+  const checked = [...row.querySelectorAll('input[name="time_signature_cb"]:checked')].map(e => e.value);
+  hidden.value = checked.length === 1 ? checked[0] : '';
+}
+
+// ── Live match count and zero-match guard (add form) ─────────────────────────
+//    A filter combination that matches nothing is a real defect, not a cosmetic
+//    one: the student hits "No exercises match the filters for this module
+//    exercise" at launch and cannot start it. Nothing else warns the admin.
+function addSelected(name) {
+  return [...document.querySelectorAll(
+    `#add-filter-settings input[name="${name}"]:checked`)].map(e => e.value);
+}
+function addSelection(type) {
+  const sel = { tags: addSelected('tag') };
+  (LIB_DIMS[type] || []).forEach(([cbName, key]) => { sel[key] = addSelected(cbName); });
+  return sel;
+}
+function countMatches(type, sel) {
+  return (LIB[type] || []).filter(row => {
+    for (const [, key] of (LIB_DIMS[type] || [])) {
+      const vals = sel[key] || [];
+      if (vals.length && !vals.map(String).includes(String(row[key]))) return false;
+    }
+    // _apply_exercise_filters ANDs tags, so a row must carry every one of them.
+    return !sel.tags.length || sel.tags.every(t => (row.tags || []).includes(t));
+  }).length;
+}
+function selectionIsEmpty(type, sel) {
+  return !sel.tags.length && !(LIB_DIMS[type] || []).some(([, key]) => sel[key].length);
+}
+// A topic checkbox only applies to the exercise types whose library uses it.
+function appliesToType(cb, type) {
+  return cb.dataset.types === undefined
+      || cb.dataset.types.split(' ').filter(Boolean).includes(type);
+}
+function updateMatchCount() {
+  const label = document.getElementById('add-match-count');
+  if (!label) return;
+  const type = typeSelect.value;
+  if (!LIB[type]) { label.textContent = ''; return; }   // holistic, or nothing picked
+
+  const sel      = addSelection(type);
+  const anyFilter = !selectionIsEmpty(type, sel);
+  const total    = countMatches(type, sel);
+  const [one, many] = LIB_NOUN[type];
+  label.textContent = anyFilter
+    ? `${total} matching ${total === 1 ? one : many}`
+    : `${LIB[type].length} ${many} available`;
+  label.className = 'small mt-2 ' + (!anyFilter || total > 0 ? 'text-muted' : 'text-danger fw-semibold');
+
+  // Disable and gray any unchecked option that would take the count to zero.
+  const groups = (LIB_DIMS[type] || []).concat([['tag', 'tags']]);
+  groups.forEach(([cbName, key]) => {
+    document.querySelectorAll(`#add-filter-settings input[name="${cbName}"]`).forEach(cb => {
+      if (cb.checked || !appliesToType(cb, type)) return;
+      const ok = countMatches(type, Object.assign({}, sel, { [key]: [...sel[key], cb.value] })) > 0;
+      cb.disabled = !ok;
+      document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('opacity-50', !ok);
+    });
+  });
+}
+function applyTagVisibility(type) {
+  document.querySelectorAll('#add-tags-container input[name="tag"]').forEach(cb => {
+    const applies = appliesToType(cb, type);
+    cb.disabled = !applies;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.toggle('d-none', !applies);
+  });
+}
+
+// ── Clear every add-form filter control ──────────────────────────────────────
+//    The whole add form posts as one, and the same control means different
+//    things per type, so anything left checked under the previous type would
+//    ride along into the next one's params_json.
+function clearAddFilters() {
+  document.querySelectorAll('#add-filter-settings input[type="checkbox"]').forEach(cb => {
+    cb.checked  = false;
+    cb.disabled = false;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.remove('opacity-50');
+  });
+  document.getElementById('add-time-sig-hidden').value = '';
+  document.getElementById('add-key-sig').value = '';
+}
+
+// ── Type switcher (add form) ─────────────────────────────────────────────────
+const typeSelect = document.getElementById('ex-type');
+function onTypeChange() {
+  const t = typeSelect.value;
+  applyFilterVisibility('add', t);
+  document.getElementById('holistic-field').classList.toggle('d-none', t !== 'holistic');
+  clearAddFilters();
+  applyTagVisibility(t);
+  syncTimeSigHidden('add');
+  updateMatchCount();
+}
+typeSelect.addEventListener('change', onTypeChange);
+onTypeChange();
+
+document.querySelectorAll('#add-filter-settings input[type="checkbox"]')
+  .forEach(cb => cb.addEventListener('change', () => { syncTimeSigHidden('add'); updateMatchCount(); }));
+document.querySelectorAll('#edit-time-sig-row input[name="time_signature_cb"]')
+  .forEach(cb => cb.addEventListener('change', () => syncTimeSigHidden('edit')));
+document.getElementById('add-form').addEventListener('submit', () => syncTimeSigHidden('add'));
+document.getElementById('edit-form').addEventListener('submit', () => syncTimeSigHidden('edit'));
+
+// ── Completion criterion toggle ───────────────────────────────────────────────
+function wireCritToggle(prefix) {
+  const radios = document.querySelectorAll(`input[name="criterion_type"][id^="${prefix}"]`);
+  const aFields = document.getElementById(prefix + 'crit-attempts-fields');
+  const pFields = document.getElementById(prefix + 'crit-passing-fields');
+  radios.forEach(r => r.addEventListener('change', () => {
+    const isPass = document.querySelector(`input[name="criterion_type"][id^="${prefix}"]:checked`)?.value === 'passing';
+    aFields.classList.toggle('d-none', isPass);
+    pFields.classList.toggle('d-none', !isPass);
+  }));
+}
+wireCritToggle('add-crit-');
+wireCritToggle('edit-crit-');
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEditModal(ex) {
+  const form = document.getElementById('edit-form');
+  form.action = EDIT_URL_TEMPLATE.replace('/0/', '/' + ex.id + '/');
+  document.getElementById('edit-name').value  = ex.name  || '';
+  document.getElementById('edit-order').value = ex.order || 0;
+
+  // completion criterion
+  let crit = {};
+  try { crit = JSON.parse(ex.completion_criterion_json || '{}'); } catch(e) {}
+  const isPass = 'passing' in crit;
+  document.getElementById('edit-crit-attempts').checked = !isPass;
+  document.getElementById('edit-crit-passing').checked  = isPass;
+  document.getElementById('edit-crit-attempts-fields').classList.toggle('d-none', isPass);
+  document.getElementById('edit-crit-passing-fields').classList.toggle('d-none', !isPass);
+  document.getElementById('edit-attempts').value   = crit.attempts  || 1;
+  document.getElementById('edit-passing').value    = crit.passing   || 1;
+  document.getElementById('edit-min-score').value  = crit.min_score || 70;
+
+  // filter vs holistic
+  const isHolistic = ex.exercise_type === 'holistic';
+  document.getElementById('edit-holistic-info').classList.toggle('d-none', !isHolistic);
+  applyFilterVisibility('edit', ex.exercise_type);
+
+  // parse params
+  let params = {};
+  try { params = JSON.parse(ex.params_json || '{}'); } catch(e) {}
+
+  // clear all filter checkboxes
+  document.querySelectorAll('#edit-filter-settings input[type="checkbox"]').forEach(cb => {
+    cb.checked  = false;
+    cb.disabled = false;
+    document.querySelector(`label[for="${cb.id}"]`)?.classList.remove('opacity-50');
+  });
+
+  // check appropriate ones
+  (params.difficulty || []).forEach(d => {
+    const cb = document.getElementById('edit-diff-' + d);
+    if (cb) cb.checked = true;
+  });
+  // time_signature (D25): older rows store one signature as a bare string;
+  // the form can now tick several, stored as a list. Accept either shape.
+  const editTimeSigs = Array.isArray(params.time_signature) ? params.time_signature
+                      : (params.time_signature ? [params.time_signature] : []);
+  editTimeSigs.forEach(sig => {
+    const cb = document.getElementById('edit-ts-' + sig.replace('/', '_'));
+    if (cb) cb.checked = true;
+  });
+  // clef / min_duration (D23)
+  (params.clef || []).forEach(c => {
+    const cb = document.getElementById('edit-clef-' + c);
+    if (cb) cb.checked = true;
+  });
+  (params.min_duration || []).forEach(d => {
+    const cb = document.getElementById('edit-md-' + d);
+    if (cb) cb.checked = true;
+  });
+  (params.tags || []).forEach(t => {
+    const cb = document.getElementById('edit-tag-' + t.replace(':', '_').replace(' ', '_'));
+    if (cb) cb.checked = true;
+  });
+  (params.category || []).forEach(c => {
+    const cb = document.getElementById('edit-cat-' + c);
+    if (cb) cb.checked = true;
+  });
+  document.getElementById('edit-key-sig').value = params.key_signature || '';
+  document.getElementById('edit-time-sig-hidden').value =
+    (typeof params.time_signature === 'string') ? params.time_signature : '';
+
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+</script>
