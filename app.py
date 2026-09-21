@@ -1664,6 +1664,12 @@ def admin_modules(course_id):
 def admin_module_exercises(module_id):
     module = Module.query.get_or_404(module_id)
     require_school_role(module.course.school_id, 'admin_teacher')
+    # Task 4 follow-up: the course editor operates on course content only —
+    # a section's own module (Task 5's territory) must not be reachable here
+    # by typing its id, whether to view it or to add a course-level exercise
+    # into it.
+    if module.section_id is not None:
+        abort(404)
     if request.method == 'POST':
         ex_type = request.form['exercise_type']
         if ex_type == 'holistic':
@@ -1724,6 +1730,10 @@ def admin_module_exercises(module_id):
 def admin_delete_module_exercise(me_id):
     me = ModuleExercise.query.get_or_404(me_id)
     require_school_role(me.module.course.school_id, 'admin_teacher')
+    # Task 4 follow-up: a section's own exercise is Task 5's territory, not
+    # reachable through the course editor by typing its id.
+    if me.section_id is not None:
+        abort(404)
     module_id = me.module_id
     db.session.delete(me)
     db.session.commit()
@@ -1737,6 +1747,10 @@ def admin_delete_module_exercise(me_id):
 def admin_edit_module_exercise(me_id):
     me = ModuleExercise.query.get_or_404(me_id)
     require_school_role(me.module.course.school_id, 'admin_teacher')
+    # Task 4 follow-up: a section's own exercise is Task 5's territory, not
+    # reachable through the course editor by typing its id.
+    if me.section_id is not None:
+        abort(404)
     fields = _module_exercise_fields_from_form(
         request.form, me.exercise_type, fallback_name=me.name, fallback_order=me.order)
     me.name  = fields['name']
@@ -1755,6 +1769,10 @@ def admin_edit_module_exercise(me_id):
 def admin_duplicate_module_exercise(me_id):
     src = ModuleExercise.query.get_or_404(me_id)
     require_school_role(src.module.course.school_id, 'admin_teacher')
+    # Task 4 follow-up: a section's own exercise is Task 5's territory, not
+    # reachable through the course editor by typing its id.
+    if src.section_id is not None:
+        abort(404)
     copy = ModuleExercise(
         module_id=src.module_id,
         name=src.name + ' (copy)',
@@ -2118,6 +2136,10 @@ def admin_course_sections(course_id):
 def admin_delete_module(module_id):
     module = Module.query.get_or_404(module_id)
     require_school_role(module.course.school_id, 'admin_teacher')
+    # Task 4 follow-up: a section's own module is Task 5's territory, not
+    # reachable through the course editor by typing its id.
+    if module.section_id is not None:
+        abort(404)
     course_id = module.course_id
     name = module.name
     # Clean up dependent records before deleting ModuleExercise

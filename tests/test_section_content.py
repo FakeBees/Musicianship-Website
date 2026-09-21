@@ -400,3 +400,104 @@ def test_forged_section_id_on_another_sections_own_exercise_does_not_record_comp
     assert mc is None, \
         "a forged section_id must not let a student record progress against " \
         "another section's own exercise, even one sitting on a shared course module"
+
+
+# ── Course-level admin routes refuse section-owned content (follow-up) ────
+#
+# Concern #2 from the first pass: a School Admin could reach a section's own
+# module through the course editor by typing its id
+# (/admin/modules/<section_module_id>/exercises) and add a course-level
+# exercise inside it. The ownership model shouldn't be bendable that way —
+# section content is Task 5's territory. Each of these five routes must 404
+# when the module or exercise it targets is section-owned, and must still
+# work normally for course content (positive control, same School Admin).
+
+def test_admin_module_exercises_404s_for_a_section_owned_module():
+    w = world()
+    get_blocked = client_as(w['at']).get(f'/admin/modules/{w["m_a"]}/exercises')
+    assert get_blocked.status_code == 404, \
+        "a School Admin must not reach a section-owned module's exercise " \
+        "page through the course editor"
+
+    post_blocked = client_as(w['at']).post(f'/admin/modules/{w["m_a"]}/exercises', data={
+        'exercise_type': 'melody', 'name': 'Should Not Exist', 'order': '0',
+    })
+    assert post_blocked.status_code == 404, \
+        "a School Admin must not be able to add a course-level exercise " \
+        "into a section-owned module"
+    assert ModuleExercise.query.filter_by(name='Should Not Exist').first() is None, \
+        "the blocked POST must not have created an exercise"
+
+    # Positive control: same admin, same route shape, a course-owned module.
+    get_ok = client_as(w['at']).get(f'/admin/modules/{w["m_course"]}/exercises')
+    assert get_ok.status_code == 200, \
+        "the route itself must still work for a course-owned module (control)"
+
+    post_ok = client_as(w['at']).post(f'/admin/modules/{w["m_course"]}/exercises', data={
+        'exercise_type': 'melody', 'name': 'New Course Exercise', 'order': '0',
+    })
+    assert post_ok.status_code == 302, \
+        "adding an exercise to a course-owned module must still succeed (control)"
+    assert ModuleExercise.query.filter_by(
+        name='New Course Exercise', module_id=w['m_course']).first() is not None
+
+
+def test_admin_delete_module_404s_for_a_section_owned_module():
+    w = world()
+    blocked = client_as(w['at']).post(f'/admin/modules/{w["m_a"]}/delete')
+    assert blocked.status_code == 404, \
+        "a School Admin must not be able to delete a section-owned module " \
+        "through the course editor"
+    assert Module.query.get(w['m_a']) is not None, \
+        "the blocked delete must not have removed the module"
+
+    ok = client_as(w['at']).post(f'/admin/modules/{w["m_course"]}/delete')
+    assert ok.status_code == 302, \
+        "deleting a course-owned module must still succeed (control)"
+    assert Module.query.get(w['m_course']) is None
+
+
+def test_admin_edit_module_exercise_404s_for_a_section_owned_exercise():
+    w = world()
+    blocked = client_as(w['at']).post(
+        f'/admin/module_exercises/{w["ex_a_own"]}/edit', data={'name': 'Hacked'})
+    assert blocked.status_code == 404, \
+        "a School Admin must not be able to edit a section-owned exercise " \
+        "through the course editor"
+    assert ModuleExercise.query.get(w['ex_a_own']).name == 'Section A Own Exercise', \
+        "the blocked edit must not have changed the exercise"
+
+    ok = client_as(w['at']).post(
+        f'/admin/module_exercises/{w["ex_course"]}/edit', data={'name': 'Renamed'})
+    assert ok.status_code == 302, \
+        "editing a course-owned exercise must still succeed (control)"
+    assert ModuleExercise.query.get(w['ex_course']).name == 'Renamed'
+
+
+def test_admin_delete_module_exercise_404s_for_a_section_owned_exercise():
+    w = world()
+    blocked = client_as(w['at']).post(f'/admin/module_exercises/{w["ex_a_own"]}/delete')
+    assert blocked.status_code == 404, \
+        "a School Admin must not be able to delete a section-owned exercise " \
+        "through the course editor"
+    assert ModuleExercise.query.get(w['ex_a_own']) is not None, \
+        "the blocked delete must not have removed the exercise"
+
+    ok = client_as(w['at']).post(f'/admin/module_exercises/{w["ex_course"]}/delete')
+    assert ok.status_code == 302, \
+        "deleting a course-owned exercise must still succeed (control)"
+    assert ModuleExercise.query.get(w['ex_course']) is None
+
+
+def test_admin_duplicate_module_exercise_404s_for_a_section_owned_exercise():
+    w = world()
+    blocked = client_as(w['at']).post(f'/admin/module_exercises/{w["ex_a_own"]}/duplicate')
+    assert blocked.status_code == 404, \
+        "a School Admin must not be able to duplicate a section-owned " \
+        "exercise through the course editor"
+    assert ModuleExercise.query.filter_by(name='Section A Own Exercise (copy)').first() is None
+
+    ok = client_as(w['at']).post(f'/admin/module_exercises/{w["ex_course"]}/duplicate')
+    assert ok.status_code == 302, \
+        "duplicating a course-owned exercise must still succeed (control)"
+    assert ModuleExercise.query.filter_by(name='Course Exercise (copy)').first() is not None
