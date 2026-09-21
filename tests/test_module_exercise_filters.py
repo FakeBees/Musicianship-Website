@@ -340,3 +340,21 @@ def test_module_exercises_page_has_no_hardcoded_edit_path():
     body = resp.data.decode()
     assert "'/admin/module_exercises/'" not in body, \
         'the edit-URL must come from url_for, not a hardcoded path literal'
+
+
+def test_module_exercises_editor_script_loads_after_bootstrap():
+    """The editor's own <script> must render after base.html's Bootstrap
+    bundle (base.html's {% block scripts %}), exactly as it did before the
+    editor was extracted into an include. openEditModal() only calls
+    `new bootstrap.Modal(...)` on click, so nothing breaks *today* if the
+    script loads first — but that's a load-order change the task required
+    stay identical, and Task 5 reusing this editor on a second page is one
+    load-time Bootstrap call away from a silent breakage if it regresses."""
+    w = world()
+    resp = client_as(w['at']).get(f'/admin/modules/{w["module"]}/exercises')
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    bootstrap_idx = body.index('bootstrap.bundle.min.js')
+    script_idx = body.index('EDIT_URL_TEMPLATE')
+    assert script_idx > bootstrap_idx, \
+        'the editor script must render after the Bootstrap bundle <script>, not before it'

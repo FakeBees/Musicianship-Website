@@ -1,14 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}{{ module.name }} — Exercises{% endblock %}
+
+{# Set at the top level (not inside a block) so both blocks below can see
+   them: a {% set %} made inside one {% block %} is NOT visible from a
+   sibling block in Jinja. #}
+{% set add_action_url        = url_for('admin_module_exercises', module_id=module.id) %}
+{% set edit_url_template      = url_for('admin_edit_module_exercise', me_id=0) %}
+{% set duplicate_url_template = url_for('admin_duplicate_module_exercise', me_id=0) %}
+{% set remove_url_template    = url_for('admin_delete_module_exercise', me_id=0) %}
+
 {% block content %}
 <div class="container py-4">
   <h2>{{ module.name }} — Exercises</h2>
   <a href="{{ url_for('admin_modules', course_id=module.course_id) }}" class="btn btn-outline-secondary btn-sm mb-3">← Modules</a>
 
-  {% set add_action_url        = url_for('admin_module_exercises', module_id=module.id) %}
-  {% set edit_url_template      = url_for('admin_edit_module_exercise', me_id=0) %}
-  {% set duplicate_url_template = url_for('admin_duplicate_module_exercise', me_id=0) %}
-  {% set remove_url_template    = url_for('admin_delete_module_exercise', me_id=0) %}
   {% include 'admin/_module_exercise_editor.html' with context %}
 </div>
+{% endblock %}
+
+{# The editor's script goes in {% block scripts %}, which base.html renders
+   after Bootstrap's JS bundle — see _module_exercise_editor_js.html's own
+   header comment for why. #}
+{% block scripts %}
+{% include 'admin/_module_exercise_editor_js.html' with context %}
 {% endblock %}
