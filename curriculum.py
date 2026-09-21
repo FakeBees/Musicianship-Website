@@ -1,7 +1,37 @@
 """
 curriculum.py — helper functions for the module/curriculum system.
 """
+from sqlalchemy import or_
+
 from models import db, Module, ModuleExercise, SectionModuleExercise, ModuleCompletion
+
+
+def visible_modules(section):
+    """Modules belonging to `section`'s course: shared course modules
+    (section_id NULL) plus the section's own modules (Task 4) — while the
+    section still follows the course they were made for. A section's own
+    module carries the course_id it was created under, so switching the
+    section to a different course drops it out of `section.course.modules`
+    entirely and switching back restores it, with no extra bookkeeping.
+    Ordered by Module.order. Returns [] if the section has no course."""
+    if not section.course_id:
+        return []
+    return section.course.modules.filter(
+        or_(Module.section_id.is_(None), Module.section_id == section.id)
+    ).order_by(Module.order).all()
+
+
+def visible_exercises(section, module):
+    """Base ModuleExercise rows for `module` visible to `section`: shared
+    course exercises (section_id NULL) plus the section's own additions
+    placed directly on this module (Task 4) — regardless of whether `module`
+    itself is course- or section-owned, since a section may add its own
+    exercise onto a shared course module. Does not apply
+    SectionModuleExercise overrides/hides — see effective_exercises() for
+    that. Ordered by ModuleExercise.order."""
+    return module.exercises.filter(
+        or_(ModuleExercise.section_id.is_(None), ModuleExercise.section_id == section.id)
+    ).order_by(ModuleExercise.order).all()
 
 
 def effective_exercises(section, module):
@@ -44,7 +74,7 @@ def effective_exercises(section, module):
         return []
 
     result = []
-    for me in module.exercises.order_by(ModuleExercise.order).all():
+    for me in visible_exercises(section, module):
         if me.id in removed_ids:
             continue
         if me.id in overrides:
@@ -219,7 +249,7 @@ def modules_with_progress(user_id, section_id, section):
         SectionModuleExercise.query.filter_by(section_id=section.id, action='hide').all()
         if sme.module_exercise_id is None and sme.module_id is not None
     }
-    for module in section.course.modules.order_by(Module.order).all():
+    for module in visible_modules(section):
         if module.id in hidden_module_ids:
             continue
         exs = effective_exercises(section, module)

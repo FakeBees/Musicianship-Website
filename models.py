@@ -463,6 +463,11 @@ class Module(db.Model):
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
     order     = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+    # Section content (Task 4): NULL = course content, shared by every section
+    # following the course; a section id = that section's own module, tied to
+    # the course it was made for (course_id above). Column kept `class_id` —
+    # see docs/NAMING.md.
+    section_id = db.Column('class_id', db.Integer, db.ForeignKey('class.id'), nullable=True)
 
     exercises = db.relationship('ModuleExercise', backref='module', lazy='dynamic',
                                 order_by='ModuleExercise.order')
@@ -481,6 +486,10 @@ class ModuleExercise(db.Model):
     params_json   = db.Column(db.Text, nullable=True)
     order         = db.Column(db.Integer, nullable=False, default=0)
     completion_criterion_json = db.Column(db.Text, nullable=False, default='{"attempts":1}')
+    # Section content (Task 4): NULL = course content; a section id = that
+    # section's own exercise, which may sit in a course module or in the
+    # section's own module. Column kept `class_id` — see docs/NAMING.md.
+    section_id = db.Column('class_id', db.Integer, db.ForeignKey('class.id'), nullable=True)
 
     @property
     def completion_criterion(self):

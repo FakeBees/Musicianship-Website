@@ -68,6 +68,8 @@ No migration has been run; the existing `instance/musicianship.db` is untouched.
 | `SectionModuleExercise.section_id` | column `class_id` | `models.py` — `db.Column('class_id', …)` |
 | `ModuleCompletion.section_id` | column `class_id` | `models.py` — `db.Column('class_id', …)` |
 | `ModuleCompletion.section_exercise_id` | column `class_exercise_id` | `models.py` — `db.Column('class_exercise_id', …)` |
+| `Module.section_id` | column `class_id` | `models.py` — `db.Column('class_id', …)` |
+| `ModuleExercise.section_id` | column `class_id` | `models.py` — `db.Column('class_id', …)` |
 | `ModuleCompletion` unique constraints | reference `class_id`, `class_exercise_id` | `models.py` — `__table_args__` uses **column** names |
 
 Foreign keys are declared against physical names too — `db.ForeignKey('class.id')`, not

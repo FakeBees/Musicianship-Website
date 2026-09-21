@@ -15,7 +15,7 @@
     <tr>
       <td><a href="{{ url_for('admin_modules', course_id=c.id) }}" class="text-decoration-none">{{ c.name }}</a></td>
       <td>
-        {{ c.modules.count() }}
+        {{ c.modules.filter_by(section_id=none).count() }}
         <a href="{{ url_for('admin_modules', course_id=c.id) }}" class="btn btn-sm btn-outline-secondary ms-1">Manage</a>
       </td>
       <td>

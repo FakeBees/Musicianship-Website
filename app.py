@@ -445,8 +445,12 @@ def _handle_module_completion(section_id, me_id, sme_id, score, keep_practicing=
     me = ModuleExercise.query.get(me_id_int) if me_id_int else None
     criterion = me.completion_criterion if me else {'attempts': 1}
 
-    # Validate me_id belongs to this class's course (prevent forged me_id)
-    if me and (section.course_id is None or me.module.course_id != section.course_id):
+    # Validate me_id belongs to this class's course (prevent forged me_id) and,
+    # if the exercise is section-owned (Task 4), that it belongs to *this*
+    # section — sharing a course is no longer sufficient once a section can
+    # add an exercise exclusive to itself onto a shared course module.
+    if me and (section.course_id is None or me.module.course_id != section.course_id
+               or (me.section_id is not None and me.section_id != section.id)):
         return None
 
     mc, just_completed = cur.record_attempt(
@@ -1648,7 +1652,9 @@ def admin_modules(course_id):
             db.session.commit()
             flash('Module created.', 'success')
         return redirect(url_for('admin_modules', course_id=course_id))
-    modules = Module.query.filter_by(course_id=course_id).order_by(Module.order).all()
+    # Task 4: course-level admin pages exclude section-owned content.
+    modules = Module.query.filter_by(course_id=course_id, section_id=None) \
+                          .order_by(Module.order).all()
     return render_template('admin/modules.html', course=course, modules=modules)
 
 
@@ -1679,7 +1685,9 @@ def admin_module_exercises(module_id):
         db.session.commit()
         flash('Exercise added to module.', 'success')
         return redirect(url_for('admin_module_exercises', module_id=module_id))
-    exercises = module.exercises.order_by(ModuleExercise.order).all()
+    # Task 4: course-level admin pages exclude section-owned content, even
+    # when a section has added its own exercise onto this (course) module.
+    exercises = module.exercises.filter_by(section_id=None).order_by(ModuleExercise.order).all()
     melodies     = Melody.query.order_by(Melody.name).all()
     rhythms      = Rhythm.query.order_by(Rhythm.name).all()
     progressions = ChordProgression.query.order_by(ChordProgression.name).all()
@@ -2070,11 +2078,14 @@ def admin_duplicate_course(course_id):
     new_course = Course(name=f'{src.name} (copy)', school_id=src.school_id)
     db.session.add(new_course)
     db.session.flush()
-    for mod in src.modules.order_by(Module.order):
+    # Task 4: duplicating a course copies only course-owned modules and
+    # exercises — a section's own content stays with that section, not the
+    # copy.
+    for mod in src.modules.filter_by(section_id=None).order_by(Module.order):
         new_mod = Module(name=mod.name, course_id=new_course.id, order=mod.order)
         db.session.add(new_mod)
         db.session.flush()
-        for ex in mod.exercises:
+        for ex in mod.exercises.filter_by(section_id=None):
             new_ex = ModuleExercise(
                 module_id=new_mod.id,
                 exercise_type=ex.exercise_type,
@@ -3183,8 +3194,8 @@ def teacher_edit_section(section_id):
                           if sme.action == 'hide' and sme.module_exercise_id is None
                           and sme.module_id}
     if section.course_id and section.course:
-        for mod in section.course.modules.order_by(Module.order).all():
-            exercises = list(mod.exercises.order_by(ModuleExercise.order).all())
+        for mod in cur.visible_modules(section):
+            exercises = cur.visible_exercises(section, mod)
             modules_with_exercises.append({'module': mod, 'exercises': exercises})
 
     school_id = section_school_id(section)
@@ -3538,6 +3549,8 @@ def section_module_detail(section_id, module_id):
     module = Module.query.get_or_404(module_id)
     if section.course_id is None or module.course_id != section.course_id:
         abort(404)
+    if module.section_id is not None and module.section_id != section.id:
+        abort(404)
     if cur.is_module_hidden(section, module_id):
         abort(404)
     exercises = cur.effective_exercises(section, module)
@@ -3612,6 +3625,8 @@ def start_module_exercise(section_id, me_id):
 
     me = ModuleExercise.query.get_or_404(me_id)
     if me.module.course_id != section.course_id:
+        abort(404)
+    if me.section_id is not None and me.section_id != section.id:
         abort(404)
     if cur.is_exercise_hidden(section, me_id) or cur.is_module_hidden(section, me.module_id):
         abort(404)
