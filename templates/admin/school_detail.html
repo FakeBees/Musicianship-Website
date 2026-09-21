@@ -46,16 +46,9 @@
 
   {# Appointing a school administrator means granting admin_teacher, which needs
      a role above it — so this card is site-admin only, by the same rule that
-     governs every other membership change.
-
-     D16 note: the card header below is intentionally still "Administrative
-     teachers", not "{{ role_labels['admin_teacher'] }}s" — the literal text
-     "Administrative teachers" is asserted by
-     tests/test_school_authority.py::test_school_page_lists_current_administrative_teachers,
-     a protected test for this task (see task-1-report.md). Every other
-     admin_teacher/class_teacher display on this page uses role_labels. #}
+     governs every other membership change. #}
   <div class="card mb-4">
-    <div class="card-header fw-semibold">Administrative teachers</div>
+    <div class="card-header fw-semibold">{{ role_labels['admin_teacher'] }}s</div>
     <div class="card-body">
       {% if school_admins %}
       <ul class="list-unstyled mb-3">

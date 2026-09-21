@@ -405,7 +405,9 @@ def test_school_page_lists_current_administrative_teachers():
     a = user('admin', 'a@x.com')
     at = user('admin_teacher', 'at@x.com'); member(s, at, 'admin_teacher')
     body = client_for(a).get(f'/admin/schools/{s.id}/detail').get_data(as_text=True)
-    assert 'Administrative teachers' in body
+    # The card was titled "Administrative teachers" until D16 renamed it to
+    # match the role's label everywhere else on the site.
+    assert 'School Admins' in body
     assert 'at@x.com' in body
 
 
