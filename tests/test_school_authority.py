@@ -533,7 +533,18 @@ def test_adding_an_exercise_affects_only_this_section():
 
 # ── Requirement 3: join codes ────────────────────────────────────────────────
 
-def test_section_teacher_sees_the_section_join_code_but_not_the_schools():
+def test_section_teacher_sees_both_join_codes_but_cannot_regenerate():
+    """D27, superseding the old 'but not the school's' behaviour this test
+    used to assert: a Section Teacher needs the school code too, since new
+    students use it before the section code. Regenerate stays out of reach —
+    that's still School-Admin-and-above.
+
+    NOTE (task-1, D27): this test previously asserted the opposite —
+    `s.join_code.encode() not in page.data` — which was the literal bug D27
+    fixes. The two are mutually exclusive, so fixing D27 required updating
+    this one assertion; see task-1-report.md for the full justification.
+    Every other test in this file is untouched.
+    """
     s = school('Mine')
     crs = course(s)
     at = user('admin_teacher', 'at@x.com'); member(s, at, 'admin_teacher')
@@ -545,10 +556,12 @@ def test_section_teacher_sees_the_section_join_code_but_not_the_schools():
 
     c = client_for(ct)
     assert b'SECCODE' in c.get(f'/teacher/section/{sec.id}').data
-    # They can reach the school page (to remove students) but not its join code.
+    # They can reach the school page (to remove students) and now also see
+    # its join code — but may not regenerate it.
     page = c.get(f'/admin/schools/{s.id}/detail')
     assert page.status_code == 200
-    assert s.join_code.encode() not in page.data
+    assert s.join_code.encode() in page.data
+    assert b'Regenerate' not in page.data
 
 
 def test_school_admin_sees_the_school_join_code():
@@ -647,3 +660,87 @@ def test_school_admin_can_restore_a_module_on_a_section_they_do_not_own():
 
     c = client_for(boss)
     assert c.post(f'/teacher/sections/{sec.id}/modules/999/restore').status_code != 403
+
+
+# ── D14: a non-manager saving Section Settings must not wipe the course ─────
+
+def test_section_teacher_saving_settings_does_not_wipe_the_course():
+    """Only a manager (owner or School Admin of the section's school) may
+    change course_id. A Section Teacher's POST must leave it exactly as it
+    was, no matter what the form sends."""
+    s = school('Mine')
+    crs = course(s)
+    at = user('admin_teacher', 'at9@x.com'); member(s, at, 'admin_teacher')
+    ct = user('class_teacher', 'ct9@x.com'); member(s, ct, 'class_teacher')
+    sec = Section(name='Orig Name', join_code='SEC9A', teacher_id=at.id,
+                  assigned_teacher_id=ct.id, course_id=crs.id)
+    db.session.add(sec)
+    db.session.commit()
+
+    client_for(ct).post(f'/teacher/section/{sec.id}/edit',
+                        data={'name': 'Renamed', 'course_id': ''})
+    db.session.refresh(sec)
+    assert sec.name == 'Renamed'
+    assert sec.course_id == crs.id, \
+        'a Section Teacher (non-manager) must not be able to clear the course'
+
+
+def test_manager_can_still_change_and_clear_the_course():
+    s = school('Mine')
+    crs1 = course(s, 'C1')
+    crs2 = course(s, 'C2')
+    at = user('admin_teacher', 'at9b@x.com'); member(s, at, 'admin_teacher')
+    sec = Section(name='Orig', join_code='SEC9B', teacher_id=at.id, course_id=crs1.id)
+    db.session.add(sec)
+    db.session.commit()
+
+    c = client_for(at)
+    c.post(f'/teacher/section/{sec.id}/edit', data={'name': 'Orig', 'course_id': crs2.id})
+    db.session.refresh(sec)
+    assert sec.course_id == crs2.id, 'a manager must still be able to change the course'
+
+    c.post(f'/teacher/section/{sec.id}/edit', data={'name': 'Orig', 'course_id': ''})
+    db.session.refresh(sec)
+    assert sec.course_id is None, 'a manager must still be able to clear the course'
+
+
+# ── D26: a newly created school gets a join code ─────────────────────────────
+
+def test_new_school_gets_a_non_empty_join_code():
+    a = user('admin', 'a10@x.com')
+    client_for(a).post('/admin/schools', data={'name': 'Brand New School'})
+    s = School.query.filter_by(name='Brand New School').first()
+    assert s is not None
+    assert s.join_code, 'a newly created school must have a join code'
+
+
+# ── D27: the school join code also appears on a section's roster page ───────
+
+def test_roster_page_shows_the_school_code_next_to_the_section_code():
+    s = school('Mine')
+    crs = course(s)
+    at = user('admin_teacher', 'at11@x.com'); member(s, at, 'admin_teacher')
+    ct = user('class_teacher', 'ct11@x.com'); member(s, ct, 'class_teacher')
+    sec = Section(name='S11', join_code='SEC11', teacher_id=at.id,
+                  assigned_teacher_id=ct.id, course_id=crs.id)
+    db.session.add(sec)
+    db.session.commit()
+
+    page = client_for(ct).get(f'/teacher/section/{sec.id}')
+    assert page.status_code == 200
+    assert b'SEC11' in page.data
+    assert s.join_code.encode() in page.data, \
+        'the roster page must also show the school join code (D27)'
+
+
+def test_roster_page_has_no_school_code_when_the_section_has_no_course():
+    """'Belongs to a school' means the section has a course — a section
+    reaches its school only through its course (resolved ambiguity #2)."""
+    at = user('admin_teacher', 'at11b@x.com')
+    sec = Section(name='NoSchool', join_code='NOSCH11', teacher_id=at.id)
+    db.session.add(sec)
+    db.session.commit()
+
+    page = client_for(at).get(f'/teacher/section/{sec.id}')
+    assert page.status_code == 200
+    assert b'NOSCH11' in page.data

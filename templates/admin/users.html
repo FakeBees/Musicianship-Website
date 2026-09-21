@@ -13,7 +13,7 @@
     <tr>
       <td>{{ u.email }}</td>
       <td>{{ u.display_name or '—' }}</td>
-      <td><span class="badge bg-secondary">{{ u.role }}</span></td>
+      <td><span class="badge bg-secondary">{{ role_labels.get(u.role, u.role) }}</span></td>
       <td class="text-muted small">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
       <td>
         {% if u.id != current_user.id %}

@@ -1521,7 +1521,13 @@ def admin_schools():
     if request.method == 'POST':
         name = request.form['name'].strip()
         if name:
-            db.session.add(School(name=name))
+            # D26: give every new school a join code up front, the same way
+            # a new section always gets one — retry on the (astronomically
+            # unlikely) chance of a collision, since join_code is unique.
+            join_code = _random_school_code()
+            while School.query.filter_by(join_code=join_code).first() is not None:
+                join_code = _random_school_code()
+            db.session.add(School(name=name, join_code=join_code))
             db.session.commit()
             flash('School created.', 'success')
         return redirect(url_for('admin_schools'))
@@ -1795,13 +1801,13 @@ def admin_set_member_role(school_id):
         return back
     # …and only hand out a role strictly below your own.
     if new_role not in grantable_school_roles(school_id):
-        flash(f'You cannot grant the role "{new_role}".', 'danger')
+        flash(f'You cannot grant the role "{ROLE_LABELS.get(new_role, new_role)}".', 'danger')
         return back
 
     mem.role = new_role
     _sync_global_role(target)
     db.session.commit()
-    flash(f'{target.email} is now {new_role} in {mem.school.name}.', 'success')
+    flash(f'{target.email} is now {ROLE_LABELS[new_role]} in {mem.school.name}.', 'success')
     return back
 
 
@@ -1838,7 +1844,7 @@ def admin_add_school_member(school_id):
     # admin_teacher, which is what makes "the site admin decides which schools
     # an admin_teacher is over" hold.
     if role not in grantable_school_roles(school_id):
-        flash(f'You cannot grant the role "{role}".', 'danger')
+        flash(f'You cannot grant the role "{ROLE_LABELS.get(role, role)}".', 'danger')
         return back
 
     user = User.query.filter_by(email=email).first()
@@ -1853,7 +1859,7 @@ def admin_add_school_member(school_id):
     db.session.flush()
     _sync_global_role(user)
     db.session.commit()
-    flash(f'Added {email} as {role}.', 'success')
+    flash(f'Added {email} as {ROLE_LABELS[role]}.', 'success')
     return back
 
 
@@ -1900,7 +1906,7 @@ def admin_set_school_admin(school_id):
     db.session.flush()
     _sync_global_role(user)
     db.session.commit()
-    flash(f'{user.email} {verb} {school.name} as an administrative teacher.',
+    flash(f'{user.email} {verb} {school.name} as a {ROLE_LABELS["admin_teacher"]}.',
           'success')
     return back
 
@@ -3114,14 +3120,21 @@ def teacher_edit_section(section_id):
     courses = administered_courses()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        # D14: only a manager (owner, or School Admin of the section's school)
+        # may change the course. Anyone else's POST leaves course_id exactly
+        # as it was, regardless of what the form sent — the read-only text in
+        # the template means a non-manager's request never carries course_id
+        # anyway, but this holds even against a forged one.
+        can_manage = can_manage_section(section)
         course_id = request.form.get('course_id', type=int)
         if not name:
             flash('Section name is required.', 'danger')
-        elif course_id and course_id not in {c.id for c in administered_courses()}:
+        elif can_manage and course_id and course_id not in {c.id for c in administered_courses()}:
             flash('That course is not in a school you administer.', 'danger')
         else:
             section.name = name
-            section.course_id = course_id or None
+            if can_manage:
+                section.course_id = course_id or None
             db.session.commit()
             flash(f'{section_word(title=True)} updated.', 'success')
         return redirect(url_for('teacher_edit_section', section_id=section_id))
@@ -3205,7 +3218,12 @@ def teacher_section_detail(section_id):
             'holistic': mode_avg(HolisticAttempt,'overall_score'),
         })
 
-    return render_template('teacher/section_detail.html', section=section, roster=roster)
+    # D27: a section reaches its school only through its course, so a
+    # courseless section has no school and thus no school join code to show.
+    school_id = section_school_id(section)
+    school = db.session.get(School, school_id) if school_id else None
+    return render_template('teacher/section_detail.html', section=section,
+                           roster=roster, school=school)
 
 
 @app.route('/teacher/sections/<int:section_id>/set_course', methods=['POST'])
@@ -3265,7 +3283,7 @@ def teacher_assign_section_teacher(section_id):
               f'Add them to the school first.', 'warning')
         return back
     if mem.role not in ('class_teacher', 'admin_teacher'):
-        flash(f'{user.email} is a {mem.role} in {school.name}, not a teacher. '
+        flash(f'{user.email} is a {ROLE_LABELS[mem.role]} in {school.name}, not a teacher. '
               f'Change their school role first.', 'warning')
         return back
 

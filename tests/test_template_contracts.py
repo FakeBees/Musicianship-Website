@@ -662,3 +662,74 @@ def test_melody_upload_page_says_it_uploads_melodies(world):
     heading = main_heading(resp.data.decode())
     assert heading and 'melody' in heading.lower(), \
         f'melody upload page heading was {heading!r}'
+
+
+# ── D13: School-Admin-only controls must not show for a Section Teacher ─────
+
+def test_section_teacher_edit_page_hides_admin_only_controls(world):
+    """world['ct'] is only the assigned Section Teacher of world['section'],
+    not its owner and not a School Admin of its school — can_manage_section()
+    is False for them."""
+    resp = client_as(world['ct']).get(f"/teacher/section/{world['section']}/edit")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert 'Assign Section Teacher' not in body, \
+        'a non-manager must not see the Assign Section Teacher card'
+    assert 'Delete Section' not in body, \
+        'a non-manager must not see the Delete Section link'
+
+
+def test_school_admin_edit_page_shows_admin_only_controls(world):
+    """world['at'] owns world['section'] (so can_manage_section() is True)."""
+    resp = client_as(world['at']).get(f"/teacher/section/{world['section']}/edit")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    assert 'Assign Section Teacher' in body
+    assert 'Delete Section' in body
+
+
+# ── D17: the courses page's back link must not dead-end in a 403 ────────────
+
+def test_courses_page_back_links_all_200_for_a_school_admin(world):
+    resp = client_as(world['at']).get(f"/admin/schools/{world['school']}/courses")
+    assert resp.status_code == 200
+    body = resp.data.decode()
+    hrefs = re.findall(r'<a href="([^"]+)"[^>]*>\s*(?:←|&larr;)', body)
+    assert hrefs, 'no back ("←") links found on the courses page'
+    for href in hrefs:
+        r = client_as(world['at']).get(href)
+        assert r.status_code == 200, f'← link to {href} returned {r.status_code}'
+
+
+# ── D16: internal role names must never be shown to people as visible text ──
+
+def _visible_text(body):
+    """Approximate what a person actually reads: strip <script> blocks first
+    (every page carries a hidden #screen-meta JSON blob for the debug panel,
+    which legitimately quotes raw role slugs from screens.py — that's dev
+    metadata, not visible copy), then strip tags — which also drops
+    value="" attributes, so an <option value="class_teacher"> only counts
+    its visible label text.
+    """
+    no_script = re.sub(r'<script\b[^>]*>.*?</script>', '', body, flags=re.S)
+    return _collapse(no_script)
+
+
+def test_school_and_users_pages_never_show_raw_role_slugs(world):
+    """D16: raw slugs may still live in value="" attributes (display-only)."""
+    pages = [
+        ('school detail as School Admin',    'at',    f"/admin/schools/{world['school']}/detail"),
+        ('school detail as Section Teacher', 'ct',    f"/admin/schools/{world['school']}/detail"),
+        ('school detail as Site Admin',      'admin', f"/admin/schools/{world['school']}/detail"),
+        ('users page',                       'admin', '/admin/users'),
+    ]
+    failures = []
+    for label, role, url in pages:
+        resp = client_as(world[role]).get(url)
+        assert resp.status_code == 200, f'{label}: HTTP {resp.status_code}'
+        visible = _visible_text(resp.data.decode())
+        if 'class_teacher' in visible:
+            failures.append(f'{label}: raw "class_teacher" visible')
+        if 'admin_teacher' in visible:
+            failures.append(f'{label}: raw "admin_teacher" visible')
+    assert not failures, 'Raw role slugs shown as visible text:\n  ' + '\n  '.join(failures)

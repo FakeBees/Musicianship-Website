@@ -5,9 +5,18 @@
   <div class="d-flex align-items-center gap-3 mb-1 flex-wrap">
     <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-link p-0 text-decoration-none">← My {{ section_terms_title }}</a>
     <h2 class="mb-0">{{ section.name }} — Roster</h2>
-    <span class="badge bg-secondary fs-6">Join code: {{ section.join_code }}</span>
+    <span class="badge bg-secondary fs-6">{{ section_term_title }} code: {{ section.join_code }}</span>
+    {% if school %}
+    <span class="badge bg-secondary fs-6">School code: {{ school.join_code or '—' }}</span>
+    {% endif %}
     <a href="{{ url_for('teacher_edit_section', section_id=section.id) }}" class="btn btn-sm btn-outline-secondary ms-auto">Edit {{ section_term_title }}</a>
   </div>
+  {% if school %}
+  <p class="text-muted small mb-1">
+    New students join <strong>{{ school.name }}</strong> with the school code first,
+    then this {{ section_term }} with the {{ section_term }} code above.
+  </p>
+  {% endif %}
   <p class="text-muted mb-4">{{ roster | length }} student{{ 's' if roster | length != 1 }}</p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}

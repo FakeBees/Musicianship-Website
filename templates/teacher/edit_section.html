@@ -22,6 +22,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Course <span class="text-muted fw-normal">(optional)</span></label>
+          {% if can_manage %}
           <select name="course_id" class="form-select">
             <option value="">— No course —</option>
             {% for c in courses %}
@@ -31,13 +32,20 @@
             {% endfor %}
           </select>
           <div class="form-text">Selecting a course gives students access to its modules.</div>
+          {% else %}
+          <p class="form-control-plaintext">
+            {% if section.course %}{{ section.course.school.name }} / {{ section.course.name }}{% else %}— No course —{% endif %}
+          </p>
+          <div class="form-text">Ask your School Admin to change it.</div>
+          {% endif %}
         </div>
         <button type="submit" class="btn btn-primary">Save Changes</button>
       </form>
     </div>
   </div>
 
-  <!-- Assign {{ section_term_title }} Teacher -->
+  {# Assign {{ section_term_title }} Teacher (D13: School-Admin-only) #}
+  {% if can_manage %}
   <div class="card mb-4">
     <div class="card-header fw-semibold">Assign {{ section_term_title }} Teacher</div>
     <div class="card-body">
@@ -73,6 +81,7 @@
       </p>
     </div>
   </div>
+  {% endif %}
 
   <!-- Override management -->
   <div class="card mb-4">
@@ -167,7 +176,9 @@
 
   <div class="d-flex gap-2">
     <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-secondary">Back to {{ section_terms_title }}</a>
+    {% if can_manage %}
     <a href="{{ url_for('teacher_delete_section', section_id=section.id) }}" class="btn btn-outline-danger ms-auto">Delete {{ section_term_title }}</a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

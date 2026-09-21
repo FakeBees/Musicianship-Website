@@ -140,12 +140,21 @@ SCREENS = {
                                condition='admin_teacher | admin only — a class_teacher '
                                          'cannot create sections.'),
     'teacher_section_detail': _s('TEACHER_SECTION_DETAIL', 'teacher', 'Teacher',
-                               condition='class_teacher needs assigned_teacher_id == me; '
-                                         'admin_teacher needs teacher_id == me.'),
+                               condition='Section authority: an in-section Section '
+                                         'Teacher (assigned_teacher_id == me) or owner '
+                                         '(teacher_id == me), or a School Admin of the '
+                                         "section's school (or site admin)."),
     'teacher_edit_section':   _s('TEACHER_SECTION_EDIT',   'teacher', 'Teacher',
-                               condition='Same ownership check as TEACHER_SECTION_DETAIL.'),
+                               condition='Same section authority as TEACHER_SECTION_DETAIL: '
+                                         'in-section Section Teacher or owner, or a School '
+                                         "Admin of the section's school. D14: only a "
+                                         "manager (owner or School Admin) may change the "
+                                         'course; a non-manager gets it read-only.'),
     'teacher_delete_section': _s('TEACHER_SECTION_DELETE', 'school_admin', 'Teacher',
-                               condition='admin_teacher | admin, owner only.'),
+                               condition='admin_teacher | admin only. Owner (teacher_id '
+                                         '== me) or a School Admin of the section\'s '
+                                         'school — the assigned Section Teacher alone '
+                                         'does not qualify.'),
     'teacher_kick_student': _s('TEACHER_STUDENT_KICK', 'teacher', 'Teacher'),
     'teacher_set_course':   _s('TEACHER_SECTION_SET_COURSE', 'school_admin', 'Teacher',
                                kind='action'),
@@ -163,11 +172,18 @@ SCREENS = {
                                       'Teacher', kind='action'),
 
     # ---- School admin -------------------------------------------------------
-    'admin_my_school':       _s('SCHOOL_ADMIN_ENTRY', 'school_admin', 'School admin',
+    'admin_my_school':       _s('SCHOOL_ADMIN_ENTRY', 'teacher', 'School admin',
                                 kind='redirect',
-                                condition='BUG-003: 302s an admin_teacher to '
-                                          'ADMIN_COURSES, which is site-admin only, so '
-                                          'they get a 403.'),
+                                condition='Actual gate is class_teacher | admin_teacher | '
+                                          'admin — corrected from school_admin, which '
+                                          "excluded the class_teacher this route serves. "
+                                          'No longer BUG-003 (fixed): lands any staff '
+                                          'member on their own SCHOOL_DETAIL, preferring '
+                                          'an admin_teacher membership and falling back to '
+                                          'a class_teacher one. A site admin with no '
+                                          'membership goes to ADMIN_SCHOOLS instead; staff '
+                                          'with no membership anywhere gets a flash and '
+                                          'HOME.'),
     'admin_school_detail':   _s('SCHOOL_DETAIL',      'teacher', 'School admin',
                                 condition='admin_teacher must hold an admin_teacher '
                                           'SchoolMembership for THIS school.'),
