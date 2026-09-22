@@ -85,8 +85,30 @@ def main():
 
     with app.app_context():
         engine = db.engine
-        inspector = sa.inspect(engine)
-        present = set(inspector.get_table_names())
+        try:
+            inspector = sa.inspect(engine)
+            present = set(inspector.get_table_names())
+        except sa.exc.OperationalError as exc:
+            # Reaching the database at all failed. That is usually the server
+            # being gone rather than anything about this app, and the raw
+            # SQLAlchemy traceback buries the one line that says so.
+            detail = str(exc.orig).strip().splitlines()[0] if exc.orig else str(exc)
+            print('[migrate] CANNOT REACH THE DATABASE', file=sys.stderr)
+            print(f'[migrate]   {detail}', file=sys.stderr)
+            if 'could not translate host name' in detail or 'Name or service not known' in detail:
+                print('[migrate] The host name does not resolve. Check that the database still '
+                      'exists in your hosting dashboard — a free Postgres that has expired or '
+                      'been suspended stops resolving — and that it is in the same region as '
+                      'this service.', file=sys.stderr)
+            elif 'password authentication failed' in detail:
+                print('[migrate] The host answered but rejected the credentials: DATABASE_URL '
+                      'is out of date.', file=sys.stderr)
+            elif 'does not exist' in detail:
+                print('[migrate] The server is reachable but has no database by that name.',
+                      file=sys.stderr)
+            print('[migrate] Nothing was changed, and the server was not started.',
+                  file=sys.stderr)
+            sys.exit(1)
 
         new_tables = [t.name for t in db.metadata.sorted_tables if t.name not in present]
         if new_tables:
