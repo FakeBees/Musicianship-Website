@@ -2,7 +2,7 @@
 
 **Musicianship Trainer** · for the people who run a school's courses, sections and members
 
-Checked against the site on September 14, 2026. Menu names and page addresses will change when the
+Checked against the site on September 21, 2026. Menu names and page addresses will change when the
 planned admin reorganisation lands; the tasks themselves won't. The other two guides are the
 **Section Teacher Guide** and the **Site Admin Guide**.
 
@@ -20,12 +20,12 @@ planned admin reorganisation lands; the tasks themselves won't. The other two gu
 8. [Modules](#8-modules)
 9. [Module exercises](#9-module-exercises)
 10. [Sections](#10-sections)
-11. [Section overrides](#11-section-overrides)
+11. [A section's own curriculum](#11-a-sections-own-curriculum)
 12. [Rosters and progress](#12-rosters-and-progress)
 13. [Getting students in](#13-getting-students-in)
 14. [Seeing the site as another role](#14-seeing-the-site-as-another-role)
 15. [When something goes wrong](#15-when-something-goes-wrong)
-16. [Known issues](#16-known-issues)
+16. [Limitations](#16-limitations)
 17. [Quick reference](#17-quick-reference)
 
 ---
@@ -33,19 +33,17 @@ planned admin reorganisation lands; the tasks themselves won't. The other two gu
 ## 1. Your role at a glance
 
 You're a **School Admin**. You build your school's courses, create its sections, and manage its
-people. A Site Admin appointed you. On the school page you're listed as an **administrative
-teacher** — that's the same role under an older name.
+people. A Site Admin appointed you.
 
 | You can | Ask a Site Admin to |
 |---|---|
 | See and regenerate the school join code | Appoint or remove a School Admin |
-| Add people to the school as students or Section Teachers | Create or delete a school |
+| Add people to the school as Students or Section Teachers | Create or delete a school |
 | Change the role of, or remove, members below you | Add, edit or delete exercises in the library |
 | Create, rename, duplicate and delete courses | Delete a user account |
-| Create and delete modules | Reset someone's password |
-| Add, edit, duplicate and remove module exercises | |
+| Create and delete modules; add, edit, duplicate and remove module exercises | Reset someone's password |
 | Create, edit and delete sections; set their course and teacher | |
-| Add an exercise to a single section | |
+| Shape any section's own curriculum — hide course work, add its own modules and exercises | |
 | View rosters and remove students | |
 
 You can do everything a Section Teacher can, for every section in your school.
@@ -75,11 +73,12 @@ the same course.
 section follows one course, which gives its students their modules. The School Admin who creates a
 section is its **owner**, and it can also have one **Section Teacher** assigned.
 
+**A section's own curriculum.** Each section sees its course's modules and exercises, **plus** anything
+added for that section alone, **minus** anything hidden for it. Those changes never touch the course or
+any other section. See [section 11](#11-a-sections-own-curriculum).
+
 **Join codes.** Short codes students type to join. There are two — a **school join code** and a
 **section join code** — and students need both, in that order.
-
-**Section overrides.** Changes made to one section without touching its course, such as adding an
-extra exercise just for that section. See [section 11](#11-section-overrides).
 
 ```
 School
@@ -89,20 +88,21 @@ School
 
 Section                       e.g. MUS201-002         (students see: Classroom)
  ├─ follows one Course        → gives students its modules
+ ├─ its own additions         → modules and exercises for this section only
+ ├─ its hides                 → course work this section doesn't see
  ├─ Owner                     → the School Admin who created it
  ├─ Section Teacher           → optional, one per section
- ├─ Students                  → joined with the section join code
- └─ Overrides                 → section-only changes
+ └─ Students                  → joined with the school code, then the section code
 ```
 
 ### Roles
 
-| Role | In the app it's also shown as | Who they are |
-|---|---|---|
-| **Student** | `student` | Anyone who registers |
-| **Section Teacher** | `class_teacher` | Teaches the sections assigned to them |
-| **School Admin** | `admin_teacher`, "administrative teacher" | You |
-| **Site Admin** | `admin` | Runs the whole website |
+| Role | Who they are |
+|---|---|
+| **Student** | Anyone who registers |
+| **Section Teacher** | Teaches the sections assigned to them, and can shape those sections' curricula |
+| **School Admin** | You |
+| **Site Admin** | Runs the whole website |
 
 Everyone registers as a Student. **A person's account role follows their school role**: when you give
 someone the Section Teacher role in your school, their account becomes a Section Teacher account
@@ -124,6 +124,8 @@ Everything starts from the **account menu** in the top-right corner of every pag
 | **View as** | Preview the site as a Section Teacher or a Student. See [section 14](#14-seeing-the-site-as-another-role). |
 | **Log out** | |
 
+Each page is titled to match the menu item or button that opens it.
+
 > **Finding a section you didn't create.** **Sections I Teach** only lists sections *you* created. To
 > reach any other section in your school: **Manage School** → **Manage courses →** → on the course's
 > row, **Manage** in the *Sections* column → click the section's name. The course cards on **Home**
@@ -135,10 +137,9 @@ Everything starts from the **account menu** in the top-right corner of every pag
 
 The first time you set up your school, work through these in order.
 
-1. **Make sure the school has a join code.** **Manage School** → *School Join Code*. If it shows
-   **—**, press **Regenerate** and confirm. New schools start without a code, and nobody can join until
-   one exists.
-2. **Add your teachers.** They register first, then you add them as `class_teacher`.
+1. **Check the school's join code.** **Manage School** → *School Join Code*. It should show a code. If it
+   shows **—**, press **Regenerate**.
+2. **Add your teachers.** They register first, then you add them as **Section Teacher**.
    See [section 6](#6-people).
 3. **Build a course.** Create the course, then its modules, then each module's exercises.
    See sections [7](#7-courses), [8](#8-modules) and [9](#9-module-exercises).
@@ -156,10 +157,10 @@ Open the account menu → **Manage School**. The page is titled *<school> — Ma
 
 | Card | What it's for |
 |---|---|
-| **Your role here** | Shows `admin_teacher` — that's School Admin. |
-| **School Join Code** | The code students use to join your school, and the **Regenerate** button. |
+| **Your role here** | Shows *School Admin*. |
+| **School Join Code** | The code students use to join your school, and the **Regenerate** button. Your Section Teachers see the code too, but can't regenerate it. |
 | **Courses** | *"Create courses, edit modules, and see their sections."* → **Manage courses →** |
-| **Administrative teachers** | The school's School Admins. Read-only for you: *"Only a site admin can appoint an administrative teacher."* |
+| **School Admins** | The school's School Admins. Read-only for you: *"Only a site admin can appoint a School Admin."* |
 | **Add member by email** | Add a person to the school with a role. |
 | **Members** | Everyone in the school, with controls to change roles and remove people. |
 
@@ -170,7 +171,8 @@ Open the account menu → **Manage School**. The page is titled *<school> — Ma
 3. The page shows *"Join code regenerated: …"* with the new code.
 
 People who've already joined stay in the school. Only new joins need the new code. Do this if a code
-has been shared somewhere it shouldn't have been.
+has been shared somewhere it shouldn't have been — and let your Section Teachers know the new one is
+on their rosters.
 
 ---
 
@@ -183,7 +185,7 @@ The person must already have an account.
 1. Ask them to register on the site's **Register** page.
 2. **Manage School** → **Add member by email**.
 3. Type their email **exactly as they registered it**.
-4. Choose a role: `class_teacher` for a Section Teacher, or `student`.
+4. Choose a role: **Section Teacher** or **Student**.
 5. Press **Add**. You'll see *"Added … as …"*.
 
 Their account takes on the new role immediately.
@@ -205,7 +207,7 @@ Use **Add member by email** for teachers, or to skip the join code for a particu
 
 You can only change people whose role is below yours, and only to roles below yours.
 
-If you change a Section Teacher to `student`, they lose their teacher access. **Assign a new Section
+If you change a Section Teacher to Student, they lose their teacher access. **Assign a new Section
 Teacher to any sections they were teaching.**
 
 ### Removing someone from the school
@@ -222,20 +224,16 @@ Removing someone from the school:
 ### Onboarding a new Section Teacher, start to finish
 
 1. The teacher registers an account.
-2. **Manage School** → **Add member by email** → their email → `class_teacher` → **Add**.
+2. **Manage School** → **Add member by email** → their email → **Section Teacher** → **Add**.
 3. Open the section they'll teach → **Edit** → **Assign Section Teacher** → their email → **Assign**.
-4. Give them the **school join code** — Section Teachers can't see it, but their students need it.
-5. Send them the **Section Teacher Guide**, and point out its warning about **Save Changes**
-   ([Known issues](#16-known-issues)).
+4. Send them the **Section Teacher Guide**. Both join codes are on their section's roster.
 
 ---
 
 ## 7. Courses
 
-**Manage School** → **Manage courses →**. The page is titled *"<school> — Courses"*.
-
-> **⚠️** The **← Schools** link at the top of this page leads to a **Forbidden** page for School Admins.
-> Use the account menu → **Manage School** to go back instead.
+**Manage School** → **Manage courses →**. The page is titled *"<school> — Courses"*. The back link at
+the top returns to your school's page.
 
 ### Creating a course
 
@@ -258,23 +256,32 @@ name straight away.
 ### Duplicating a course
 
 Press **Duplicate** and confirm. This creates **"<name> (copy)"** with copies of all its modules and
-module exercises. Sections aren't copied, and no section follows the copy until you choose it for one.
+module exercises. Sections aren't copied, sections' own additions aren't copied, and no section follows
+the copy until you choose it for one.
 
 This is the easiest way to start next term's version of a course without disturbing this term's
 students.
 
 ### Deleting a course
 
-Press **Delete** and confirm *"Delete course "…" and all its modules?"*
+**Deleting a course deletes every section that follows it.** Because that's so much, it takes three
+confirmation pages:
 
-> **⚠️ Deleting a course deletes more than the confirmation says.**
->
-> - Every student's progress on that course's exercises is **permanently deleted**.
-> - Any section following the course is left **with no course**, so its students lose access to their
->   modules.
->
-> There's no undo. If you only want a section to study something different, change that section's
-> course instead ([section 10](#10-sections)).
+1. **Delete** on the course's row → *"Delete Course "…" — Step 1 of 3"*: *"Are you sure?"* →
+   **Continue**.
+2. *Step 2 of 3* lists everything that will go: each section following the course by name, with how
+   many students are in it; the course's modules and exercises; and how many progress records. *"Are
+   you sure?"* → **Continue**.
+3. *Step 3 of 3*: *"Are you really sure? This can't be undone."* → **Delete permanently**.
+
+**Cancel** on any page backs out without deleting anything.
+
+What's deleted: the course, all its modules and exercises (including sections' own additions), every
+section following it, and all students' progress in those sections. What's kept: the students' and
+teachers' accounts, their school memberships, and their practice history outside those sections.
+
+> If you only want a section to study something different, change that **section's** course instead
+> ([section 10](#10-sections)) — nothing is deleted.
 
 ---
 
@@ -289,17 +296,18 @@ Click a course's name. The page is titled *"<course> — Modules"*.
 3. Press **Add**. You'll see *"Module created."*
 
 > **Tip.** Number your modules with gaps — 10, 20, 30 — rather than 1, 2, 3. Modules can't be
-> re-ordered after they're created, so gaps leave room to slot a new module in between later.
+> re-ordered after they're created, so gaps leave room to slot a new module in between later, and let
+> Section Teachers slot their own modules between yours.
 
 ### The modules table
 
-Each row shows the module's order (**#**), its **Name** (click to open its exercises), how many
+Each row shows the module's order (**#**), its **Name** (click it to open its exercises), how many
 **Exercises** it has with an **Exercises →** link, and **Delete**.
 
 ### Deleting a module
 
-Press **Delete** and confirm. This deletes the module, all of its module exercises, and every
-student's progress on them.
+Press **Delete** and confirm. This deletes the module, all of its module exercises — including any a
+section added to it — and every student's progress on them.
 
 > **Note.** Modules can't be renamed or re-ordered once created. To change one, create a replacement
 > and delete the old one. Because deleting removes student progress, do this before students start.
@@ -353,27 +361,24 @@ whenever more than one attempt or pass is required.
 Filters appear for Melodic, Rhythmic and Harmonic exercises. **Leave a filter empty to allow
 anything.**
 
-| Filter | Used for | How ticking several boxes behaves |
+| Filter | Used for | Ticking several boxes means |
 |---|---|---|
-| **Difficulty** — 1 to 5 stars | All three | Matches **any** ticked difficulty |
-| **Time Signature** | Melodic, Rhythmic | **Tick only one.** Ticking several currently drops the time-signature filter entirely. |
-| **Shortest Note Value** | Melodic, Rhythmic | ⚠️ Currently ignored — has no effect |
-| **Clef** | Melodic | ⚠️ Currently ignored — has no effect |
-| **Category** — Diatonic, Chromatic, Mode Mixture, Modal | Harmonic | Matches **any** ticked category |
-| **Key Signature** — type one key, such as *C*, *G* or *Bb* | Harmonic | One key only |
-| **Topics** | All three | An exercise must have **all** the ticked topics |
+| **Difficulty** — 1 to 5 stars | All three | any of them |
+| **Time Signature** | Melodic, Rhythmic | any of them |
+| **Shortest Note Value** | Melodic, Rhythmic | any of them |
+| **Clef** | Melodic | any of them |
+| **Category** — Diatonic, Chromatic, Mode Mixture, Modal | Harmonic | any of them |
+| **Key Signature** — type one key, such as *C*, *G* or *Bb* | Harmonic | — one key only |
+| **Topics** | All three | an exercise must have **all** of them |
 
-Only the topics that exist for the chosen type are offered.
-
-> **⚠️ The live match count isn't always right.** For Melodic and Rhythmic exercises it doesn't take
-> **Difficulty** into account, and it does count the ignored **Clef** and **Shortest Note Value**
-> filters. Treat it as a rough guide, and check the result with **View as → Student**.
+Only the topics that exist for the chosen type are offered. The live match count reflects every filter,
+so if it shows zero, students will have nothing to do.
 
 ### What happens if nothing matches
 
 A student who starts the exercise sees *"No exercises match the filters for this module exercise. Ask
-your teacher to adjust the filters."* and can't complete it. Loosen the filters — usually Topics or
-Key Signature are the culprits.
+your teacher to adjust the filters."* and can't complete it. Loosen the filters — usually Topics or Key
+Signature are the culprits.
 
 ### The exercises table
 
@@ -384,8 +389,11 @@ holistic exercise), **Completion**, then the actions.
   the name, order and completion rule, but not which exercise it is — *"To change the exercise, remove
   and re-add it."*
 - **Duplicate** makes a copy you can then edit. Handy for *"the same thing, but harder"*.
-- **Remove** takes it out of the module, after confirming *"Remove this exercise from the module?"*
-  Students' progress on it no longer counts.
+- **Remove** takes it out of the module, after confirming *"Remove this exercise from the module?"*,
+  along with students' progress on it.
+
+This page shows only the course's own exercises. Anything a section added for itself lives on that
+section's curriculum pages ([section 11](#11-a-sections-own-curriculum)).
 
 ---
 
@@ -396,7 +404,8 @@ holistic exercise), **Completion**, then the actions.
 1. Account menu → **Sections I Teach** → **+ New section**.
 2. **Section Name** — name it like a section number, such as *MUS201-002*.
 3. **Course (optional)** — choose it now. *"Selecting a course gives students access to its modules."*
-   Until a section has a course, it doesn't belong to your school, and you can't assign it a teacher.
+   Until a section has a course, it doesn't belong to your school, and you can't assign it a teacher or
+   build its curriculum.
 4. Press **Create Section**.
 
 You'll see *"Section "…" created. Join code: …"* You're the new section's owner, and it appears on
@@ -405,7 +414,7 @@ You'll see *"Section "…" created. Join code: …"* You're the new section's ow
 ### The section card
 
 On **Sections I Teach**, each card shows the section's name (click it for the roster), its **Join
-code**, the number of students, and **View roster**, **Edit** and **Delete** buttons.
+code**, the number of students, and **View roster**, **Curriculum**, **Edit** and **Delete** buttons.
 
 ### Changing a section's name or course
 
@@ -414,15 +423,10 @@ code**, the number of students, and **View roster**, **Edit** and **Delete** but
 3. Press **Save Changes**. You'll see *"Section updated."*
 
 Changing the course changes what students see immediately. Their progress on the previous course is
-kept — it just isn't shown while the section follows a different course.
+kept — it just isn't shown while the section follows a different course. Anything added to the section
+for the old course is set aside the same way, and comes back if you switch the course back.
 
-> **⚠️ Warn your Section Teachers about this page.**
->
-> Because of a known issue, if a **Section Teacher** presses **Save Changes** here, the section's
-> course is removed and every student in it loses access to their modules.
->
-> **If a section suddenly shows students no modules:** open its Edit page, choose the course again, and
-> press **Save Changes**. Progress isn't deleted, so everything comes back.
+Section Teachers can rename their sections here too, but only you can change the course.
 
 ### Assigning a Section Teacher
 
@@ -441,13 +445,14 @@ have a course.
 | *This section has no course, so it does not belong to a school yet. Assign a course first.* | Choose a course under **Section Settings** first. |
 | *No account found for "…".* | They haven't registered, or the email doesn't match. |
 | *… is not a member of <school>. Add them to the school first.* | Add them on **Manage School** ([section 6](#6-people)). |
-| *… is a student in <school>, not a teacher. Change their school role first.* | Change their role to `class_teacher` ([section 6](#6-people)). |
+| *… is a Student in <school>, not a teacher. Change their school role first.* | Change their role to Section Teacher ([section 6](#6-people)). |
 
 ### Deleting a section
 
 1. **Sections I Teach** → **Delete**, or the **Delete Section** link at the bottom of the Edit page.
 2. Read the confirmation. It lists what will happen:
    - its students will be removed from the section
+   - all of the section's own modules and exercises will be deleted
    - all its section-specific overrides will be deleted
    - students' module completion data for this section will be deleted
    - this cannot be undone
@@ -457,52 +462,42 @@ Students stay in the school, and their overall practice history is kept.
 
 ---
 
-## 11. Section overrides
+## 11. A section's own curriculum
 
-Open a section → **Edit** → the **Section-Specific Overrides** card. It lists each module in the
-section's course, with its exercises.
+Every section has a **Curriculum** page — on its card, its roster, and its Edit page. Section Teachers
+can use it for their sections, and you can use it for any section in your school. Changes here affect
+only that one section.
 
-### Hiding modules and exercises
+### The Curriculum page
 
-The card has **Hide module** and **Hide** buttons, and **Restore** to undo.
+Titled *<section> — Curriculum*. It lists every module the section's students see, in order:
 
-> **⚠️ Hiding doesn't currently affect students.**
->
-> Pressing **Hide** or **Hide module** shows a success message and marks the item *Hidden* on this page,
-> but students still see those exercises and can still complete them. Until this is fixed, don't rely
-> on hiding. To keep work away from one section, duplicate the course, remove that work from the copy,
-> and switch the section to the copy. Students' existing progress doesn't carry over to a copied course,
-> so do this before they start.
-
-### Adding an exercise to one section only
-
-This gives a single section an extra exercise without changing the course for everyone else.
-
-1. Under the module where it belongs, open **+ Add exercise to this section only**.
-2. Choose the **Type**.
-3. Enter the **Exercise ID** — see *Finding an exercise ID*, below.
-4. Optionally, give it a **Display name**.
-5. Press **Add**. You'll see *"Exercise added to this section only."*
-
-Unlike course module exercises, a section-only exercise is always **one specific exercise** (no
-filters). It appears at the end of its module and counts as complete after **one attempt**.
-
-### Finding an exercise ID
-
-Exercise IDs aren't listed anywhere you can see, so use the page address:
-
-1. **Home** → **Open Sandbox** → choose the mode → open the exercise you want.
-2. Look at the address bar. The number right after `/exercise/` is the ID.
-
-| Type | The address looks like |
+| Column | What it shows |
 |---|---|
-| Melodic | `…/exercise/12` |
-| Rhythmic | `…/rhythm/exercise/12` |
-| Harmonic | `…/harmonic/exercise/12` |
-| Holistic | `…/holistic/exercise/12` |
+| **#** | The module's order |
+| **Module** | Its name — click it to open the module's page |
+| **Source** | **From course** — shared with every section on the course. **This Section only** — added for this section. **Hidden** — hidden from this section. |
+| **Exercises** | How many exercises this section sees in it |
 
-Codes such as *MEL-0012* that you may see elsewhere are a different number — use the one from the
-address.
+- **Hide module** / **Restore module** — for course modules. Hidden modules vanish from the section's
+  module list, and students can't open them even with a direct link.
+- **Delete** — for the section's own modules, after *"Delete module "…" and all its exercises? This
+  cannot be undone."*
+- **Add** — with a **Module name** and **Order**, adds a module for this section only.
+
+### A module's page
+
+Click a module's name. Titled *<section> — <module>*.
+
+- **Course exercises** — with **Hide** and **Restore**.
+- **This Section's own exercises** — with **Edit**, **Duplicate** and **Remove**.
+- **Add Exercise** — the same form as the course's module-exercises page ([section 9](#9-module-exercises)):
+  type, name, order, completion rule, filters or holistic exercise, and the live match count.
+
+**Hiding is never deleting.** Students' progress on hidden work is kept, and reappears when it's restored.
+
+**A section's own content belongs to the course it was made for.** If you switch the section to another
+course, its additions are set aside, and they come back if you switch it back.
 
 ---
 
@@ -510,7 +505,8 @@ address.
 
 Open a section's name, or **View roster** on its card. The page is titled *<section> — Roster*.
 
-The roster lists one row per student, with their average score in each mode:
+At the top: the **Section code** and the **School code**, plus **Curriculum** and **Edit Section**
+buttons. Below, one row per student, with their average score in each mode:
 
 | Column | What it shows |
 |---|---|
@@ -546,12 +542,8 @@ Students join in three steps, and the order matters:
 3. **Join the section.** On the same page, under **Join a classroom**, enter the **section join code**
    → **Join**.
 
-**Where the codes are:**
-
-- **School join code** — **Manage School** → *School Join Code*. Only School Admins and Site Admins can
-  see it, so your Section Teachers will need it from you.
-- **Section join code** — on each section's card, at the top of its roster, and in the message shown
-  when the section was created. Section join codes can't be changed.
+**Both codes are at the top of each section's roster**, where you and your Section Teachers can see
+them. The school code is also on **Manage School**. Section join codes can't be changed.
 
 If a student skips step 2 they'll see *"You must join school "…" first. Ask your teacher for the school
 join code."*
@@ -578,41 +570,27 @@ Use it to check what your Section Teachers and students will see before you hand
 | You see | What it means | What to do |
 |---|---|---|
 | A **Forbidden** page — *"You don't have the permission to access the requested resource."* | That page is for Site Admins, or belongs to another school | Go back with the account menu. |
-| Students in a section suddenly see no modules | The section's course was removed — often by a Section Teacher saving Section Settings, or because the course was deleted | Edit the section, choose the course, **Save Changes**. If the course was deleted, its progress is gone. |
-| A student reports *"No exercises match the filters for this module exercise. Ask your teacher to adjust the filters."* | That module exercise's filters match nothing in the library | Loosen its filters ([section 9](#9-module-exercises)). |
-| *You must join school "…" first.* | The student skipped joining the school | Give them the school join code. |
+| Students in a section suddenly see no modules | The section's course was removed or changed | Edit the section, choose the course, **Save Changes**. Progress isn't deleted — unless the course itself was deleted. |
+| A student reports *"No exercises match the filters for this module exercise. Ask your teacher to adjust the filters."* | That exercise's filters match nothing in the library | Loosen its filters — on the course's page ([section 9](#9-module-exercises)) if it's a course exercise, or on the section's curriculum pages if it's the section's own. |
+| *"Delete not confirmed."* | A delete was sent without going through all three confirmation steps | Start again from the **Delete** button and use **Continue** on each page. |
+| *You must join school "…" first.* | The student skipped joining the school | Give them the school code from the roster. |
 | *Invalid school join code.* | A typo, or the code was regenerated | Share the current code from **Manage School**. |
 | *No user with email "…".* / *No account found for "…".* | The person hasn't registered, or the email doesn't match | Ask them to register, then type the email exactly. |
 | *You can only change the role of members below your own.* / *You can only remove members below your own role.* | They're a School Admin, like you | Ask a Site Admin. |
 | *Only a site admin can appoint a school administrator.* | Appointing School Admins is Site Admin only | Ask a Site Admin. |
 | *That course is not in a school you administer.* | You chose a course from another school | Choose one of your school's courses. |
-| *All fields required.* | A section-only exercise was missing its type or ID | Fill in **Type** and **Exercise ID**. |
 | A section you need isn't on **Sections I Teach** | That list only shows sections you created | Find it through **Manage School** → **Manage courses →** ([section 3](#3-getting-around)). |
 
 ---
 
-## 16. Known issues
+## 16. Limitations
 
-These are problems in the current version of the site. They're being tracked, and this guide will be
-updated as they're fixed.
+Nothing currently known is broken for School Admins. These are limits of the current design:
 
-- **Section Teachers who save Section Settings remove the section's course.** Warn your teachers; fix it
-  by choosing the course again ([section 10](#10-sections)).
-- **Hide and Hide module don't hide anything from students** ([section 11](#11-section-overrides)).
-- **Deleting a course also deletes all student progress** on it, and leaves its sections without a
-  course. The confirmation doesn't say so ([section 7](#7-courses)).
-- **Clef** and **Shortest Note Value** filters are ignored ([section 9](#9-module-exercises)).
-- **Ticking several Time Signatures** drops that filter entirely ([section 9](#9-module-exercises)).
-- **The live match count can be wrong** for Melodic and Rhythmic exercises — too high when Difficulty is
-  set, too low when Clef or Shortest Note Value is set ([section 9](#9-module-exercises)).
-- **Exercise IDs aren't shown anywhere**, so section-only exercises need the page-address workaround
-  ([section 11](#11-section-overrides)).
-- **"← Schools"** on the courses page leads to a Forbidden page ([section 7](#7-courses)).
 - **Modules can't be renamed or re-ordered** after they're created ([section 8](#8-modules)).
-- **Section Teachers see School Admin controls** — **Assign** and **Delete Section** — that lead to a
-  Forbidden page.
-- **Internal role names** such as `class_teacher` appear on the school page, and School Admins are also
-  called "administrative teachers".
+- **A section's owner can't be changed.** The School Admin who created a section always owns it.
+- **The roster shows averages across all practice**, not which of the section's exercises each student
+  has completed ([section 12](#12-rosters-and-progress)).
 
 ---
 
@@ -626,12 +604,14 @@ updated as they're fixed.
 | Remove someone from the school | **Manage School** → *Members* → **Remove** |
 | Create a course | **Manage School** → **Manage courses →** → **Add** |
 | Copy a course for next term | Courses → **Duplicate** |
+| Delete a course and its sections | Courses → **Delete** → three confirmation pages |
 | Add modules | Courses → click the course → **Add** |
 | Add module exercises | Modules → click the module → **Add Exercise** |
 | Create a section | **Sections I Teach** → **+ New section** |
 | Find a section you didn't create | Courses → **Manage** in the *Sections* column → click it |
 | Change a section's name or course | Section → **Edit** → *Section Settings* → **Save Changes** |
 | Assign a Section Teacher | Section → **Edit** → *Assign Section Teacher* |
-| Add an exercise to one section | Section → **Edit** → **+ Add exercise to this section only** |
+| Hide course work from one section | Section → **Curriculum** → **Hide module**, or a module's **Hide** |
+| Add to one section's curriculum | Section → **Curriculum** → **Add**, or a module's **Add Exercise** |
 | Open a roster | Click the section's name |
 | Preview as a teacher or student | Account menu → **View as** |

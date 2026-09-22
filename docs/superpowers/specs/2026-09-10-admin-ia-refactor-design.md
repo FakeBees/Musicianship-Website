@@ -102,7 +102,28 @@ and adding one would be a visible layout change on the student side. They aren't
 
 Also stale: several `condition` notes in `screens.py` predate Phase 1/1b — `SCHOOL_ADMIN_ENTRY` still describes
 BUG-003, and `TEACHER_SECTION_DETAIL` / `TEACHER_SECTION_DELETE` predate D11. `tests/test_screens.py` checks
-names and access levels, not condition text, so nothing caught the drift.
+names and access levels, not condition text, so nothing caught the drift. *(Fixed 2026-09-21, bug round Task 1.)*
+
+### 1.5 Status after the 2026-09-21 bug round
+
+Plan: `docs/superpowers/plans/2026-09-21-bug-round-section-content.md`. **Every defect in §1.4 is fixed
+except D18**, which awaits the owner's decision on what "private" should mean.
+
+| Defect | Resolution |
+|---|---|
+| D12 | Hide rows now reach students; module-level hide is one row (`module_exercise_id` NULL); hidden work 404s |
+| D13, D14, D16, D17, D26, D27 | Task 1 — Section Teachers can't clear the course; admin-only controls hidden; role labels everywhere; working back link; join codes generated on school creation and shown to Section Teachers |
+| D15 | Superseded — the raw Exercise ID form was retired; sections now add exercises with the full course editor |
+| D19, D20, D21 | Cascading deletes behind three confirmation pages; one set of cascade helpers used by every delete |
+| D22 | Fixed earlier (page identity rule) |
+| D23, D24, D25 | Clef / Shortest Note / multiple time signatures all filter; the match counter counts Difficulty |
+
+**New capability** (owner's request): Section Teachers build their section's own curriculum. `Module` and
+`ModuleExercise` gained a nullable `section_id` (physical `class_id`; migration `migrate_section_content.py`):
+NULL is course content, a section id is that section's own. Course-level admin pages exclude and refuse
+section content; `curriculum.py` includes it for its section only.
+
+Test suite: 167 → 270.
 
 ## 2. Design
 
