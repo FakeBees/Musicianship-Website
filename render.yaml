@@ -4,7 +4,13 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    # migrate_deploy.py brings the database up to the current models before the
+    # server starts. The app's own db.create_all() only runs under
+    # `python app.py`, never under gunicorn, so without this a deploy can serve
+    # new code against an old schema — which is what made logging in 500.
+    # If it can't apply a change safely it exits non-zero, so the deploy fails
+    # and the previous version keeps serving instead.
+    startCommand: python migrate_deploy.py && gunicorn app:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
