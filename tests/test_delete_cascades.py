@@ -475,3 +475,35 @@ def test_world_itself_has_no_orphans():
     fixture's fault, not the cascade's."""
     world()
     assert find_orphans() == []
+
+
+# ── Override routes (final-review finding) ─────────────────────────────────
+
+def test_add_override_accepts_only_hide():
+    """The only form that posts here sends action='hide'. Anything else used
+    to be stored verbatim, so a request could create legacy 'add' / 'override'
+    rows that the curriculum engine still honours."""
+    w = world()
+    before = SectionModuleExercise.query.filter_by(section_id=w['section']).count()
+    resp = client_as(w['assigned']).post(
+        f'/teacher/sections/{w["section"]}/overrides/add',
+        data={'action': 'add', 'module_id': w['m_course']})
+    assert resp.status_code == 400, 'an override action other than hide must be refused'
+    db.session.expire_all()
+    assert SectionModuleExercise.query.filter_by(section_id=w['section']).count() == before
+
+
+def test_removing_an_override_never_orphans_a_completion():
+    """teacher_delete_override deleted the row directly, bypassing
+    _delete_overrides(), so a completion reaching it through
+    section_exercise_id was left pointing at nothing."""
+    w = world()
+    ov_id = SectionModuleExercise.query.filter_by(
+        section_id=w['section'], action='override').one().id
+    assert ModuleCompletion.query.filter_by(section_exercise_id=ov_id).count() == 1, \
+        'the fixture must give this override a completion, or the test proves nothing'
+    client_as(w['assigned']).post(
+        f'/teacher/sections/{w["section"]}/overrides/{ov_id}/delete')
+    db.session.expire_all()
+    assert SectionModuleExercise.query.filter_by(id=ov_id).first() is None
+    assert find_orphans() == [], 'removing an override left a dangling completion'

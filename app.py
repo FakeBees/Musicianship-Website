@@ -3693,6 +3693,11 @@ def teacher_add_override(section_id):
     section = Section.query.get_or_404(section_id)
     require_section_authority(section, 'class_teacher')
     action    = request.form['action']
+    # Hiding is the only override the UI creates. 'add' / 'override' / 'remove'
+    # rows are legacy data the curriculum engine still reads, so a request
+    # must not be able to mint new ones.
+    if action != 'hide':
+        abort(400)
     module_id = request.form.get('module_id', type=int)
     me_id     = request.form.get('module_exercise_id', type=int)
     ex_type   = request.form.get('exercise_type')
@@ -3735,7 +3740,9 @@ def teacher_delete_override(section_id, sme_id):
     if sme.section_id != section_id:
         abort(403)
     module_id = sme.module_id
-    db.session.delete(sme)
+    # Through the helper, not db.session.delete(): a completion can reach an
+    # override row via section_exercise_id, and would be left dangling.
+    _delete_overrides(SectionModuleExercise.query.filter_by(id=sme.id))
     db.session.commit()
     flash('Override removed.', 'success')
     # Task 5: same page-return rule as teacher_add_override above.
