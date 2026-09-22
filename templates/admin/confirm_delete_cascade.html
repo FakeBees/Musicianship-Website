@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Delete {{ item_type|capitalize }} "{{ item_name }}" — Step {{ step }} of 3{% endblock %}
+{% block content %}
+<div class="container py-5" style="max-width:640px">
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+      <h2 class="h5 mb-0">Delete {{ item_type|capitalize }} "{{ item_name }}" — Step {{ step }} of 3</h2>
+    </div>
+    <div class="card-body">
+      {% if step == 1 %}
+        <p>Delete {{ item_type }} <strong>"{{ item_name }}"</strong>? Are you sure?</p>
+      {% elif step == 2 %}
+        <p>Deleting <strong>"{{ item_name }}"</strong> will permanently remove:</p>
+        <ul>
+          {% for line in overview_lines %}
+          <li>{{ line }}</li>
+          {% endfor %}
+        </ul>
+        <p>Are you sure?</p>
+      {% else %}
+        <p class="fw-bold text-danger">Are you really sure? This can't be undone.</p>
+      {% endif %}
+    </div>
+    <div class="card-footer d-flex gap-2 justify-content-end">
+      <a href="{{ list_url }}" class="btn btn-outline-secondary">Cancel</a>
+      {% if step == 1 %}
+        <a href="{{ step2_url }}" class="btn btn-danger">Continue</a>
+      {% elif step == 2 %}
+        <a href="{{ step3_url }}" class="btn btn-danger">Continue</a>
+      {% else %}
+        <form method="post" action="{{ post_url }}" class="d-inline">
+          <input type="hidden" name="step" value="3">
+          <button type="submit" class="btn btn-danger">Delete permanently</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

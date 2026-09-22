@@ -29,10 +29,7 @@
               onsubmit="return confirm('Duplicate course &quot;{{ c.name }}&quot;?')">
           <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
         </form>
-        <form method="post" action="{{ url_for('admin_delete_course', course_id=c.id) }}"
-              onsubmit="return confirm('Delete course &quot;{{ c.name }}&quot; and all its modules?')">
-          <button class="btn btn-sm btn-outline-danger">Delete</button>
-        </form>
+        <a href="{{ url_for('admin_delete_course', course_id=c.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
       </td>
     </tr>
     <tr class="collapse" id="rename-{{ c.id }}">

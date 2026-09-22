@@ -229,10 +229,16 @@ SCREENS = {
     'admin':                 _s('ADMIN_DASHBOARD',    'site_admin', 'Site admin'),
     'admin_users':           _s('ADMIN_USERS',        'site_admin', 'Site admin'),
     'admin_delete_user':     _s('ADMIN_USER_DELETE',  'site_admin', 'Site admin',
-                                kind='action'),
+                                condition='Three-step confirm (GET ?step=1|2|3); POST only '
+                                          'deletes when step=3. Cascades: owned sections, '
+                                          'completions, attempts (all 4 modes), memberships. '
+                                          'Cannot delete your own account, at any step.'),
     'admin_schools':         _s('ADMIN_SCHOOLS',      'site_admin', 'Site admin'),
     'admin_delete_school':   _s('ADMIN_SCHOOL_DELETE', 'site_admin', 'Site admin',
-                                kind='action'),
+                                condition='Three-step confirm (GET ?step=1|2|3); POST only '
+                                          'deletes when step=3. Cascades: courses, sections, '
+                                          'progress. Members keep their accounts; roles are '
+                                          'recalculated.'),
     'admin_add_school_member': _s('SCHOOL_ADD_MEMBER', 'school_admin', 'School admin',
                                   kind='action',
                                   condition='Can only grant a role strictly below your '
@@ -250,7 +256,9 @@ SCREENS = {
                                                'their own.'),
     'admin_courses':         _s('ADMIN_COURSES',      'school_admin', 'Site admin'),
     'admin_delete_course':   _s('ADMIN_COURSE_DELETE', 'school_admin', 'Site admin',
-                                kind='action'),
+                                condition='Three-step confirm (GET ?step=1|2|3); POST only '
+                                          'deletes when step=3. Cascades: sections following '
+                                          'the course and their progress.'),
     'admin_modules':         _s('ADMIN_MODULES',      'school_admin', 'Site admin'),
     'admin_delete_module':   _s('ADMIN_MODULE_DELETE', 'school_admin', 'Site admin',
                                 kind='action'),
@@ -351,8 +359,11 @@ TEMPLATES = {
 
     'admin': 'admin/index.html',
     'admin_users': 'admin/users.html',
+    'admin_delete_user': 'admin/confirm_delete_cascade.html',
     'admin_schools': 'admin/schools.html',
+    'admin_delete_school': 'admin/confirm_delete_cascade.html',
     'admin_courses': 'admin/courses.html',
+    'admin_delete_course': 'admin/confirm_delete_cascade.html',
     'admin_modules': 'admin/modules.html',
     'admin_module_exercises': 'admin/module_exercises.html',
 

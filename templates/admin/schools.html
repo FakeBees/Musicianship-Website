@@ -33,10 +33,7 @@
       <td><code>{{ s.join_code or '—' }}</code></td>
       <td class="d-flex gap-1">
         <a href="{{ url_for('admin_school_detail', school_id=s.id) }}" class="btn btn-sm btn-outline-primary">Manage School</a>
-        <form method="post" action="{{ url_for('admin_delete_school', school_id=s.id) }}"
-              onsubmit="return confirm('Delete school &quot;{{ s.name }}&quot; and all its courses?')">
-          <button class="btn btn-sm btn-outline-danger">Delete</button>
-        </form>
+        <a href="{{ url_for('admin_delete_school', school_id=s.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
       </td>
     </tr>
     {% else %}

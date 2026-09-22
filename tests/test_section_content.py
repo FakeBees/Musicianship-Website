@@ -313,11 +313,17 @@ def test_duplicate_course_excludes_section_content():
 
 def test_deleting_course_with_section_owned_content_does_not_crash():
     w = world()
-    resp = client_as(w['at']).post(f'/admin/courses/{w["course"]}/delete')
+    # Task 6: deleting only happens on a step=3 POST — the three-step confirm
+    # this test doesn't otherwise care about. Posting step=3 keeps this
+    # test's original intent: a course with section-owned modules/exercises
+    # attached must delete cleanly, not 500.
+    resp = client_as(w['at']).post(f'/admin/courses/{w["course"]}/delete',
+                                   data={'step': '3'})
     assert resp.status_code == 302, \
         "deleting a course that has section-owned modules/exercises attached " \
-        "must not crash on the new nullable column (cascade cleanup of " \
-        "orphaned section content is a later task, but this must not 500)"
+        "must not crash — cascade cleanup of section content must handle it"
+    assert Course.query.get(w['course']) is None, \
+        "a step=3 POST must actually delete the course"
 
 
 # ── Section content is tied to its course ──────────────────────────────────

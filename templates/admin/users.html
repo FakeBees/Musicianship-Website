@@ -17,10 +17,7 @@
       <td class="text-muted small">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
       <td>
         {% if u.id != current_user.id %}
-        <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
-              onsubmit="return confirm('Permanently delete account {{ u.email }}?')">
-          <button class="btn btn-sm btn-outline-danger">Delete</button>
-        </form>
+        <a href="{{ url_for('admin_delete_user', user_id=u.id) }}" class="btn btn-sm btn-outline-danger">Delete</a>
         {% else %}
         <span class="text-muted small">(you)</span>
         {% endif %}

@@ -545,6 +545,14 @@ def _pages_for_uniqueness(w):
          f"/teacher/section/{w['section']}/curriculum",             ['admin', 'at', 'ct']),
         ('section curriculum module',
          f"/teacher/section/{w['section']}/curriculum/modules/{w['module']}", ['admin', 'at', 'ct']),
+        # Task 6: the three cascading-delete confirm pages, one step each —
+        # enough to prove their headings don't collide with anything else.
+        ('delete school step 1',
+         f"/admin/schools/{w['school']}/delete?step=1", ['admin']),
+        ('delete user step 1',
+         f"/admin/users/{w['ct2']}/delete?step=1",      ['admin']),
+        ('delete course step 1',
+         f"/admin/courses/{w['course']}/delete?step=1", ['admin']),
     ]
 
 

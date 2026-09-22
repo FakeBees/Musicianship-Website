@@ -872,31 +872,255 @@ def _section_owned_exercise_or_404(section, me_id):
     return me
 
 
-def _delete_section_exercise(me):
-    """Remove a section's own ModuleExercise, plus the rows that would
-    otherwise dangle: completion records against it, and any
-    SectionModuleExercise row that targets it (an exercise-level hide is the
-    realistic case, but nothing stops a stale/forged one). Task 6 will fold
-    this into its shared cascade helpers (`_delete_module_exercise`); until
-    then, per the brief, this is the whole cascade for one section-owned
-    exercise. Does not commit — callers commit once after their own changes.
-    """
+
+# ---------------------------------------------------------------------------
+# Cascading delete helpers (Task 6 / D19-D21)
+#
+# Every FK pointing at school, course, module, module_exercise, class
+# (Section) or class_module_exercise (SectionModuleExercise) is handled by
+# exactly one of these, so no caller has to remember the dependency order by
+# hand. None of them commit — the route commits once, after step=3 is
+# confirmed.
+#
+#   _delete_module_exercise(me)  completions on it, override rows that
+#                                 target it, the exercise
+#   _delete_module(module)       each of its exercises (as above), the
+#                                 module-level override row that targets the
+#                                 module itself, the module
+#   _delete_section(section)     every exercise and module it owns (as
+#                                 above), whatever completion/override rows
+#                                 still target it directly, its student
+#                                 memberships, the section
+#   _delete_course(course)       every section following it (as above),
+#                                 every module still directly on the course
+#                                 (by now only the course-owned ones — a
+#                                 section-owned module already went with its
+#                                 section), the course
+#   _delete_school(school)       every course (as above); content-bank rows
+#                                 scoped to it (Melody/Rhythm/
+#                                 ChordProgression/HolisticExercise
+#                                 .school_id) are freed — school_id set NULL
+#                                 — rather than destroyed, since that's
+#                                 reusable content, not organisational data,
+#                                 and the column is nullable for exactly
+#                                 this; its memberships; the school. Every
+#                                 former member's account is kept; only the
+#                                 membership row is gone, and their global
+#                                 role is then recalculated via
+#                                 _sync_global_role (a Site Admin's role is
+#                                 never touched by that, per its own guard).
+#   _delete_user(user)           every section they own (as above);
+#                                 unassigned wherever they are only the
+#                                 assigned Section Teacher (section kept);
+#                                 dropped as a member of every section they
+#                                 are still in; their completions, their
+#                                 attempts in all four modes, their school
+#                                 memberships; the user
+#
+# ModuleCompletion.section_exercise_id (physical class_exercise_id) is an
+# easy-to-miss second FK onto SectionModuleExercise. _delete_overrides() is
+# the one place a batch of override rows is ever deleted, so it is the one
+# place that FK has to be remembered.
+# ---------------------------------------------------------------------------
+
+def _delete_overrides(query):
+    """Delete a set of SectionModuleExercise rows, first clearing any
+    ModuleCompletion that reaches one of them via section_exercise_id."""
+    ids = [row.id for row in query.all()]
+    if not ids:
+        return
+    ModuleCompletion.query.filter(ModuleCompletion.section_exercise_id.in_(ids)) \
+        .delete(synchronize_session=False)
+    SectionModuleExercise.query.filter(SectionModuleExercise.id.in_(ids)) \
+        .delete(synchronize_session=False)
+
+
+def _delete_module_exercise(me):
+    """Delete one ModuleExercise: completion rows against it, any override
+    row that targets it, then the exercise. Works for a course-owned or a
+    section-owned exercise alike."""
     ModuleCompletion.query.filter_by(module_exercise_id=me.id).delete()
-    SectionModuleExercise.query.filter_by(module_exercise_id=me.id).delete()
+    _delete_overrides(SectionModuleExercise.query.filter_by(module_exercise_id=me.id))
     db.session.delete(me)
 
 
-def _delete_section_module(module):
-    """Remove a section's own Module: cascades to every exercise on it (via
-    _delete_section_exercise) and any module-level SectionModuleExercise row
-    that targets the module itself. Task 6 will fold this into its shared
-    cascade helpers (`_delete_module`). Does not commit — callers commit
-    once after their own changes.
-    """
+def _delete_module(module):
+    """Delete one Module: every exercise on it (as above), the module-level
+    override row that targets the module itself (module_exercise_id IS
+    NULL — a module-wide hide), then the module. Works for a course-owned
+    or a section-owned module alike."""
     for me in ModuleExercise.query.filter_by(module_id=module.id).all():
-        _delete_section_exercise(me)
-    SectionModuleExercise.query.filter_by(module_id=module.id, module_exercise_id=None).delete()
+        _delete_module_exercise(me)
+    _delete_overrides(SectionModuleExercise.query.filter_by(
+        module_id=module.id, module_exercise_id=None))
     db.session.delete(module)
+
+
+def _delete_section(section):
+    """Delete one Section: every exercise it owns — whether sitting on its
+    own module or added onto a shared course module, both carry this
+    section's id in ModuleExercise.section_id — every module it owns, any
+    completion/override rows still directly targeting it, its student
+    memberships, then the section."""
+    for me in ModuleExercise.query.filter_by(section_id=section.id).all():
+        _delete_module_exercise(me)
+    for module in Module.query.filter_by(section_id=section.id).all():
+        _delete_module(module)
+    ModuleCompletion.query.filter_by(section_id=section.id).delete()
+    _delete_overrides(SectionModuleExercise.query.filter_by(section_id=section.id))
+    section.members.clear()
+    db.session.flush()
+    db.session.delete(section)
+
+
+def _delete_course(course):
+    """Delete one Course: every section following it (which takes its own
+    modules/exercises with it), every module still directly on the course —
+    by now only the course-owned ones, section_id NULL — then the course."""
+    for section in Section.query.filter_by(course_id=course.id).all():
+        _delete_section(section)
+    for module in Module.query.filter_by(course_id=course.id).all():
+        _delete_module(module)
+    db.session.delete(course)
+
+
+def _delete_school(school):
+    """Delete one School: every course (as above); its content-bank rows
+    unscoped rather than destroyed; its memberships; the school; then
+    recalculate every former member's global role."""
+    for course in Course.query.filter_by(school_id=school.id).all():
+        _delete_course(course)
+    for content_model in (Melody, Rhythm, ChordProgression, HolisticExercise):
+        content_model.query.filter_by(school_id=school.id) \
+            .update({'school_id': None}, synchronize_session=False)
+    member_ids = [m.user_id for m in
+                  SchoolMembership.query.filter_by(school_id=school.id).all()]
+    SchoolMembership.query.filter_by(school_id=school.id).delete()
+    db.session.delete(school)
+    db.session.flush()
+    for uid in member_ids:
+        member = db.session.get(User, uid)
+        if member:
+            _sync_global_role(member)
+
+
+def _delete_user(target):
+    """Delete one User: every section they own outright (as above); every
+    section where they are only the assigned Section Teacher is kept and
+    just unassigned; they are dropped as a member of every section they are
+    still in; then their completions, their attempts in all four modes,
+    their school memberships, and finally the user."""
+    for section in Section.query.filter_by(teacher_id=target.id).all():
+        _delete_section(section)
+    Section.query.filter_by(assigned_teacher_id=target.id) \
+        .update({'assigned_teacher_id': None}, synchronize_session=False)
+    for section in list(target.sections):
+        section.members.remove(target)
+    ModuleCompletion.query.filter_by(user_id=target.id).delete()
+    UserAttempt.query.filter_by(user_id=target.id).delete()
+    RhythmAttempt.query.filter_by(user_id=target.id).delete()
+    HarmonicAttempt.query.filter_by(user_id=target.id).delete()
+    HolisticAttempt.query.filter_by(user_id=target.id).delete()
+    SchoolMembership.query.filter_by(user_id=target.id).delete()
+    db.session.flush()
+    db.session.delete(target)
+
+
+# ---------------------------------------------------------------------------
+# Three-step delete confirmation (Task 6) — school, user and course share one
+# template and one rendering helper. Step 2's itemised "what this deletes"
+# list is built per entity type, below, since the entities being counted
+# differ; _render_delete_confirm() is the common GET-side plumbing.
+# ---------------------------------------------------------------------------
+
+def _plural(n, word):
+    return f'{n} {word}' + ('' if n == 1 else 's')
+
+
+def _school_delete_overview(school):
+    courses = school.courses.all()
+    course_ids = [c.id for c in courses]
+    sections = Section.query.filter(Section.course_id.in_(course_ids)).all() if course_ids else []
+    section_ids = [s.id for s in sections]
+    completions = (ModuleCompletion.query
+                   .filter(ModuleCompletion.section_id.in_(section_ids)).count()
+                   if section_ids else 0)
+    members = SchoolMembership.query.filter_by(school_id=school.id).all()
+    lines = [_plural(len(courses), 'course') +
+            (': ' + ', '.join(c.name for c in courses) if courses else '')]
+    if sections:
+        detail = ', '.join(f'{s.name} ({_plural(len(s.members), "student")})' for s in sections)
+        lines.append(f'{_plural(len(sections), section_word())} following them: {detail}')
+    else:
+        lines.append(_plural(0, section_word()))
+    lines.append(_plural(completions, 'progress record'))
+    lines.append(_plural(len(members), 'member account') +
+                ' kept — roles recalculated, not removed')
+    return lines
+
+
+def _course_delete_overview(course):
+    sections = Section.query.filter_by(course_id=course.id).all()
+    section_ids = [s.id for s in sections]
+    modules = course.modules.all()
+    completions = (ModuleCompletion.query
+                   .filter(ModuleCompletion.section_id.in_(section_ids)).count()
+                   if section_ids else 0)
+    lines = []
+    if sections:
+        detail = ', '.join(f'{s.name} ({_plural(len(s.members), "student")})' for s in sections)
+        lines.append(f'{_plural(len(sections), section_word())}: {detail}')
+    else:
+        lines.append(_plural(0, section_word()))
+    lines.append(_plural(len(modules), 'module'))
+    lines.append(_plural(completions, 'progress record'))
+    return lines
+
+
+def _user_delete_overview(target):
+    owned = Section.query.filter_by(teacher_id=target.id).all()
+    assigned = Section.query.filter_by(assigned_teacher_id=target.id).all()
+    member_of = list(target.sections)
+    completions = ModuleCompletion.query.filter_by(user_id=target.id).count()
+    attempts = (UserAttempt.query.filter_by(user_id=target.id).count()
+               + RhythmAttempt.query.filter_by(user_id=target.id).count()
+               + HarmonicAttempt.query.filter_by(user_id=target.id).count()
+               + HolisticAttempt.query.filter_by(user_id=target.id).count())
+    memberships = SchoolMembership.query.filter_by(user_id=target.id).count()
+    lines = []
+    if owned:
+        names = ', '.join(s.name for s in owned)
+        lines.append(f'{_plural(len(owned), section_word())} owned, deleted with all their '
+                     f'content and progress: {names}')
+    if assigned:
+        names = ', '.join(s.name for s in assigned)
+        lines.append(f'{_plural(len(assigned), section_word())} where they are the assigned '
+                     f'teacher, unassigned but kept: {names}')
+    if member_of:
+        names = ', '.join(s.name for s in member_of)
+        lines.append(f'removed as a member of {_plural(len(member_of), section_word())}: {names}')
+    lines.append(_plural(completions, 'completion record'))
+    lines.append(_plural(attempts, 'attempt') +
+                ' across melodic, rhythmic, harmonic and holistic practice')
+    lines.append(_plural(memberships, 'school membership'))
+    return lines
+
+
+def _render_delete_confirm(item_type, item_name, step, overview_lines, endpoint,
+                           list_url, **url_kwargs):
+    """Render step 1, 2 or 3 of the shared delete-confirmation template.
+    `overview_lines` is only displayed on step 2."""
+    if step not in (1, 2, 3):
+        step = 1
+    return render_template(
+        'admin/confirm_delete_cascade.html',
+        item_type=item_type, item_name=item_name, step=step,
+        overview_lines=overview_lines,
+        step2_url=url_for(endpoint, step=2, **url_kwargs),
+        step3_url=url_for(endpoint, step=3, **url_kwargs),
+        post_url=url_for(endpoint, **url_kwargs),
+        list_url=list_url,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1675,7 +1899,7 @@ def admin_users():
     return render_template('admin/users.html', users=users)
 
 
-@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@app.route('/admin/users/<int:user_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('admin')
 def admin_delete_user(user_id):
@@ -1683,10 +1907,22 @@ def admin_delete_user(user_id):
         flash('You cannot delete your own account.', 'danger')
         return redirect(url_for('admin_users'))
     u = User.query.get_or_404(user_id)
-    db.session.delete(u)
-    db.session.commit()
-    flash(f'User {u.email} deleted.', 'success')
-    return redirect(url_for('admin_users'))
+
+    if request.method == 'POST':
+        if request.form.get('step') != '3':
+            flash('Delete not confirmed.', 'info')
+            return redirect(url_for('admin_delete_user', user_id=user_id, step=1))
+        email = u.email
+        _delete_user(u)
+        db.session.commit()
+        flash(f'User {email} deleted.', 'success')
+        return redirect(url_for('admin_users'))
+
+    step = request.args.get('step', 1, type=int)
+    overview = _user_delete_overview(u) if step == 2 else None
+    return _render_delete_confirm('user', u.email, step, overview,
+                                  'admin_delete_user', url_for('admin_users'),
+                                  user_id=user_id)
 
 
 @app.route('/admin/schools', methods=['GET', 'POST'])
@@ -1824,7 +2060,7 @@ def admin_delete_module_exercise(me_id):
     if me.section_id is not None:
         abort(404)
     module_id = me.module_id
-    db.session.delete(me)
+    _delete_module_exercise(me)
     db.session.commit()
     flash('Exercise removed.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=module_id))
@@ -1877,26 +2113,27 @@ def admin_duplicate_module_exercise(me_id):
     return redirect(url_for('admin_module_exercises', module_id=src.module_id))
 
 
-@app.route('/admin/schools/<int:school_id>/delete', methods=['POST'])
+@app.route('/admin/schools/<int:school_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('admin')
 def admin_delete_school(school_id):
     school = School.query.get_or_404(school_id)
-    name = school.name
-    for course in school.courses.all():
-        for module in course.modules.all():
-            # Clean up dependent records before deleting ModuleExercise
-            me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
-            if me_ids:
-                ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-                SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-            ModuleExercise.query.filter_by(module_id=module.id).delete()
-            db.session.delete(module)
-        db.session.delete(course)
-    db.session.delete(school)
-    db.session.commit()
-    flash(f'School "{name}" deleted.', 'success')
-    return redirect(url_for('admin_schools'))
+
+    if request.method == 'POST':
+        if request.form.get('step') != '3':
+            flash('Delete not confirmed.', 'info')
+            return redirect(url_for('admin_delete_school', school_id=school_id, step=1))
+        name = school.name
+        _delete_school(school)
+        db.session.commit()
+        flash(f'School "{name}" deleted.', 'success')
+        return redirect(url_for('admin_schools'))
+
+    step = request.args.get('step', 1, type=int)
+    overview = _school_delete_overview(school) if step == 2 else None
+    return _render_delete_confirm('school', school.name, step, overview,
+                                  'admin_delete_school', url_for('admin_schools'),
+                                  school_id=school_id)
 
 
 @app.route('/admin/schools/<int:school_id>/detail', methods=['GET'])
@@ -2140,26 +2377,29 @@ def admin_regen_join_code(school_id):
     return redirect(url_for('admin_school_detail', school_id=school_id))
 
 
-@app.route('/admin/courses/<int:course_id>/delete', methods=['POST'])
+@app.route('/admin/courses/<int:course_id>/delete', methods=['GET', 'POST'])
 @login_required
 @role_required('admin_teacher', 'admin')
 def admin_delete_course(course_id):
     course = Course.query.get_or_404(course_id)
     require_school_role(course.school_id, 'admin_teacher')
     school_id = course.school_id
-    name = course.name
-    for module in course.modules.all():
-        # Clean up dependent records before deleting ModuleExercise
-        me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
-        if me_ids:
-            ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-            SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-        ModuleExercise.query.filter_by(module_id=module.id).delete()
-        db.session.delete(module)
-    db.session.delete(course)
-    db.session.commit()
-    flash(f'Course "{name}" deleted.', 'success')
-    return redirect(url_for('admin_courses', school_id=school_id))
+
+    if request.method == 'POST':
+        if request.form.get('step') != '3':
+            flash('Delete not confirmed.', 'info')
+            return redirect(url_for('admin_delete_course', course_id=course_id, step=1))
+        name = course.name
+        _delete_course(course)
+        db.session.commit()
+        flash(f'Course "{name}" deleted.', 'success')
+        return redirect(url_for('admin_courses', school_id=school_id))
+
+    step = request.args.get('step', 1, type=int)
+    overview = _course_delete_overview(course) if step == 2 else None
+    return _render_delete_confirm('course', course.name, step, overview,
+                                  'admin_delete_course', url_for('admin_courses', school_id=school_id),
+                                  course_id=course_id)
 
 
 @app.route('/admin/courses/<int:course_id>/rename', methods=['POST'])
@@ -2231,13 +2471,7 @@ def admin_delete_module(module_id):
         abort(404)
     course_id = module.course_id
     name = module.name
-    # Clean up dependent records before deleting ModuleExercise
-    me_ids = [me.id for me in ModuleExercise.query.filter_by(module_id=module.id).all()]
-    if me_ids:
-        ModuleCompletion.query.filter(ModuleCompletion.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-        SectionModuleExercise.query.filter(SectionModuleExercise.module_exercise_id.in_(me_ids)).delete(synchronize_session=False)
-    ModuleExercise.query.filter_by(module_id=module.id).delete()
-    db.session.delete(module)
+    _delete_module(module)
     db.session.commit()
     flash(f'Module "{name}" deleted.', 'success')
     return redirect(url_for('admin_modules', course_id=course_id))
@@ -3087,11 +3321,7 @@ def teacher_delete_section(section_id):
     if request.method == 'GET':
         return render_template('teacher/confirm_delete_section.html', section=section)
     name = section.name
-    ModuleCompletion.query.filter_by(section_id=section_id).delete()
-    SectionModuleExercise.query.filter_by(section_id=section_id).delete()
-    section.members.clear()
-    db.session.flush()
-    db.session.delete(section)
+    _delete_section(section)
     db.session.commit()
     flash(f'Section "{name}" deleted.', 'success')
     return redirect(url_for('teacher_dashboard'))
@@ -3684,7 +3914,7 @@ def teacher_delete_curriculum_module(section_id, module_id):
     # route (mirrors admin_delete_module, which is course-content-only).
     if module.section_id != section.id:
         abort(404)
-    _delete_section_module(module)
+    _delete_module(module)
     db.session.commit()
     flash('Module deleted.', 'success')
     return redirect(url_for('teacher_section_curriculum', section_id=section_id))
@@ -3745,7 +3975,7 @@ def teacher_remove_curriculum_exercise(section_id, me_id):
     require_section_authority(section, 'class_teacher')
     me = _section_owned_exercise_or_404(section, me_id)
     module_id = me.module_id
-    _delete_section_exercise(me)
+    _delete_module_exercise(me)
     db.session.commit()
     flash('Exercise removed.', 'success')
     return redirect(url_for('teacher_section_curriculum_module',
