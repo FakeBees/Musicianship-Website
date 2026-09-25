@@ -839,7 +839,7 @@
         const res  = await fetch(`/rhythm/submit/${RHYTHM_ID}`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ notes: userNotes, class_id: MODULE_CLASS_ID, me_id: MODULE_ME_ID, cme_id: MODULE_CME_ID }),
+          body:    JSON.stringify({ notes: userNotes, section_id: MODULE_SECTION_ID, me_id: MODULE_ME_ID, sme_id: MODULE_SME_ID }),
         });
         const data = await res.json();
         if (data.redirect) { window.location.href = data.redirect; return; }

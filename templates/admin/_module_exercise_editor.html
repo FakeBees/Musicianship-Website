@@ -23,7 +23,7 @@
 
 {# ── ADD EXERCISE FORM ─────────────────────────────────────────────────── #}
 <div class="card mb-4">
-  <div class="card-header fw-semibold">Add Exercise</div>
+  <div class="card-header fw-semibold">Add Assignment</div>
   <div class="card-body">
     <form method="post" id="add-form" action="{{ add_action_url }}">
       <div class="row g-3 mb-3">
@@ -54,7 +54,7 @@
         </select>
       </div>
 
-      <button class="btn btn-primary">Add Exercise</button>
+      <button class="btn btn-primary">Add Assignment</button>
     </form>
   </div>
 </div>
@@ -100,7 +100,7 @@
       {% if crit.get('passing') %}
         {{ crit.passing }} pass{{ 'es' if crit.passing != 1 }} at {{ crit.get('min_score', 70) }}%
       {% else %}
-        {{ crit.get('attempts', 1) }} attempt{{ 's' if crit.get('attempts', 1) != 1 }}
+        {{ crit.get('attempts', 1) }} exercise{{ 's' if crit.get('attempts', 1) != 1 }}
       {% endif %}
     </td>
     <td>
@@ -111,14 +111,14 @@
           <button class="btn btn-sm btn-outline-secondary">Duplicate</button>
         </form>
         <form method="post" action="{{ remove_url_template | replace('/0/', '/' ~ ex.id ~ '/') }}"
-              onsubmit="return confirm('Remove this exercise from the module?')">
+              onsubmit="return confirm('Remove this assignment from the module?')">
           <button class="btn btn-sm btn-outline-danger">Remove</button>
         </form>
       </div>
     </td>
   </tr>
   {% else %}
-  <tr><td colspan="6" class="text-muted">No exercises yet.</td></tr>
+  <tr><td colspan="6" class="text-muted">No assignments yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -128,7 +128,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Edit Exercise</h5>
+        <h5 class="modal-title">Edit Assignment</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form method="post" id="edit-form">

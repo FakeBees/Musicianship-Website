@@ -17,7 +17,7 @@
       <div class="d-flex justify-content-between align-items-center">
         <span class="fw-semibold">{{ m.module.name }}</span>
         {% if m.total == 0 %}
-          <span class="text-muted small">No exercises</span>
+          <span class="text-muted small">No assignments</span>
         {% elif m.completed == m.total %}
           <span class="badge bg-success">Complete</span>
         {% else %}
@@ -32,7 +32,7 @@
     </a>
   {% else %}
     <div class="text-center py-5">
-      <p class="text-muted mb-1">No module exercises have been set for <strong>{{ section.name }}</strong>.</p>
+      <p class="text-muted mb-1">No assignments have been set for <strong>{{ section.name }}</strong>.</p>
       <p class="text-muted mb-3">Practice sandbox?</p>
       <a href="{{ url_for('sandbox') }}" class="btn btn-outline-secondary">Open Sandbox</a>
     </div>

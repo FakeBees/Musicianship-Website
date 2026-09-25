@@ -2,6 +2,15 @@
 
 *Established 2026-08-28.*
 
+## Assignment and exercise (2026-09-25)
+
+| On screen | Means | In code / DB (unchanged) |
+|---|---|---|
+| **Assignment** | One task inside a module: "do N exercises matching these filters" (or N passes at a minimum score). | `ModuleExercise`, `module_exercise`, `/module_exercise/<id>/start` |
+| **Exercise** | One melody / rhythm / harmony a student sees and fills in. Library items are also called exercises. | `UserAttempt`, `RhythmAttempt`, `HarmonicAttempt`, `HolisticAttempt`; `attempts` in completion rules |
+
+Only the words on screen and in the guides changed; code, routes and table names keep the old names.
+
 ## The three concepts
 
 | Concept | What it is | Who owns it |

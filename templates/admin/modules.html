@@ -10,7 +10,7 @@
     <button class="btn btn-primary">Add</button>
   </form>
   <table class="table table-sm">
-    <thead><tr><th>#</th><th>Name</th><th>Exercises</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>Assignments</th><th></th></tr></thead>
     <tbody>
     {% for m in modules %}
     <tr>
@@ -18,7 +18,7 @@
       <td><a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="text-decoration-none">{{ m.name }}</a></td>
       <td>{{ m.exercises.filter_by(section_id=none).count() }}</td>
       <td class="d-flex gap-1">
-        <a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="btn btn-sm btn-outline-secondary">Exercises →</a>
+        <a href="{{ url_for('admin_module_exercises', module_id=m.id) }}" class="btn btn-sm btn-outline-secondary">Assignments →</a>
         <form method="post" action="{{ url_for('admin_delete_module', module_id=m.id) }}" onsubmit="return confirm('Delete module \"{{ m.name }}\" and all its exercises? This cannot be undone.')">
           <button class="btn btn-sm btn-outline-danger">Delete</button>
         </form>

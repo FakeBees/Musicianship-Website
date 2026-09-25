@@ -19,7 +19,7 @@
   {% endwith %}
 
   {% if course_exercises is not none %}
-  <h5 class="mb-2">Course exercises</h5>
+  <h5 class="mb-2">Course assignments</h5>
   <table class="table table-sm align-middle mb-4">
     <thead><tr><th>#</th><th>Name</th><th>Type</th><th></th></tr></thead>
     <tbody>
@@ -47,13 +47,13 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="4" class="text-muted">No course exercises in this module.</td></tr>
+    <tr><td colspan="4" class="text-muted">No course assignments in this module.</td></tr>
     {% endfor %}
     </tbody>
   </table>
   {% endif %}
 
-  <h5 class="mb-2">This {{ section_term_title }}'s own exercises</h5>
+  <h5 class="mb-2">This {{ section_term_title }}'s own assignments</h5>
   {% include 'admin/_module_exercise_editor.html' with context %}
 </div>
 {% endblock %}

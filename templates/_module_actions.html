@@ -7,13 +7,13 @@
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
       {% if module_ctx.module_done %}
-        <strong>Module complete!</strong> All exercises in this module are done.
+        <strong>Module complete!</strong> All assignments in this module are done.
       {% elif module_ctx.complete %}
-        <strong>Exercise complete!</strong>
-        {% if prog.required > 1 %}<span class="text-muted small ms-2">({{ prog.count }}/{{ prog.required }} done)</span>{% endif %}
+        <strong>Assignment complete!</strong>
+        {% if prog.required > 1 %}<span class="text-muted small ms-2">({{ prog.count }}/{{ prog.required }} exercises done)</span>{% endif %}
       {% else %}
         Keep going —
-        {% if prog.required > 1 %}<strong>{{ prog.count }}/{{ prog.required }}</strong> done toward completion.
+        {% if prog.required > 1 %}<strong>{{ prog.count }}/{{ prog.required }}</strong> exercises done toward completion.
         {% else %}almost there!{% endif %}
       {% endif %}
     </div>
@@ -24,7 +24,7 @@
     {% elif module_ctx.keep_practicing %}
       <a href="{{ next_url }}" class="btn btn-primary">{{ next_url_label }}</a>
     {% else %}
-      <a href="{{ module_ctx.next_url }}" class="btn btn-success">Next Exercise →</a>
+      <a href="{{ module_ctx.next_url }}" class="btn btn-success">Next Assignment →</a>
     {% endif %}
   </div>
   {% if prog.required > 1 and not module_ctx.module_done %}
@@ -42,7 +42,7 @@
   {% if module_ctx.complete and not module_ctx.module_done %}
     {% if module_ctx.keep_practicing %}
       <a href="{{ module_ctx.next_url }}" class="btn btn-outline-success">
-        Move on to Next Exercise →
+        Move on to Next Assignment →
       </a>
     {% elif module_ctx.keep_practicing_url %}
       <a href="{{ module_ctx.keep_practicing_url }}" class="btn btn-outline-primary">

@@ -8,7 +8,7 @@
     </div>
     <div class="card-body">
       <p>Remove <strong>{{ student.display_name or student.email }}</strong> from <strong>{{ section.name }}</strong>?</p>
-      <p class="text-muted small">The student can rejoin using the {{ section_term }} join code if needed. Their attempt history will not be deleted.</p>
+      <p class="text-muted small">The student can rejoin using the {{ section_term }} join code if needed. Their exercise history will not be deleted.</p>
     </div>
     <div class="card-footer d-flex gap-2 justify-content-end">
       <a href="{{ url_for('teacher_section_detail', section_id=section.id) }}" class="btn btn-outline-secondary">Cancel</a>

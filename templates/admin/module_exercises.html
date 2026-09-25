@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ module.name }} — Exercises{% endblock %}
+{% block title %}{{ module.name }} — Assignments{% endblock %}
 
 {# Set at the top level (not inside a block) so both blocks below can see
    them: a {% set %} made inside one {% block %} is NOT visible from a
@@ -11,7 +11,7 @@
 
 {% block content %}
 <div class="container py-4">
-  <h2>{{ module.name }} — Exercises</h2>
+  <h2>{{ module.name }} — Assignments</h2>
   <a href="{{ url_for('admin_modules', course_id=module.course_id) }}" class="btn btn-outline-secondary btn-sm mb-3">← Modules</a>
 
   {% include 'admin/_module_exercise_editor.html' with context %}

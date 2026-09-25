@@ -31,7 +31,7 @@
   <div class="d-flex flex-wrap gap-3 align-items-center">
     <div class="form-check">
       <input class="form-check-input" type="radio" name="criterion_type" id="{{ mode }}-crit-attempts" value="attempts" checked>
-      <label class="form-check-label" for="{{ mode }}-crit-attempts">By attempts</label>
+      <label class="form-check-label" for="{{ mode }}-crit-attempts">By number of exercises</label>
     </div>
     <div class="form-check">
       <input class="form-check-input" type="radio" name="criterion_type" id="{{ mode }}-crit-passing" value="passing">
@@ -40,7 +40,7 @@
   </div>
   <div id="{{ mode }}-crit-attempts-fields" class="mt-2 d-flex align-items-center gap-2">
     <input name="completion_attempts" id="{{ mode }}-attempts" type="number" min="1" value="1" class="form-control" style="width:100px">
-    <span class="text-muted">attempt(s) to complete</span>
+    <span class="text-muted">exercise(s) to complete</span>
   </div>
   <div id="{{ mode }}-crit-passing-fields" class="mt-2 d-flex align-items-center gap-2 d-none">
     <input name="completion_passing" id="{{ mode }}-passing" type="number" min="1" value="1" class="form-control" style="width:80px">

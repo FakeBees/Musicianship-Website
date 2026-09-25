@@ -12,7 +12,7 @@
   <h2 class="mb-4">{{ module.name }}</h2>
 
   {% if not exercises %}
-  <p class="text-muted">No exercises in this module yet.</p>
+  <p class="text-muted">No assignments in this module yet.</p>
   {% else %}
   <div class="row g-3">
   {% for ex in exercises %}
@@ -36,7 +36,7 @@
           <div class="mt-auto pt-2">
             {% if prog.required > 1 %}
             <div class="d-flex justify-content-between small text-muted mb-1">
-              <span>Progress</span>
+              <span>Exercises done</span>
               <span>{{ prog.count }}/{{ prog.required }}</span>
             </div>
             <div class="progress" style="height:4px">

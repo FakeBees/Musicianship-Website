@@ -20,7 +20,7 @@
     assign one before building its curriculum.</p>
   {% else %}
   <table class="table table-sm align-middle">
-    <thead><tr><th>#</th><th>Module</th><th>Source</th><th>Exercises</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Module</th><th>Source</th><th>Assignments</th><th></th></tr></thead>
     <tbody>
     {% for item in modules %}
     <tr>
@@ -38,7 +38,7 @@
       <td class="d-flex gap-1">
         {% if item.own %}
         <form method="post" action="{{ url_for('teacher_delete_curriculum_module', section_id=section.id, module_id=item.module.id) }}"
-              onsubmit="return confirm('Delete module &quot;{{ item.module.name }}&quot; and all its exercises? This cannot be undone.')">
+              onsubmit="return confirm('Delete module &quot;{{ item.module.name }}&quot; and all its assignments? This cannot be undone.')">
           <button class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
         {% elif item.hidden %}

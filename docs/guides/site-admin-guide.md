@@ -21,7 +21,7 @@ planned admin reorganisation lands; the tasks themselves won't. The other two gu
 
 **Part 2 — Running a school**
 8. [People in a school](#8-people-in-a-school)
-9. [Courses, modules and module exercises](#9-courses-modules-and-module-exercises)
+9. [Courses, modules and assignments](#9-courses-modules-and-assignments)
 10. [Sections and their curricula](#10-sections-and-their-curricula)
 11. [Getting students in](#11-getting-students-in)
 
@@ -92,7 +92,7 @@ need those names for tasks done outside the app ([section 7](#7-users-and-accoun
 
 ### The building blocks
 
-**School** → owns **Courses** → made of ordered **Modules** → made of ordered **Module exercises**,
+**School** → owns **Courses** → made of ordered **Modules** → made of ordered **Assignments**,
 each with a completion rule.
 
 **Section** — a group of students taught together, such as *MUS201-002*. **Students see the word
@@ -108,13 +108,13 @@ any other section.
 join code**, in that order.
 
 **The exercise library** — four types of content (Melodic, Rhythmic, Harmonic and Holistic), shared by
-every school. Students use it in free practice (**Sandbox**) and through module exercises.
+every school. Students use it in free practice (**Sandbox**) and through assignments.
 
 ```
 School
  └─ Course                    e.g. Theory 1
      └─ Module                e.g. Intervals
-         └─ Module exercise   e.g. "Seconds" — draws from the library
+         └─ Assignment   e.g. "Seconds" — draws from the library
 
 Section                       e.g. MUS201-002         (students see: Classroom)
  ├─ follows one Course
@@ -276,7 +276,7 @@ It takes three confirmation pages:
 1. **Delete** on the user's row → *"Delete User "…" — Step 1 of 3"*: *"Are you sure?"* → **Continue**.
 2. *Step 2 of 3* lists everything that will go: sections they **own**, which are deleted with all their
    content and progress; sections where they're the **assigned teacher**, which are kept and just
-   unassigned; sections they're a **member** of; and their practice attempts, progress records and
+   unassigned; sections they're a **member** of; and their practice exercises, progress records and
    school memberships. *"Are you sure?"* → **Continue**.
 3. *Step 3 of 3*: *"Are you really sure? This can't be undone."* → **Delete permanently**.
 
@@ -328,7 +328,7 @@ If you demote a Section Teacher, assign a new teacher to the sections they were 
 
 ---
 
-## 9. Courses, modules and module exercises
+## 9. Courses, modules and assignments
 
 School page → **Manage courses →**.
 
@@ -336,7 +336,7 @@ School page → **Manage courses →**.
 
 - **Create** — **New course name** → **Add**.
 - **Rename** — **Rename** → edit → **Save**.
-- **Duplicate** — creates *"<name> (copy)"* with copies of all its modules and module exercises. Sections,
+- **Duplicate** — creates *"<name> (copy)"* with copies of all its modules and assignments. Sections,
   and sections' own additions, aren't copied. Good for starting next term's version.
 - **Delete** — three confirmation pages, like deleting a school. **Deleting a course deletes every section
   following it**, with all their progress, and all the course's modules and exercises. Step 2 lists the
@@ -350,26 +350,26 @@ Click a course's name.
 - **Create** — **Module name** + **Order** → **Add**. Students see modules sorted by order, lowest first.
   Number with gaps (10, 20, 30): modules can't be renamed or re-ordered later, and gaps leave room for
   sections' own modules.
-- **Delete** — confirm. Deletes the module, its module exercises (including sections' additions to it),
+- **Delete** — confirm. Deletes the module, its assignments (including sections' additions to it),
   and student progress on them.
 
-### Module exercises
+### Assignments
 
 Click a module's name.
 
-**How they work.** **Melodic, Rhythmic and Harmonic** module exercises describe a *kind* of exercise with
+**How they work.** **Melodic, Rhythmic and Harmonic** assignments describe a *kind* of exercise with
 filters; each time a student starts one, the site picks a **random library exercise that matches**.
-**Holistic** module exercises point at **one specific exercise**.
+**Holistic** assignments point at **one specific exercise**.
 
 **To add one:** choose the **Type** → give it a **Name** (what students see) → set the **Order** → choose
 a **Completion** rule → for Holistic, pick the **Exercise**; otherwise set filters → check the live match
-count is above zero → **Add Exercise**.
+count is above zero → **Add Assignment**.
 
 **Completion rules**
 
 | Option | Complete when the student… | Default |
 |---|---|---|
-| **By attempts** | has submitted it this many times, whatever the score | 1 attempt |
+| **By number of exercises** | has submitted it this many times, whatever the score | 1 exercise |
 | **By passing score** | has submitted it this many times at or above the minimum score | 1 pass at 70 % |
 
 **Filters** — leave one empty to allow anything.
@@ -387,11 +387,11 @@ count is above zero → **Add Exercise**.
 Filters only draw from exercises whose visibility is **public** ([section 19](#19-visibility-tags-and-containers)).
 The live match count reflects every filter.
 
-If nothing matches, students who start it see *"No exercises match the filters for this module exercise.
+If nothing matches, students who start it see *"No exercises match the filters for this assignment.
 Ask your teacher to adjust the filters."* and can't complete it.
 
 **The exercises table** has **Edit** (Holistic exercises can't change which exercise they point at —
-remove and re-add), **Duplicate**, and **Remove**. It shows only the course's own exercises; sections'
+remove and re-add), **Duplicate**, and **Remove**. It shows only the course's own assignments; sections'
 additions live on their curriculum pages.
 
 ---
@@ -435,8 +435,8 @@ Edit page. Its Section Teacher can use it, and so can the school's School Admins
 - **Add** (a **Module name** and **Order**) creates a module for this section only; its own modules can
   be deleted.
 - A module's page (*<section> — <module>*) lists the **Course exercises** with **Hide** / **Restore**, the
-  section's own exercises with **Edit** / **Duplicate** / **Remove**, and **Add Exercise** — the same full
-  form as the course's module-exercises page.
+  section's own assignments with **Edit** / **Duplicate** / **Remove**, and **Add Assignment** — the same full
+  form as the course's assignments page.
 
 A section's own content belongs to the course it was made for: switch the section to another course and
 its additions are set aside; switch back and they return.
@@ -444,7 +444,7 @@ its additions are set aside; switch back and they return.
 ### Rosters
 
 Click a section's name. The page (*<section> — Roster*) shows the **Section code** and **School code**,
-then one row per student with their average over their 20 most recent attempts in each mode (rhythm
+then one row per student with their average over their 20 most recent exercises in each mode (rhythm
 accuracy for **Rhythmic**). These averages cover all of the student's practice, not just this section.
 **Remove** takes a student out of the section, keeping their history.
 
@@ -474,7 +474,7 @@ The library holds four types of content, shared by every school:
 | **Chord progressions** | hear chords and identify them | `HRM-0001` | Uploading MIDI |
 | **Holistic** | hear a recording and transcribe several parts | `HOL-0001` | Uploading WAV, then adding a MIDI file per part |
 
-**Where content shows up:** in free practice (**Sandbox**), and in module exercises — drawn at random by
+**Where content shows up:** in free practice (**Sandbox**), and in assignments — drawn at random by
 filters for Melodic, Rhythmic and Harmonic, or picked individually for Holistic.
 
 **Every list page works the same way:** a title with the count, upload buttons at the top, a search box
@@ -486,10 +486,10 @@ teachers as *Topics*), and **Visibility**.
 
 **Uploads always finish on the Edit page**, so you can fill in anything the upload form didn't ask for.
 
-**Deleting** asks you to confirm: *"This cannot be undone. Existing student attempt records referencing
+**Deleting** asks you to confirm: *"This cannot be undone. Existing student exercise records referencing
 this exercise will remain but the exercise will no longer be playable."*
 
-> **Before deleting content,** remember that module exercises may depend on it. A Holistic module exercise
+> **Before deleting content,** remember that assignments may depend on it. A Holistic assignment
 > pointing at a deleted exercise will break, and Melodic, Rhythmic or Harmonic filters that matched only
 > this content will start telling students that nothing matches.
 
@@ -661,15 +661,15 @@ Each exercise's Edit page has **Visibility**: `public` or `private`.
 
 > **⚠️ "private" hides an exercise from every student, everywhere.**
 >
-> A private exercise doesn't appear in free practice, and filter-based module exercises can't select it.
-> If a module exercise's filters matched only private content, students will be told nothing matches.
+> A private exercise doesn't appear in free practice, and filter-based assignments can't select it.
+> If an assignment's filters matched only private content, students will be told nothing matches.
 > There's also no option to make content visible to just one school, even though the site partly
 > supports it. **Leave content public unless you mean to take it out of use.** (Known issue D18.)
 
 ### Tags
 
-Tick tags on any upload or Edit page. Teachers see them as **Topics** when filtering module exercises,
-and a module exercise must match **all** the topics it ticks — so tag consistently.
+Tick tags on any upload or Edit page. Teachers see them as **Topics** when filtering assignments,
+and an assignment must match **all** the topics it ticks — so tag consistently.
 
 You can assign tags but not create new ones in the app.
 
@@ -712,7 +712,7 @@ Press **Back to Site Admin** in the banner to return; it's on every page, so you
 | *Line name and a valid type are required.* | A holistic line was missing its name or type | Fill both in. |
 | *No account found for "…".* / *No user with email "…".* | Not registered, or the email doesn't match | Ask them to register; type the email exactly. |
 | *… still owns N sections here (…). Reassign or delete them first.* | You're removing someone who created sections in that school | Delete those sections first, or step them down instead ([section 6](#6-school-admins)). |
-| Students report *"No exercises match the filters…"* | A module exercise's filters match no public content | Loosen the filters, check content visibility, or add library content. |
+| Students report *"No exercises match the filters…"* | An assignment's filters match no public content | Loosen the filters, check content visibility, or add library content. |
 | A school says its students suddenly see no modules | A section's course was removed or changed | Re-choose the course on the section's Edit page. A deleted course can't be recovered. |
 
 ---
@@ -723,7 +723,7 @@ Press **Back to Site Admin** in the banner to return; it's on every page, so you
 
 | ID | Issue | Workaround |
 |---|---|---|
-| **D18** | Visibility `private` hides content from every student and every filter-based module exercise, and there's no school-only option | Keep content public ([section 19](#19-visibility-tags-and-containers)) |
+| **D18** | Visibility `private` hides content from every student and every filter-based assignment, and there's no school-only option | Keep content public ([section 19](#19-visibility-tags-and-containers)) |
 
 The IDs refer to `docs/superpowers/specs/2026-09-10-admin-ia-refactor-design.md`, which lists every defect
 found and fixed.

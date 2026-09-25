@@ -58,8 +58,8 @@ follow the same course.
 
 **Module.** A unit within a course, such as *Intervals*. Modules appear in a fixed order.
 
-**Module exercise.** One assignment inside a module. Each has a completion rule — either a number of
-attempts, or a number of passes at a minimum score.
+**Assignment.** One task inside a module. Each has a completion rule — either a number of
+exercises, or a number of passes at a minimum score.
 
 **Section.** A group of students taught together, usually named like a class section, such as
 *MUS201-002*. **Your students see the word "Classroom" instead of "Section" — it's the same thing.**
@@ -78,7 +78,7 @@ and never any other section following it.
 School
  └─ Course               e.g. Theory 1
      └─ Module           e.g. Intervals
-         └─ Module exercise   e.g. "Seconds" — complete after 3 attempts
+         └─ Assignment   e.g. "Seconds" — complete after 3 exercises
 
 Section                  e.g. MUS201-002   (students see: Classroom)
  ├─ follows one Course   → gives students its modules
@@ -138,16 +138,16 @@ Below that is one row per student:
 | Column | What it shows |
 |---|---|
 | **Student** | The student's name, or their email if they haven't set one |
-| **Melodic** | Average score over the student's 20 most recent melodic attempts |
-| **Rhythmic** | Average rhythm accuracy over their 20 most recent rhythmic attempts |
-| **Harmonic** | Average score over their 20 most recent harmonic attempts |
-| **Holistic** | Average score over their 20 most recent holistic attempts |
+| **Melodic** | Average score over the student's 20 most recent melodic exercises |
+| **Rhythmic** | Average rhythm accuracy over their 20 most recent rhythmic exercises |
+| **Harmonic** | Average score over their 20 most recent harmonic exercises |
+| **Holistic** | Average score over their 20 most recent holistic exercises |
 
-A dash (**—**) means the student hasn't made any attempts in that mode yet.
+A dash (**—**) means the student hasn't made any exercises in that mode yet.
 
 > **Good to know.** These averages include *everything* the student has practised in that mode —
 > free practice and other classes too — not only this section's assignments. The roster doesn't yet
-> show which module exercises each student has completed.
+> show which assignments each student has completed.
 
 If nobody has joined yet, you'll see *"No students have joined yet. Share the join code: …"*
 
@@ -155,7 +155,7 @@ If nobody has joined yet, you'll see *"No students have joined yet. Share the jo
 
 1. On the roster, click **Remove** on the student's row.
 2. A confirmation page explains: *"The student can rejoin using the section join code if needed.
-   Their attempt history will not be deleted."*
+   Their exercise history will not be deleted."*
 3. Click **Remove Student**, or **Cancel** to back out.
 
 This takes the student out of this section only. They stay in the school, and all their practice
@@ -197,7 +197,7 @@ Every module your students see is listed in order, in a table:
 | **#** | The module's order — students see modules sorted by this number, lowest first |
 | **Module** | Its name — click it to open the module's page |
 | **Source** | **From course** — it comes from the course, shared with every section following it. **This Section only** — you added it for this section. **Hidden** — you've hidden it from this section. |
-| **Exercises** | How many exercises this section sees in it |
+| **Assignments** | How many assignments this section sees in it |
 
 ### Hiding course modules
 
@@ -240,22 +240,22 @@ Click a module's name on the Curriculum page. The page is titled *<section> — 
 
 ### What's on the page
 
-- **Course exercises** — the course's exercises in this module, with **Hide** and **Restore**. Hiding
+- **Course assignments** — the course's assignments in this module, with **Hide** and **Restore**. Hiding
   works like hiding a module: your students stop seeing it, and nothing is deleted.
-- **This Section's own exercises** — exercises you added, with **Edit**, **Duplicate** and **Remove**.
-- **Add Exercise** — the form for adding a new one.
+- **This Section's own assignments** — assignments you added, with **Edit**, **Duplicate** and **Remove**.
+- **Add Assignment** — the form for adding a new one.
 
-On a module you added yourself, only your own exercises and the form appear.
+On a module you added yourself, only your own assignments and the form appear.
 
 ### How exercises work
 
 There are two kinds, and they behave differently:
 
-- **Melodic, Rhythmic and Harmonic** exercises describe a *kind* of exercise using filters —
+- **Melodic, Rhythmic and Harmonic** assignments describe a *kind* of exercise using filters —
   difficulty, time signature, topic and so on. **Each time a student starts one, the site picks a
   random exercise from the library that matches your filters.** Students get variety, and repeat
-  attempts give different material.
-- **Holistic** exercises point at **one specific exercise** that you choose. Every student gets that
+  exercises give different material.
+- **Holistic** assignments point at **one specific exercise** that you choose. Every student gets that
   same exercise.
 
 ### Adding an exercise
@@ -268,7 +268,7 @@ There are two kinds, and they behave differently:
    **Melodic, Rhythmic, Harmonic:** set the filters (below).
 6. Check the **live match count**, which shows how many library exercises your filters currently
    select. Make sure it's above zero.
-7. Press **Add Exercise**.
+7. Press **Add Assignment**.
 
 The exercise appears for your section's students straight away, and for no one else.
 
@@ -276,12 +276,12 @@ The exercise appears for your section's students straight away, and for no one e
 
 | Option | A student completes it when… | Example |
 |---|---|---|
-| **By attempts** | they've submitted it this many times, whatever they scored | *3 attempt(s) to complete* |
+| **By number of exercises** | they've submitted it this many times, whatever they scored | *3 exercise(s) to complete* |
 | **By passing score** | they've submitted this many times at or above the minimum score | *2 pass(es) at 80 % minimum score* |
 
-The defaults are 1 attempt, or 1 pass at 70 %. The site records each student's best score either way.
+The defaults are 1 exercise, or 1 pass at 70 %. The site records each student's best score either way.
 Students see a check mark and their best score once they've completed it, and a progress bar whenever
-more than one attempt or pass is required.
+more than one exercise or pass is required.
 
 ### Filters
 
@@ -301,7 +301,7 @@ anything.**
 Only the topics that exist for the chosen type are offered.
 
 If your filters match nothing, a student who starts the exercise sees *"No exercises match the filters
-for this module exercise. Ask your teacher to adjust the filters."* and can't complete it. Loosen the
+for this assignment. Ask your teacher to adjust the filters."* and can't complete it. Loosen the
 filters — usually Topics or Key Signature are the culprits. The live match count warns you before it
 happens.
 
@@ -312,7 +312,7 @@ happens.
 - **Duplicate** makes a copy you can then edit. Handy for *"the same thing, but harder"*.
 - **Remove** deletes it, and your students' progress on it.
 
-You can only edit, duplicate or remove your section's own exercises. The course's exercises are shared
+You can only edit, duplicate or remove your section's own assignments. The course's assignments are shared
 with other sections, so here you can only hide them.
 
 ---
@@ -378,7 +378,7 @@ so you can always get back.
 | You see | What it means | What to do |
 |---|---|---|
 | A **Forbidden** page — *"You don't have the permission to access the requested resource."* | That page is for School Admins, or for a section you don't teach | Go back. Ask your School Admin if it needs doing. |
-| A student reports *"No exercises match the filters for this module exercise. Ask your teacher to adjust the filters."* | That exercise's filters match nothing in the library | If it's one of your section's own exercises, loosen its filters ([section 8](#8-adding-exercises)). If it's a course exercise, tell your School Admin — or hide it for your section. |
+| A student reports *"No exercises match the filters for this assignment. Ask your teacher to adjust the filters."* | That exercise's filters match nothing in the library | If it's one of your section's own exercises, loosen its filters ([section 8](#8-adding-exercises)). If it's a course exercise, tell your School Admin — or hide it for your section. |
 | Students suddenly see no modules | The section's course was removed or changed | Ask your School Admin to set the course again. Progress isn't deleted. |
 | A module or exercise you hid still appears when you preview as a student | You're looking at a different section, or haven't restored it | Check the *Source* column on that section's Curriculum page. |
 | A student reports *"You must join school "…" first."* | They skipped joining the school | Give them the school code from your roster. |
@@ -399,9 +399,9 @@ so you can always get back.
 | Remove a student from the school | Account menu → **Manage School** → **Remove** |
 | Open a section's curriculum | Its card or roster → **Curriculum** |
 | Hide a course module | Curriculum → **Hide module** |
-| Hide one course exercise | Curriculum → click the module → **Hide** |
+| Hide one course assignment | Curriculum → click the module → **Hide** |
 | Add a module for your section | Curriculum → *Module name* + *Order* → **Add** |
-| Add an exercise | Curriculum → click the module → **Add Exercise** |
+| Add an exercise | Curriculum → click the module → **Add Assignment** |
 | Rename a section | Its card → **Edit** → **Save Changes** |
 | Preview the site as a student | Account menu → **View as** → **Student** |
 | Return from a preview | **Back to Section Teacher** in the banner |

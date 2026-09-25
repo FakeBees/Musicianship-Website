@@ -1257,6 +1257,10 @@ def home():
     # (owns, is assigned to, or is enrolled in) — see related_sections().
     user_sections = related_sections() if role == 'student' else []
     teacher_courses = []
+    teaching_sections = []
+    if role == 'class_teacher' and not sandbox_mode:
+        teaching_sections = Section.query.filter_by(
+            assigned_teacher_id=current_user.id).order_by(Section.name).all()
     if role == 'admin_teacher' and not sandbox_mode:
         mem = SchoolMembership.query.filter_by(
             user_id=current_user.id, role='admin_teacher'
@@ -1266,6 +1270,7 @@ def home():
     return render_template('home.html',
                            user_sections=user_sections,
                            teacher_courses=teacher_courses,
+                           teaching_sections=teaching_sections,
                            sandbox_mode=sandbox_mode)
 
 
@@ -2014,7 +2019,7 @@ def admin_module_exercises(module_id):
             params_json=fields['params_json'],
         ))
         db.session.commit()
-        flash('Exercise added to module.', 'success')
+        flash('Assignment added to module.', 'success')
         return redirect(url_for('admin_module_exercises', module_id=module_id))
     # Task 4: course-level admin pages exclude section-owned content, even
     # when a section has added its own exercise onto this (course) module.
@@ -2062,7 +2067,7 @@ def admin_delete_module_exercise(me_id):
     module_id = me.module_id
     _delete_module_exercise(me)
     db.session.commit()
-    flash('Exercise removed.', 'success')
+    flash('Assignment removed.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=module_id))
 
 
@@ -2084,7 +2089,7 @@ def admin_edit_module_exercise(me_id):
     if me.exercise_type != 'holistic':
         me.params_json = fields['params_json']
     db.session.commit()
-    flash('Exercise updated.', 'success')
+    flash('Assignment updated.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=me.module_id))
 
 
@@ -2109,7 +2114,7 @@ def admin_duplicate_module_exercise(me_id):
     )
     db.session.add(copy)
     db.session.commit()
-    flash('Exercise duplicated.', 'success')
+    flash('Assignment duplicated.', 'success')
     return redirect(url_for('admin_module_exercises', module_id=src.module_id))
 
 
@@ -3881,7 +3886,7 @@ def teacher_section_curriculum_module(section_id, module_id):
             params_json=fields['params_json'],
         ))
         db.session.commit()
-        flash('Exercise added.', 'success')
+        flash('Assignment added.', 'success')
         return redirect(url_for('teacher_section_curriculum_module',
                                 section_id=section_id, module_id=module_id))
 
@@ -3943,7 +3948,7 @@ def teacher_edit_curriculum_exercise(section_id, me_id):
     if me.exercise_type != 'holistic':
         me.params_json = fields['params_json']
     db.session.commit()
-    flash('Exercise updated.', 'success')
+    flash('Assignment updated.', 'success')
     return redirect(url_for('teacher_section_curriculum_module',
                             section_id=section_id, module_id=me.module_id))
 
@@ -3968,7 +3973,7 @@ def teacher_duplicate_curriculum_exercise(section_id, me_id):
     )
     db.session.add(copy)
     db.session.commit()
-    flash('Exercise duplicated.', 'success')
+    flash('Assignment duplicated.', 'success')
     return redirect(url_for('teacher_section_curriculum_module',
                             section_id=section_id, module_id=src.module_id))
 
@@ -3984,7 +3989,7 @@ def teacher_remove_curriculum_exercise(section_id, me_id):
     module_id = me.module_id
     _delete_module_exercise(me)
     db.session.commit()
-    flash('Exercise removed.', 'success')
+    flash('Assignment removed.', 'success')
     return redirect(url_for('teacher_section_curriculum_module',
                             section_id=section_id, module_id=module_id))
 
@@ -4158,7 +4163,7 @@ def start_module_exercise(section_id, me_id):
     candidates = q.all()
 
     if not candidates:
-        flash('No exercises match the filters for this module exercise. Ask your teacher to adjust the filters.', 'warning')
+        flash('No exercises match the filters for this assignment. Ask your teacher to adjust the filters.', 'warning')
         return redirect(url_for('section_module_detail',
                                 section_id=section_id, module_id=module_id))
 

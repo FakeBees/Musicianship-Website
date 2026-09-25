@@ -18,7 +18,7 @@ planned admin reorganisation lands; the tasks themselves won't. The other two gu
 6. [People](#6-people)
 7. [Courses](#7-courses)
 8. [Modules](#8-modules)
-9. [Module exercises](#9-module-exercises)
+9. [Assignments](#9-assignments)
 10. [Sections](#10-sections)
 11. [A section's own curriculum](#11-a-sections-own-curriculum)
 12. [Rosters and progress](#12-rosters-and-progress)
@@ -41,7 +41,7 @@ people. A Site Admin appointed you.
 | Add people to the school as Students or Section Teachers | Create or delete a school |
 | Change the role of, or remove, members below you | Add, edit or delete exercises in the library |
 | Create, rename, duplicate and delete courses | Delete a user account |
-| Create and delete modules; add, edit, duplicate and remove module exercises | Reset someone's password |
+| Create and delete modules; add, edit, duplicate and remove assignments | Reset someone's password |
 | Create, edit and delete sections; set their course and teacher | |
 | Shape any section's own curriculum — hide course work, add its own modules and exercises | |
 | View rosters and remove students | |
@@ -65,8 +65,8 @@ the same course.
 
 **Module.** A unit within a course, such as *Intervals*. Modules appear to students in a fixed order.
 
-**Module exercise.** One assignment inside a module, with a **completion rule**. See
-[section 9](#9-module-exercises).
+**Assignment.** One task inside a module, with a **completion rule**. See
+[section 9](#9-assignments).
 
 **Section.** A group of students taught together, usually named like a class section, such as
 *MUS201-002*. **Students see the word "Classroom" instead of "Section" — it's the same thing.** A
@@ -84,7 +84,7 @@ any other section. See [section 11](#11-a-sections-own-curriculum).
 School
  └─ Course                    e.g. Theory 1
      └─ Module                e.g. Intervals          (ordered)
-         └─ Module exercise   e.g. "Seconds"          (ordered, with a completion rule)
+         └─ Assignment   e.g. "Seconds"          (ordered, with a completion rule)
 
 Section                       e.g. MUS201-002         (students see: Classroom)
  ├─ follows one Course        → gives students its modules
@@ -142,7 +142,7 @@ The first time you set up your school, work through these in order.
 2. **Add your teachers.** They register first, then you add them as **Section Teacher**.
    See [section 6](#6-people).
 3. **Build a course.** Create the course, then its modules, then each module's exercises.
-   See sections [7](#7-courses), [8](#8-modules) and [9](#9-module-exercises).
+   See sections [7](#7-courses), [8](#8-modules) and [9](#9-assignments).
 4. **Create sections.** Choose the course while creating each one. See [section 10](#10-sections).
 5. **Assign a Section Teacher** to each section. See [section 10](#10-sections).
 6. **Share both join codes** with students. See [section 13](#13-getting-students-in).
@@ -256,7 +256,7 @@ name straight away.
 ### Duplicating a course
 
 Press **Duplicate** and confirm. This creates **"<name> (copy)"** with copies of all its modules and
-module exercises. Sections aren't copied, sections' own additions aren't copied, and no section follows
+assignments. Sections aren't copied, sections' own additions aren't copied, and no section follows
 the copy until you choose it for one.
 
 This is the easiest way to start next term's version of a course without disturbing this term's
@@ -302,11 +302,11 @@ Click a course's name. The page is titled *"<course> — Modules"*.
 ### The modules table
 
 Each row shows the module's order (**#**), its **Name** (click it to open its exercises), how many
-**Exercises** it has with an **Exercises →** link, and **Delete**.
+**Assignments** it has with an **Assignments →** link, and **Delete**.
 
 ### Deleting a module
 
-Press **Delete** and confirm. This deletes the module, all of its module exercises — including any a
+Press **Delete** and confirm. This deletes the module, all of its assignments — including any a
 section added to it — and every student's progress on them.
 
 > **Note.** Modules can't be renamed or re-ordered once created. To change one, create a replacement
@@ -314,25 +314,25 @@ section added to it — and every student's progress on them.
 
 ---
 
-## 9. Module exercises
+## 9. Assignments
 
-Click a module's name. The page is titled *"<module> — Exercises"*. This is where you decide what
+Click a module's name. The page is titled *"<module> — Assignments"*. This is where you decide what
 students actually do.
 
-### How module exercises work
+### How assignments work
 
 There are two kinds, and they behave differently:
 
-- **Melodic, Rhythmic and Harmonic** exercises describe a *kind* of exercise using filters —
+- **Melodic, Rhythmic and Harmonic** assignments describe a *kind* of exercise using filters —
   difficulty, time signature, topic and so on. **Each time a student starts one, the site picks a
   random exercise from the library that matches your filters.** Students get variety, and repeat
-  attempts give different material.
-- **Holistic** exercises point at **one specific exercise** that you choose. Every student gets that
+  exercises give different material.
+- **Holistic** assignments point at **one specific exercise** that you choose. Every student gets that
   same exercise.
 
-A module exercise is complete for a student once they meet its **completion rule**.
+An assignment is complete for a student once they meet its **completion rule**.
 
-### Adding a module exercise
+### Adding an assignment
 
 1. Choose the **Type**: Melodic, Rhythmic, Harmonic or Holistic.
 2. Give it a **Name** — this is what students see, such as *Basic Melodic Dictation*.
@@ -342,19 +342,19 @@ A module exercise is complete for a student once they meet its **completion rule
    **Melodic, Rhythmic, Harmonic:** set the filters (below).
 6. Check the **live match count**, which shows how many library exercises your filters currently
    select. Make sure it's above zero.
-7. Press **Add Exercise**. You'll see *"Exercise added to module."*
+7. Press **Add Assignment**. You'll see *"Exercise added to module."*
 
 ### Completion rules
 
 | Option | A student completes it when… | Example |
 |---|---|---|
-| **By attempts** | they've submitted it this many times, whatever they scored | *3 attempt(s) to complete* |
+| **By number of exercises** | they've submitted it this many times, whatever they scored | *3 exercise(s) to complete* |
 | **By passing score** | they've submitted this many times at or above the minimum score | *2 pass(es) at 80 % minimum score* |
 
-The defaults are 1 attempt, or 1 pass at 70 %. The site records each student's best score either way.
+The defaults are 1 exercise, or 1 pass at 70 %. The site records each student's best score either way.
 
 What students see: a check mark and their best score once they've completed it, and a progress bar
-whenever more than one attempt or pass is required.
+whenever more than one exercise or pass is required.
 
 ### Filters
 
@@ -376,7 +376,7 @@ so if it shows zero, students will have nothing to do.
 
 ### What happens if nothing matches
 
-A student who starts the exercise sees *"No exercises match the filters for this module exercise. Ask
+A student who starts the exercise sees *"No exercises match the filters for this assignment. Ask
 your teacher to adjust the filters."* and can't complete it. Loosen the filters — usually Topics or Key
 Signature are the culprits.
 
@@ -392,7 +392,7 @@ holistic exercise), **Completion**, then the actions.
 - **Remove** takes it out of the module, after confirming *"Remove this exercise from the module?"*,
   along with students' progress on it.
 
-This page shows only the course's own exercises. Anything a section added for itself lives on that
+This page shows only the course's own assignments. Anything a section added for itself lives on that
 section's curriculum pages ([section 11](#11-a-sections-own-curriculum)).
 
 ---
@@ -477,7 +477,7 @@ Titled *<section> — Curriculum*. It lists every module the section's students 
 | **#** | The module's order |
 | **Module** | Its name — click it to open the module's page |
 | **Source** | **From course** — shared with every section on the course. **This Section only** — added for this section. **Hidden** — hidden from this section. |
-| **Exercises** | How many exercises this section sees in it |
+| **Assignments** | How many assignments this section sees in it |
 
 - **Hide module** / **Restore module** — for course modules. Hidden modules vanish from the section's
   module list, and students can't open them even with a direct link.
@@ -490,8 +490,8 @@ Titled *<section> — Curriculum*. It lists every module the section's students 
 Click a module's name. Titled *<section> — <module>*.
 
 - **Course exercises** — with **Hide** and **Restore**.
-- **This Section's own exercises** — with **Edit**, **Duplicate** and **Remove**.
-- **Add Exercise** — the same form as the course's module-exercises page ([section 9](#9-module-exercises)):
+- **This Section's own assignments** — with **Edit**, **Duplicate** and **Remove**.
+- **Add Assignment** — the same form as the course's assignments page ([section 9](#9-assignments)):
   type, name, order, completion rule, filters or holistic exercise, and the live match count.
 
 **Hiding is never deleting.** Students' progress on hidden work is kept, and reappears when it's restored.
@@ -511,20 +511,20 @@ buttons. Below, one row per student, with their average score in each mode:
 | Column | What it shows |
 |---|---|
 | **Student** | Name, or email if they haven't set one |
-| **Melodic**, **Harmonic**, **Holistic** | Average score over their 20 most recent attempts in that mode |
-| **Rhythmic** | Average rhythm accuracy over their 20 most recent rhythmic attempts |
+| **Melodic**, **Harmonic**, **Holistic** | Average score over their 20 most recent exercises in that mode |
+| **Rhythmic** | Average rhythm accuracy over their 20 most recent rhythmic exercises |
 
-A dash (**—**) means no attempts in that mode yet.
+A dash (**—**) means no exercises in that mode yet.
 
 > **Good to know.** These averages include *everything* the student has practised in that mode — free
 > practice and other sections too — not only this section's work. The roster doesn't yet show which
-> module exercises each student has completed.
+> assignments each student has completed.
 
 ### Removing a student from a section
 
 1. Roster → **Remove** on their row.
 2. The confirmation notes: *"The student can rejoin using the section join code if needed. Their
-   attempt history will not be deleted."*
+   exercise history will not be deleted."*
 3. Press **Remove Student**.
 
 To remove a student from the whole school, use **Manage School** instead ([section 6](#6-people)).
@@ -571,7 +571,7 @@ Use it to check what your Section Teachers and students will see before you hand
 |---|---|---|
 | A **Forbidden** page — *"You don't have the permission to access the requested resource."* | That page is for Site Admins, or belongs to another school | Go back with the account menu. |
 | Students in a section suddenly see no modules | The section's course was removed or changed | Edit the section, choose the course, **Save Changes**. Progress isn't deleted — unless the course itself was deleted. |
-| A student reports *"No exercises match the filters for this module exercise. Ask your teacher to adjust the filters."* | That exercise's filters match nothing in the library | Loosen its filters — on the course's page ([section 9](#9-module-exercises)) if it's a course exercise, or on the section's curriculum pages if it's the section's own. |
+| A student reports *"No exercises match the filters for this assignment. Ask your teacher to adjust the filters."* | That exercise's filters match nothing in the library | Loosen its filters — on the course's page ([section 9](#9-assignments)) if it's a course exercise, or on the section's curriculum pages if it's the section's own. |
 | *"Delete not confirmed."* | A delete was sent without going through all three confirmation steps | Start again from the **Delete** button and use **Continue** on each page. |
 | *You must join school "…" first.* | The student skipped joining the school | Give them the school code from the roster. |
 | *Invalid school join code.* | A typo, or the code was regenerated | Share the current code from **Manage School**. |
@@ -606,12 +606,12 @@ Nothing currently known is broken for School Admins. These are limits of the cur
 | Copy a course for next term | Courses → **Duplicate** |
 | Delete a course and its sections | Courses → **Delete** → three confirmation pages |
 | Add modules | Courses → click the course → **Add** |
-| Add module exercises | Modules → click the module → **Add Exercise** |
+| Add assignments | Modules → click the module → **Add Assignment** |
 | Create a section | **Sections I Teach** → **+ New section** |
 | Find a section you didn't create | Courses → **Manage** in the *Sections* column → click it |
 | Change a section's name or course | Section → **Edit** → *Section Settings* → **Save Changes** |
 | Assign a Section Teacher | Section → **Edit** → *Assign Section Teacher* |
 | Hide course work from one section | Section → **Curriculum** → **Hide module**, or a module's **Hide** |
-| Add to one section's curriculum | Section → **Curriculum** → **Add**, or a module's **Add Exercise** |
+| Add to one section's curriculum | Section → **Curriculum** → **Add**, or a module's **Add Assignment** |
 | Open a roster | Click the section's name |
 | Preview as a teacher or student | Account menu → **View as** |
